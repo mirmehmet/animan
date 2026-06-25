@@ -1,0 +1,40 @@
+## .NET / Visual Studio
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.swp
+*.lock.json
+
+## EF Core
+**/Migrations/
+
+## Build output
+publish/
+dist/
+
+## Data files (user data — not committed)
+*.db
+*.db-shm
+*.db-wal
+
+## Logs
+logs/
+*.log
+
+## Covers cache
+src/AniTrack/Assets/Covers/
+
+## dotnet-skills (cloned at setup time, not committed)
+.github/skills/
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+blueprint.md
+CLAUDE.md
+anitrack_ui_prototype.html
+wiki/

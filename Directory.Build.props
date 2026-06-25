@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>AniTrack</RootNamespace>
+    <Authors>AniTrack</Authors>
+    <Product>AniTrack</Product>
+  </PropertyGroup>
+</Project>
