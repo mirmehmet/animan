@@ -8,4 +8,15 @@
     <Authors>AniTrack</Authors>
     <Product>AniTrack</Product>
   </PropertyGroup>
+
+  <!--
+    CVE-2025-6965 (GHSA-2m69-gcr7-jv3q): SQLitePCLRaw.lib.e_sqlite3 bundles a SQLite
+    native build < 3.50.2. The advisory affects ALL released versions (<= 2.1.11, the
+    latest), so there is no upgrade path yet. We pin the bundle to the newest available
+    (2.1.11) in AniTrack.Infrastructure and suppress only this specific advisory.
+    REVISIT when SQLitePCLRaw ships a build with SQLite >= 3.50.2, then remove this.
+  -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
 </Project>
