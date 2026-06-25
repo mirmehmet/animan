@@ -24,6 +24,7 @@
                            PaneDisplayMode="Left"
                            IsPaneOpen="False">
 
+
             <ui:NavigationView.MenuItems>
                 <ui:NavigationViewItem Content="Anime"
                                        TargetPageType="{x:Type views:AnimeLibraryPage}"
@@ -69,5 +70,6 @@
             </ui:NavigationView.FooterMenuItems>
 
         </ui:NavigationView>
+        <ui:ContentDialogHost x:Name="RootContentDialogHost" />
     </Grid>
 </ui:FluentWindow>

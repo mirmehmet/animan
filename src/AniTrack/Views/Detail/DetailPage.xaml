@@ -1,0 +1,99 @@
+<UserControl x:Class="AniTrack.Views.Detail.DetailPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:controls="clr-namespace:AniTrack.Views.Detail.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header: Cover + Metadata -->
+            <Grid Grid.Row="0" Margin="0,0,0,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Cover -->
+                <Border Grid.Column="0" CornerRadius="8" ClipToBounds="True"
+                        Width="180" Height="260">
+                    <Grid>
+                        <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
+                        <Image Source="{Binding CoverImage}" Stretch="UniformToFill"/>
+                    </Grid>
+                </Border>
+
+                <!-- Metadata -->
+                <StackPanel Grid.Column="1" Margin="24,0,0,0">
+                    <TextBlock Text="{Binding MediaSnapshot.Title}"
+                               FontSize="24" FontWeight="Bold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding MediaSnapshot.TitleJapanese}"
+                               FontSize="13" Margin="0,4,0,0"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <ui:Button Command="{Binding ToggleFavoriteCommand}"
+                                    Appearance="Transparent" Margin="0,0,8,0">
+                            <ui:SymbolIcon Symbol="Heart24"/>
+                        </ui:Button>
+                        <ui:Button Command="{Binding ReSnapshotCommand}"
+                                    Appearance="Secondary" Margin="0,0,8,0"
+                                    Content="Re-snapshot"/>
+                    </StackPanel>
+
+                    <!-- Progress bar -->
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding HasEpisodes, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Margin="0,0,0,4">
+                            <Run Text="{Binding WatchedCount, Mode=OneWay}"/>
+                            <Run Text=" / "/>
+                            <Run Text="{Binding TotalCount, Mode=OneWay}"/>
+                            <Run Text=" episodes"/>
+                        </TextBlock>
+                        <ProgressBar Height="6"
+                                     Value="{Binding WatchedCount, Mode=OneWay}"
+                                     Maximum="{Binding TotalCount}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding MediaSnapshot.Synopsis}"
+                               Margin="0,16,0,0" TextWrapping="Wrap"
+                               MaxHeight="120"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Series Note -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,16">
+                <TextBlock Text="Series Notes" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <ui:TextBox Text="{Binding SeriesNote, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True" MinHeight="80"
+                             PlaceholderText="Write notes about this series..."/>
+                <ui:Button Margin="0,6,0,0" Content="Save Note"
+                            Command="{Binding SaveSeriesNoteCommand}"
+                            Appearance="Secondary" HorizontalAlignment="Right"/>
+            </StackPanel>
+
+            <!-- Episode list -->
+            <StackPanel Grid.Row="2"
+                        Visibility="{Binding HasEpisodes, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Episodes" FontWeight="SemiBold" FontSize="16"
+                           Margin="0,0,0,8"/>
+                <controls:EpisodeListControl DataContext="{Binding}"/>
+            </StackPanel>
+
+        </Grid>
+    </ScrollViewer>
+</UserControl>

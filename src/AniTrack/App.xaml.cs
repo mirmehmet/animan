@@ -2,6 +2,8 @@ using AniTrack.Core.Interfaces;
 using AniTrack.Infrastructure;
 using AniTrack.Infrastructure.Data;
 using AniTrack.ViewModels;
+using AniTrack.ViewModels.Detail;
+using AniTrack.ViewModels.Library;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -10,6 +12,7 @@ using System.IO;
 using System.Windows;
 using Wpf.Ui;
 using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 
 namespace AniTrack;
 
@@ -29,7 +32,6 @@ public partial class App : Application
         Directory.CreateDirectory(Path.Combine(AppDataPath, "logs"));
 
         ConfigureSerilog();
-
         Services = BuildServiceProvider();
 
         await RunMigrationsAsync();
@@ -55,9 +57,8 @@ public partial class App : Application
 
         services.AddSingleton<MainWindow>();
         services.AddSingleton<MainWindowViewModel>();
-
-        // Navigation
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IContentDialogService, ContentDialogService>();
 
         // Pages
         services.AddTransient<Views.Library.AnimeLibraryPage>();
@@ -65,9 +66,15 @@ public partial class App : Application
         services.AddTransient<Views.Discover.DiscoverPage>();
         services.AddTransient<Views.Stats.StatsPage>();
         services.AddTransient<Views.Settings.SettingsPage>();
+        services.AddTransient<Views.Detail.DetailPage>();
 
         // ViewModels
         services.AddTransient<ViewModels.Settings.SettingsViewModel>();
+        services.AddTransient<AnimeLibraryViewModel>();
+        services.AddTransient<MangaLibraryViewModel>();
+        services.AddTransient<DetailViewModel>();
+        services.AddTransient<ViewModels.Stats.StatsViewModel>();
+        services.AddTransient<ViewModels.Discover.DiscoverViewModel>();
 
         return services.BuildServiceProvider();
     }

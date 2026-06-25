@@ -6,10 +6,14 @@ namespace AniTrack;
 
 public partial class MainWindow : FluentWindow
 {
-    public MainWindow(MainWindowViewModel viewModel, INavigationService navigationService)
+    public MainWindow(
+        MainWindowViewModel viewModel,
+        INavigationService navigationService,
+        IContentDialogService contentDialogService)
     {
         InitializeComponent();
         DataContext = viewModel;
         navigationService.SetNavigationControl(RootNavigation);
+        contentDialogService.SetDialogHost(RootContentDialogHost);
     }
 }

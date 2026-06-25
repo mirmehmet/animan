@@ -2,14 +2,213 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-             d:DesignHeight="450" d:DesignWidth="800"
+             xmlns:vm="clr-namespace:AniTrack.ViewModels.Stats"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d">
-    <Grid>
-        <TextBlock Text="Statistics — coming in Phase 4"
-                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                   FontSize="18"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-    </Grid>
+             mc:Ignorable="d"
+             d:DesignHeight="900" d:DesignWidth="900"
+             Loaded="OnLoaded">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,16,24,32">
+
+            <!-- Header -->
+            <TextBlock Text="Statistics"
+                       FontSize="28" FontWeight="SemiBold"
+                       Margin="0,0,0,20"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+
+            <!-- Loading bar -->
+            <ProgressBar IsIndeterminate="True" Height="3" Margin="0,0,0,16"
+                         Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <!-- Summary cards -->
+            <WrapPanel Margin="0,0,0,24">
+                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{Binding TotalEpisodes}"
+                                       FontSize="32" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="Episodes watched"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:SymbolIcon Symbol="Tv24" FontSize="28"
+                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{Binding WatchTimeText}"
+                                       FontSize="32" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="Watch time"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:SymbolIcon Symbol="Clock24" FontSize="28"
+                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{Binding TotalChapters}"
+                                       FontSize="32" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="Chapters read"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:SymbolIcon Symbol="BookOpen24" FontSize="28"
+                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,0,12" Padding="20,14" MinWidth="180">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{Binding MeanScoreText}"
+                                       FontSize="32" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="Mean score"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:SymbolIcon Symbol="Star24" FontSize="28"
+                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                </ui:CardControl>
+            </WrapPanel>
+
+            <!-- Status Breakdown -->
+            <TextBlock Text="Status Breakdown"
+                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding StatusBreakdown.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+            <ItemsControl ItemsSource="{Binding StatusBreakdown}"
+                          Margin="0,0,0,24"
+                          Visibility="{Binding StatusBreakdown.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:StatusBarViewModel}">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <ProgressBar Grid.Column="1" Value="{Binding Fraction}" Maximum="1"
+                                         Height="14" VerticalAlignment="Center" Margin="8,0"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Count}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       FontSize="12"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Score Histogram -->
+            <TextBlock Text="Score Distribution"
+                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding ScoreHistogram.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+            <ItemsControl ItemsSource="{Binding ScoreHistogram}"
+                          Margin="0,0,0,24"
+                          Visibility="{Binding ScoreHistogram.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:ScoreBarViewModel}">
+                        <StackPanel Width="44" Margin="2,0" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding Count}" FontSize="11"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <ProgressBar Value="{Binding Fraction}" Maximum="1"
+                                         Width="80" Height="32" Margin="0,2"
+                                         RenderTransformOrigin="0.5,0.5">
+                                <ProgressBar.RenderTransform>
+                                    <RotateTransform Angle="-90"/>
+                                </ProgressBar.RenderTransform>
+                            </ProgressBar>
+                            <TextBlock Text="{Binding Score}" FontSize="12"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Top Genres -->
+            <TextBlock Text="Top Genres"
+                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding TopGenres.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+            <ItemsControl ItemsSource="{Binding TopGenres}"
+                          Margin="0,0,0,24"
+                          Visibility="{Binding TopGenres.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:GenreBarViewModel}">
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            <ProgressBar Grid.Column="1" Value="{Binding Fraction}" Maximum="1"
+                                         Height="14" VerticalAlignment="Center" Margin="8,0"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Count}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       FontSize="12"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Monthly Activity -->
+            <TextBlock Text="Monthly Activity (last 12 months)"
+                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding MonthlyActivity.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+            <ItemsControl ItemsSource="{Binding MonthlyActivity}"
+                          Margin="0,0,0,8"
+                          Visibility="{Binding MonthlyActivity.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:MonthBarViewModel}">
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <ProgressBar Grid.Column="1" Value="{Binding Fraction}" Maximum="1"
+                                         Height="14" VerticalAlignment="Center" Margin="8,0"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Count}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       FontSize="12"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>
