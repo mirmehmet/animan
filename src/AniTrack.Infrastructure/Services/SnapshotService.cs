@@ -55,24 +55,22 @@ public sealed class SnapshotService(
         snapshot.CoverLocalPath = await DownloadCoverAsync(malId, mediaType, coverUrl, ct);
         snapshot.CoverOriginalUrl = coverUrl;
 
-        // Persist LibraryItem then MediaSnapshot
+        snapshot.SnapshotAt = DateTime.UtcNow;
+
         var item = new LibraryItem
         {
             MalId = malId,
             MediaType = mediaType,
             StatusId = statusId,
             AddedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
+            Snapshot = snapshot
         };
+
+        // Single SaveChangesAsync → EF wraps both inserts in an implicit transaction.
+        // No orphaned LibraryItem if the snapshot fails to save.
         db.LibraryItems.Add(item);
         await db.SaveChangesAsync(ct);
-
-        snapshot.LibraryItemId = item.Id;
-        snapshot.SnapshotAt = DateTime.UtcNow;
-        db.Snapshots.Add(snapshot);
-        await db.SaveChangesAsync(ct);
-
-        item.Snapshot = snapshot;
         logger.LogInformation("Snapshot created for {Type} {MalId} → LibraryItem {Id}", mediaType, malId, item.Id);
         return Result<LibraryItem>.Success(item);
     }

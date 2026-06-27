@@ -221,10 +221,12 @@ public sealed class CatalogService(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    private int? _cacheRefreshDays;
+
     private async Task<bool> IsStaleAsync(DateTime fetchedAt)
     {
-        var days = await settingsService.GetCacheRefreshDaysAsync();
-        return fetchedAt.AddDays(days) < DateTime.UtcNow;
+        _cacheRefreshDays ??= await settingsService.GetCacheRefreshDaysAsync();
+        return fetchedAt.AddDays(_cacheRefreshDays.Value) < DateTime.UtcNow;
     }
 
     private async Task<Result<CachedAnime>> FetchAndCacheAnimeAsync(
@@ -330,13 +332,18 @@ public sealed class CatalogService(
         CancellationToken ct)
     {
         var distinct = genres.DistinctBy(g => g.Id).ToList();
+        if (distinct.Count == 0) return;
+
+        var genreIds = distinct.Select(g => g.Id).ToList();
+        var existingGenreIds = (await db.Genres
+            .Where(g => genreIds.Contains(g.Id))
+            .Select(g => g.Id)
+            .ToListAsync(ct))
+            .ToHashSet();
 
         foreach (var genre in distinct)
-        {
-            var existingGenre = await db.Genres.FindAsync([genre.Id], ct);
-            if (existingGenre is null)
+            if (!existingGenreIds.Contains(genre.Id))
                 db.Genres.Add(genre);
-        }
 
         var toDelete = await db.MediaGenres
             .Where(mg => mg.MediaId == mediaId && mg.MediaType == mediaType)
@@ -344,31 +351,31 @@ public sealed class CatalogService(
         db.MediaGenres.RemoveRange(toDelete);
 
         foreach (var genre in distinct)
-        {
             db.MediaGenres.Add(new CachedMediaGenre
             {
                 MediaId = mediaId,
                 MediaType = mediaType,
                 GenreId = genre.Id
             });
-        }
     }
 
     private async Task<List<CachedAnime>> UpsertAnimeListAsync(
         IReadOnlyList<JikanAnimeDto> dtos, CancellationToken ct)
     {
         await using var db = await catalogFactory.CreateDbContextAsync(ct);
-        var mapped = new List<CachedAnime>(dtos.Count);
-        foreach (var dto in dtos)
-        {
-            var anime = JikanMapper.ToAnime(dto);
-            mapped.Add(anime);
+        var mapped = dtos.Select(JikanMapper.ToAnime).ToList();
 
-            var existing = await db.Anime.FindAsync([anime.Id], ct);
-            if (existing is null)
-                db.Anime.Add(anime);
-            else
+        var ids = mapped.Select(a => a.Id).ToList();
+        var existingMap = await db.Anime
+            .Where(a => ids.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, ct);
+
+        foreach (var (anime, dto) in mapped.Zip(dtos))
+        {
+            if (existingMap.TryGetValue(anime.Id, out var existing))
                 db.Entry(existing).CurrentValues.SetValues(anime);
+            else
+                db.Anime.Add(anime);
 
             await UpsertGenresAsync(db, JikanMapper.ExtractAnimeGenres(dto), anime.Id, "anime", ct);
         }
@@ -380,17 +387,19 @@ public sealed class CatalogService(
         IReadOnlyList<JikanMangaDto> dtos, CancellationToken ct)
     {
         await using var db = await catalogFactory.CreateDbContextAsync(ct);
-        var mapped = new List<CachedManga>(dtos.Count);
-        foreach (var dto in dtos)
-        {
-            var manga = JikanMapper.ToManga(dto);
-            mapped.Add(manga);
+        var mapped = dtos.Select(JikanMapper.ToManga).ToList();
 
-            var existing = await db.Manga.FindAsync([manga.Id], ct);
-            if (existing is null)
-                db.Manga.Add(manga);
-            else
+        var ids = mapped.Select(m => m.Id).ToList();
+        var existingMap = await db.Manga
+            .Where(m => ids.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id, ct);
+
+        foreach (var (manga, dto) in mapped.Zip(dtos))
+        {
+            if (existingMap.TryGetValue(manga.Id, out var existing))
                 db.Entry(existing).CurrentValues.SetValues(manga);
+            else
+                db.Manga.Add(manga);
 
             await UpsertGenresAsync(db, JikanMapper.ExtractMangaGenres(dto), manga.Id, "manga", ct);
         }

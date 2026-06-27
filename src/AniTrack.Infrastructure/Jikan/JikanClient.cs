@@ -111,7 +111,7 @@ public sealed class JikanClient : IJikanClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Jikan request failed: {Url}", relativeUrl);
-            return Result<T>.Failure(ex.Message);
+            return Result<T>.Failure("Could not reach the API. Check your connection and try again.");
         }
     }
 }
