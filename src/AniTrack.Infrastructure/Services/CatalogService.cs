@@ -338,12 +338,10 @@ public sealed class CatalogService(
                 db.Genres.Add(genre);
         }
 
-        // ExecuteDeleteAsync bypasses the EF tracker, so no mid-loop SaveChanges is needed.
-        // Using RemoveRange+SaveChanges here would flush all other pending tracker changes
-        // (previous anime's Added entities) causing spurious saves and tracker conflicts.
-        await db.MediaGenres
+        var toDelete = await db.MediaGenres
             .Where(mg => mg.MediaId == mediaId && mg.MediaType == mediaType)
-            .ExecuteDeleteAsync(ct);
+            .ToListAsync(ct);
+        db.MediaGenres.RemoveRange(toDelete);
 
         foreach (var genre in distinct)
         {
