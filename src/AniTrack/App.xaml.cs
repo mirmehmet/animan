@@ -45,6 +45,9 @@ public partial class App : Application
         var themeMode = Theming.AppThemeManager.Parse(theme);
         ApplyTheme(themeMode);
 
+        var font = await settings.GetFontAsync();
+        Theming.AppThemeManager.ApplyFont(font);
+
         var language = await settings.GetLanguageAsync();
         LocalizationManager.SetCulture(language);
 

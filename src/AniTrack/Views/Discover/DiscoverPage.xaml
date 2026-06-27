@@ -21,14 +21,13 @@
         <!-- Header + tabs -->
         <StackPanel Grid.Row="0" Margin="24,16,24,0">
             <TextBlock Text="{loc:Loc Discover_Title}"
-                       FontSize="28" FontWeight="SemiBold"
-                       Margin="0,0,0,12"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                       Style="{StaticResource PageTitleText}"
+                       Margin="0,0,0,12"/>
 
             <Border BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                     BorderThickness="0,0,0,1">
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="DiscoverTabs"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="DiscoverTabs"
                                  Content="{loc:Loc Discover_AnimeTab}"
                                  IsChecked="{Binding ActiveTab,
                                      Converter={StaticResource EqualityConverter},
@@ -36,7 +35,7 @@
                                      Mode=OneWay}"
                                  Command="{Binding SwitchTabCommand}"
                                  CommandParameter="{x:Static vm:DiscoverTab.Anime}"/>
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="DiscoverTabs"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="DiscoverTabs"
                                  Content="{loc:Loc Discover_MangaTab}"
                                  IsChecked="{Binding ActiveTab,
                                      Converter={StaticResource EqualityConverter},
@@ -66,7 +65,7 @@
 
         <!-- Loading indicator -->
         <ProgressBar Grid.Row="2"
-                     IsIndeterminate="True" Height="3"
+                     IsIndeterminate="True" Height="2"
                      Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
         <!-- Main content area -->
@@ -99,7 +98,10 @@
                           Visibility="{Binding HasError, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                 <StackPanel>
                     <ItemsControl ItemsSource="{Binding Cards}"
-                                  Margin="24,4,24,8">
+                                  Margin="24,4,24,8"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="False">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel/>
@@ -107,10 +109,11 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:DiscoverCardViewModel}">
-                                <Border Width="150" Height="250"
-                                        Margin="6" CornerRadius="8"
-                                        Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                        ClipToBounds="True" Cursor="Hand"
+                                <Border Style="{StaticResource MediaCard}"
+                                        Margin="{StaticResource CardMargin}"
+                                        Width="150" Height="250"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        ClipToBounds="True"
                                         MouseLeftButtonUp="Card_MouseLeftButtonUp">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -124,7 +127,7 @@
                                                VerticalAlignment="Top"/>
 
                                         <Border Grid.Row="1"
-                                                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                                                 Padding="8,6">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Title}"
@@ -141,7 +144,7 @@
                                                                Text="{Binding Score, StringFormat='★ {0:F1}'}"
                                                                FontSize="10"
                                                                VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                               Foreground="{StaticResource BrandAccentLightBrush}"/>
                                                     <ui:Button Grid.Column="1"
                                                                Width="24" Height="24" Padding="0"
                                                                ToolTip="{loc:Loc Discover_AddToLibrary}"
@@ -154,7 +157,7 @@
                                                     </ui:Button>
                                                     <ui:SymbolIcon Grid.Column="1" Symbol="Checkmark24"
                                                                    FontSize="16"
-                                                                   Foreground="{DynamicResource SystemAccentColorBrush}"
+                                                                   Foreground="{StaticResource BrandAccentBrush}"
                                                                    Visibility="{Binding IsInLibrary,
                                                                        Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                                 </Grid>
@@ -169,7 +172,8 @@
                     <!-- Load more indicator -->
                     <StackPanel HorizontalAlignment="Center" Margin="0,8,0,16"
                                 Visibility="{Binding IsLoadingMore, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <ProgressBar IsIndeterminate="True" Width="120" Height="3"/>
+                        <ProgressBar IsIndeterminate="True" Width="120" Height="2"
+                                     Foreground="{StaticResource BrandAccentBrush}"/>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

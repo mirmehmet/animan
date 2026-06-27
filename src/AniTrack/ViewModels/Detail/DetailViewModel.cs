@@ -289,6 +289,7 @@ public partial class DetailViewModel : ObservableObject
             bmp.BeginInit();
             bmp.UriSource = new Uri(path, UriKind.Absolute);
             bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.DecodePixelWidth = 360;
             bmp.EndInit();
             bmp.Freeze();
             CoverImage = bmp;

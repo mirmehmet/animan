@@ -1,26 +1,24 @@
 using System.Windows;
+using System.Windows.Media;
 using Wpf.Ui.Appearance;
 using ThemeMode = AniTrack.ViewModels.Settings.ThemeMode;
 
 namespace AniTrack.Theming;
 
-/// <summary>
-/// Applies the selected <see cref="ThemeMode"/> and, for <see cref="ThemeMode.System"/>,
-/// keeps the app theme live-synced with the Windows theme via <see cref="SystemThemeWatcher"/>.
-/// </summary>
 public static class AppThemeManager
 {
     private static bool _watching;
 
-    /// <summary>Maps a stored string ("light"/"dark"/"system") to a <see cref="ThemeMode"/>.</summary>
+    // Brand violet accent applied after every theme change.
+    private static readonly Color BrandAccent = Color.FromRgb(0x8B, 0x5C, 0xF6);
+
     public static ThemeMode Parse(string? stored) => stored switch
     {
         "light"  => ThemeMode.Light,
         "system" => ThemeMode.System,
-        _        => ThemeMode.Dark
+        _        => ThemeMode.System
     };
 
-    /// <summary>Serializes a <see cref="ThemeMode"/> to its stored string form.</summary>
     public static string ToStored(ThemeMode mode) => mode switch
     {
         ThemeMode.Light  => "light",
@@ -49,6 +47,44 @@ public static class AppThemeManager
                 StartWatching(window);
                 break;
         }
+
+        ApplyBrandAccent();
+    }
+
+    /// <summary>Applies a font family globally via the dynamic resource key AppFontFamily.</summary>
+    public static void ApplyFont(string fontFamily)
+    {
+        if (Application.Current is null) return;
+        Application.Current.Resources["AppFontFamily"] = new FontFamily(fontFamily);
+    }
+
+    private static void ApplyBrandAccent()
+    {
+        if (Application.Current is null) return;
+
+        // Override Wpf.Ui accent brushes with our brand violet so all controls
+        // (NavigationView selection indicator, primary buttons, etc.) use it.
+        var accent      = new SolidColorBrush(BrandAccent);
+        var accentLight = new SolidColorBrush(Color.FromRgb(0xA7, 0x8B, 0xFA));
+        var accentDark  = new SolidColorBrush(Color.FromRgb(0x6D, 0x28, 0xD9));
+
+        accent.Freeze();
+        accentLight.Freeze();
+        accentDark.Freeze();
+
+        Application.Current.Resources["SystemAccentColor"]      = BrandAccent;
+        Application.Current.Resources["SystemAccentColorBrush"] = accent;
+
+        // Wpf.Ui layered accent brushes (used by NavigationView, Button primary, etc.)
+        Application.Current.Resources["AccentFillColorDefaultBrush"]          = accent;
+        Application.Current.Resources["AccentFillColorSecondaryBrush"]        = accentLight;
+        Application.Current.Resources["AccentFillColorTertiaryBrush"]         = accentDark;
+        Application.Current.Resources["AccentFillColorDisabledBrush"]         = accentDark;
+        Application.Current.Resources["AccentTextFillColorPrimaryBrush"]      = accent;
+        Application.Current.Resources["AccentTextFillColorSecondaryBrush"]    = accentLight;
+        Application.Current.Resources["AccentButtonBackgroundBrush"]          = accent;
+        Application.Current.Resources["AccentButtonBackgroundPointerOverBrush"] = accentLight;
+        Application.Current.Resources["AccentButtonBackgroundPressedBrush"]   = accentDark;
     }
 
     private static ApplicationTheme ResolveSystemTheme() =>

@@ -11,16 +11,15 @@
              Loaded="OnLoaded">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24,16,24,32">
+        <StackPanel Margin="{StaticResource PageMargin}">
 
             <!-- Header -->
             <TextBlock Text="{loc:Loc Stats_Title}"
-                       FontSize="28" FontWeight="SemiBold"
-                       Margin="0,0,0,20"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                       Style="{StaticResource PageTitleText}"
+                       Margin="0,0,0,20"/>
 
             <!-- Loading bar -->
-            <ProgressBar IsIndeterminate="True" Height="3" Margin="0,0,0,16"
+            <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,16"
                          Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
             <!-- Summary cards -->
@@ -29,67 +28,58 @@
                     <ui:CardControl.Header>
                         <StackPanel>
                             <TextBlock Text="{Binding TotalEpisodes}"
-                                       FontSize="32" FontWeight="Bold"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="{loc:Loc Stats_EpisodesWatched}"
-                                       FontSize="12"
+                                       FontSize="32" FontWeight="Bold"/>
+                            <TextBlock Text="{loc:Loc Stats_EpisodesWatched}" FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
                     </ui:CardControl.Header>
                     <ui:SymbolIcon Symbol="Tv24" FontSize="28"
-                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                                   Foreground="{StaticResource BrandAccentBrush}"/>
                 </ui:CardControl>
 
                 <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
                     <ui:CardControl.Header>
                         <StackPanel>
                             <TextBlock Text="{Binding WatchTimeText}"
-                                       FontSize="32" FontWeight="Bold"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="{loc:Loc Stats_WatchTime}"
-                                       FontSize="12"
+                                       FontSize="32" FontWeight="Bold"/>
+                            <TextBlock Text="{loc:Loc Stats_WatchTime}" FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
                     </ui:CardControl.Header>
                     <ui:SymbolIcon Symbol="Clock24" FontSize="28"
-                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                                   Foreground="{StaticResource BrandAccentBrush}"/>
                 </ui:CardControl>
 
                 <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
                     <ui:CardControl.Header>
                         <StackPanel>
                             <TextBlock Text="{Binding TotalChapters}"
-                                       FontSize="32" FontWeight="Bold"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="{loc:Loc Stats_ChaptersRead}"
-                                       FontSize="12"
+                                       FontSize="32" FontWeight="Bold"/>
+                            <TextBlock Text="{loc:Loc Stats_ChaptersRead}" FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
                     </ui:CardControl.Header>
                     <ui:SymbolIcon Symbol="BookOpen24" FontSize="28"
-                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                                   Foreground="{StaticResource BrandAccentBrush}"/>
                 </ui:CardControl>
 
                 <ui:CardControl Margin="0,0,0,12" Padding="20,14" MinWidth="180">
                     <ui:CardControl.Header>
                         <StackPanel>
                             <TextBlock Text="{Binding MeanScoreText}"
-                                       FontSize="32" FontWeight="Bold"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="{loc:Loc Stats_MeanScore}"
-                                       FontSize="12"
+                                       FontSize="32" FontWeight="Bold"/>
+                            <TextBlock Text="{loc:Loc Stats_MeanScore}" FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
                     </ui:CardControl.Header>
                     <ui:SymbolIcon Symbol="Star24" FontSize="28"
-                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                                   Foreground="{StaticResource BrandAccentBrush}"/>
                 </ui:CardControl>
             </WrapPanel>
 
             <!-- Status Breakdown -->
             <TextBlock Text="{loc:Loc Stats_StatusBreakdown}"
-                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Style="{StaticResource SectionHeaderText}"
                        Visibility="{Binding StatusBreakdown.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
             <ItemsControl ItemsSource="{Binding StatusBreakdown}"
                           Margin="0,0,0,24"
@@ -103,14 +93,13 @@
                                 <ColumnDefinition Width="40"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <ProgressBar Grid.Column="1" Value="{Binding Fraction}" Maximum="1"
-                                         Height="14" VerticalAlignment="Center" Margin="8,0"/>
+                                       VerticalAlignment="Center"/>
+                            <ProgressBar Grid.Column="1" Style="{StaticResource BrandProgressBar}"
+                                         Value="{Binding Fraction}" Maximum="1"
+                                         VerticalAlignment="Center" Margin="8,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding Count}"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       FontSize="12"/>
+                                       VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -118,8 +107,7 @@
 
             <!-- Score Histogram -->
             <TextBlock Text="{loc:Loc Stats_ScoreDistribution}"
-                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Style="{StaticResource SectionHeaderText}"
                        Visibility="{Binding ScoreHistogram.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
             <ItemsControl ItemsSource="{Binding ScoreHistogram}"
                           Margin="0,0,0,24"
@@ -135,7 +123,8 @@
                             <TextBlock Text="{Binding Count}" FontSize="11"
                                        HorizontalAlignment="Center"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                            <ProgressBar Value="{Binding Fraction}" Maximum="1"
+                            <ProgressBar Style="{StaticResource BrandProgressBar}"
+                                         Value="{Binding Fraction}" Maximum="1"
                                          Width="80" Height="32" Margin="0,2"
                                          RenderTransformOrigin="0.5,0.5">
                                 <ProgressBar.RenderTransform>
@@ -152,8 +141,7 @@
 
             <!-- Top Genres -->
             <TextBlock Text="{loc:Loc Stats_TopGenres}"
-                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Style="{StaticResource SectionHeaderText}"
                        Visibility="{Binding TopGenres.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
             <ItemsControl ItemsSource="{Binding TopGenres}"
                           Margin="0,0,0,24"
@@ -167,14 +155,13 @@
                                 <ColumnDefinition Width="40"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <ProgressBar Grid.Column="1" Value="{Binding Fraction}" Maximum="1"
-                                         Height="14" VerticalAlignment="Center" Margin="8,0"/>
+                                       VerticalAlignment="Center"/>
+                            <ProgressBar Grid.Column="1" Style="{StaticResource BrandProgressBar}"
+                                         Value="{Binding Fraction}" Maximum="1"
+                                         VerticalAlignment="Center" Margin="8,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding Count}"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       FontSize="12"/>
+                                       VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -182,8 +169,7 @@
 
             <!-- Monthly Activity -->
             <TextBlock Text="{loc:Loc Stats_MonthlyActivity}"
-                       FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Style="{StaticResource SectionHeaderText}"
                        Visibility="{Binding MonthlyActivity.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
             <ItemsControl ItemsSource="{Binding MonthlyActivity}"
                           Margin="0,0,0,8"
@@ -199,12 +185,12 @@
                             <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="11"
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                            <ProgressBar Grid.Column="1" Value="{Binding Fraction}" Maximum="1"
-                                         Height="14" VerticalAlignment="Center" Margin="8,0"/>
+                            <ProgressBar Grid.Column="1" Style="{StaticResource BrandProgressBar}"
+                                         Value="{Binding Fraction}" Maximum="1"
+                                         VerticalAlignment="Center" Margin="8,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding Count}"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       FontSize="12"/>
+                                       VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- Corner Radii -->
+    <CornerRadius x:Key="CornerSm">8</CornerRadius>
+    <CornerRadius x:Key="CornerMd">12</CornerRadius>
+    <CornerRadius x:Key="CornerLg">16</CornerRadius>
+    <CornerRadius x:Key="CornerPill">999</CornerRadius>
+    <CornerRadius x:Key="CornerCardTop">12,12,0,0</CornerRadius>
+    <CornerRadius x:Key="CornerCardBottom">0,0,12,12</CornerRadius>
+
+    <!-- Typography Scale -->
+    <sys:Double x:Key="Font.Caption">11</sys:Double>
+    <sys:Double x:Key="Font.Body">13</sys:Double>
+    <sys:Double x:Key="Font.Subtitle">15</sys:Double>
+    <sys:Double x:Key="Font.SectionTitle">16</sys:Double>
+    <sys:Double x:Key="Font.PageTitle">26</sys:Double>
+    <sys:Double x:Key="Font.Display">32</sys:Double>
+
+    <!-- Animation Durations -->
+    <Duration x:Key="Anim.Fast">0:0:0.12</Duration>
+    <Duration x:Key="Anim.Med">0:0:0.20</Duration>
+
+    <!-- Spacing -->
+    <Thickness x:Key="PageMargin">24,16,24,24</Thickness>
+    <Thickness x:Key="CardMargin">6</Thickness>
+
+    <!-- App-wide font; updated at runtime by font selector -->
+    <FontFamily x:Key="AppFontFamily">Segoe UI</FontFamily>
+
+</ResourceDictionary>

@@ -133,6 +133,7 @@ public class LibraryItemSummary
             bmp.BeginInit();
             bmp.UriSource = new Uri(CoverLocalPath, UriKind.Absolute);
             bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bmp.DecodePixelWidth = 360;
             bmp.EndInit();
             bmp.Freeze();
             CoverImage = bmp;

@@ -76,6 +76,7 @@ public partial class LibraryCardViewModel : ObservableObject
             bmp.BeginInit();
             bmp.UriSource = new Uri(CoverLocalPath, UriKind.Absolute);
             bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.DecodePixelWidth = 360;
             bmp.EndInit();
             bmp.Freeze();
             CoverImage = bmp;

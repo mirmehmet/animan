@@ -206,6 +206,8 @@
   <data name="Settings_ImportAction" xml:space="preserve"><value>Choose File</value></data>
   <data name="Settings_GitHub" xml:space="preserve"><value>Project on GitHub</value></data>
 
+  <data name="Settings_Font" xml:space="preserve"><value>Font</value></data>
+
   <data name="Common_Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Common_Restore" xml:space="preserve"><value>Restore</value></data>
   <data name="Common_Confirm" xml:space="preserve"><value>Confirm</value></data>

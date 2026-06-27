@@ -25,7 +25,7 @@ public class SettingsService(IDbContextFactory<LibraryDbContext> dbFactory) : IS
         await db.SaveChangesAsync();
     }
 
-    public Task<string> GetThemeAsync() => GetAsync("Theme", "dark");
+    public Task<string> GetThemeAsync() => GetAsync("Theme", "system");
     public Task SetThemeAsync(string theme) => SetAsync("Theme", theme);
     public Task<string> GetLanguageAsync() => GetAsync("Language", "en");
     public Task SetLanguageAsync(string language) => SetAsync("Language", language);
@@ -37,4 +37,6 @@ public class SettingsService(IDbContextFactory<LibraryDbContext> dbFactory) : IS
 
     public Task<string> GetStartupPageAsync() => GetAsync("StartupPage", "Dashboard");
     public Task SetStartupPageAsync(string page) => SetAsync("StartupPage", page);
+    public Task<string> GetFontAsync() => GetAsync("FontFamily", "Segoe UI");
+    public Task SetFontAsync(string fontFamily) => SetAsync("FontFamily", fontFamily);
 }

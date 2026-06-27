@@ -9,28 +9,6 @@
              mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
-        <Style x:Key="StatusPillButton" TargetType="Button">
-            <Setter Property="Padding" Value="14,6"/>
-            <Setter Property="Margin" Value="0,0,6,0"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="16" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -193,7 +171,7 @@
                             <Run Text="{Binding TotalCount, Mode=OneWay}"/>
                             <Run Text="{Binding ProgressSuffix, Mode=OneWay}"/>
                         </TextBlock>
-                        <ProgressBar Height="6"
+                        <ProgressBar Style="{StaticResource BrandProgressBar}"
                                      Value="{Binding WatchedCount, Mode=OneWay}"
                                      Maximum="{Binding TotalCount}"/>
                     </StackPanel>

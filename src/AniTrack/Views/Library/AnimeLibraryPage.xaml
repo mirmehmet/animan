@@ -25,9 +25,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="{loc:Loc Nav_Anime}"
-                       FontSize="26" FontWeight="SemiBold"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                       Style="{StaticResource PageTitleText}"/>
 
             <ui:TextBox Grid.Column="1" Width="240" Margin="0,0,8,0"
                         PlaceholderText="{loc:Loc Library_SearchAnime}"
@@ -40,7 +38,7 @@
             </ui:Button>
         </Grid>
 
-        <!-- Status filter tabs -->
+        <!-- Status filter tabs (PillTab) -->
         <Border Grid.Row="1" Margin="24,0,24,0"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1">
@@ -50,29 +48,28 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="AnimeStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_All}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=0, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="AnimeStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_Watching}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=1, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="AnimeStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_Completed}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=3, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="AnimeStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_OnHold}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=4, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="AnimeStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_PlanToWatch}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=6, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="AnimeStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_Favorites}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=99, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="AnimeStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_Ratings}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=98, Converter={StaticResource EqualityConverter}}"/>
                 </StackPanel>
-                <!-- Sort selector — visible only on Ratings tab -->
                 <ComboBox Grid.Column="1" Margin="8,4,0,4" MinWidth="200"
                           SelectedIndex="{Binding RatingSortIndex}"
                           Visibility="{Binding IsRatingsTab, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -115,9 +112,10 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:LibraryCardViewModel}">
-                            <Border Margin="6" Width="150" Height="252"
+                            <Border Style="{StaticResource MediaCard}"
+                                    Margin="{StaticResource CardMargin}"
+                                    Width="150" Height="252"
                                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                                    CornerRadius="10" Cursor="Hand"
                                     MouseLeftButtonUp="Card_MouseLeftButtonUp">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -126,12 +124,14 @@
                                     </Grid.RowDefinitions>
 
                                     <!-- Cover + badge -->
-                                    <Border Grid.Row="0" CornerRadius="10,10,0,0" ClipToBounds="True">
+                                    <Border Grid.Row="0" CornerRadius="{StaticResource CornerCardTop}"
+                                            ClipToBounds="True">
                                         <Grid>
                                             <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
                                             <Image Source="{Binding CoverImage}" Stretch="UniformToFill"/>
                                             <Border VerticalAlignment="Top" HorizontalAlignment="Left"
-                                                    Margin="8" Padding="7,3" CornerRadius="6"
+                                                    Margin="8" Padding="7,3"
+                                                    CornerRadius="{StaticResource CornerPill}"
                                                     Background="{Binding StatusBackground}">
                                                 <TextBlock Text="{Binding StatusName}"
                                                            FontSize="9" FontWeight="SemiBold"
@@ -149,7 +149,8 @@
                                         <TextBlock Text="{Binding ProgressText}"
                                                    FontSize="10" Margin="0,2,0,4"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                        <ProgressBar Height="4" Minimum="0" Maximum="100"
+                                        <ProgressBar Style="{StaticResource BrandProgressBar}"
+                                                     Minimum="0" Maximum="100"
                                                      Value="{Binding ProgressPercent, Mode=OneWay}"
                                                      Foreground="{Binding ProgressAccent}"/>
                                     </StackPanel>

@@ -1,0 +1,35 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Brand Violet -->
+    <SolidColorBrush x:Key="BrandAccentBrush"     Color="#8B5CF6"/>
+    <SolidColorBrush x:Key="BrandAccentLightBrush" Color="#A78BFA"/>
+    <SolidColorBrush x:Key="BrandAccentDimBrush"   Color="#6D28D9"/>
+
+    <!-- Violet → Pink gradient for hero / featured accents -->
+    <LinearGradientBrush x:Key="BrandGradientBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#8B5CF6" Offset="0"/>
+        <GradientStop Color="#EC4899" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Hero banner background -->
+    <LinearGradientBrush x:Key="HeroBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#1a0d33" Offset="0"/>
+        <GradientStop Color="#2d1b4e" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Overlays -->
+    <SolidColorBrush x:Key="CardOverlayBrush"    Color="#CC000000"/>
+    <SolidColorBrush x:Key="HairlineBorderBrush"  Color="#20FFFFFF"/>
+
+    <!-- Status palette (mirrors LibraryCardViewModel defaults) -->
+    <SolidColorBrush x:Key="Status.WatchingBg"  Color="#2a1840"/>
+    <SolidColorBrush x:Key="Status.WatchingFg"  Color="#9060c8"/>
+    <SolidColorBrush x:Key="Status.CompletedBg" Color="#0e2e20"/>
+    <SolidColorBrush x:Key="Status.CompletedFg" Color="#309060"/>
+    <SolidColorBrush x:Key="Status.OnHoldBg"    Color="#2e2410"/>
+    <SolidColorBrush x:Key="Status.OnHoldFg"    Color="#8a7020"/>
+    <SolidColorBrush x:Key="Status.DroppedBg"   Color="#2e1010"/>
+    <SolidColorBrush x:Key="Status.DroppedFg"   Color="#803030"/>
+
+</ResourceDictionary>

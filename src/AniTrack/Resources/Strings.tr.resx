@@ -206,6 +206,8 @@
   <data name="Settings_ImportAction" xml:space="preserve"><value>Dosya Seç</value></data>
   <data name="Settings_GitHub" xml:space="preserve"><value>GitHub'da Proje</value></data>
 
+  <data name="Settings_Font" xml:space="preserve"><value>Yazı Tipi</value></data>
+
   <data name="Common_Delete" xml:space="preserve"><value>Sil</value></data>
   <data name="Common_Restore" xml:space="preserve"><value>Geri Al</value></data>
   <data name="Common_Confirm" xml:space="preserve"><value>Onayla</value></data>

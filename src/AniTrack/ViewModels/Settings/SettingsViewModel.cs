@@ -27,9 +27,26 @@ public partial class SettingsViewModel(
 
     // ── Appearance ────────────────────────────────────────────────────────────
 
-    [ObservableProperty] private ThemeMode _selectedThemeMode = ThemeMode.Dark;
+    [ObservableProperty] private ThemeMode _selectedThemeMode = ThemeMode.System;
     public IReadOnlyList<LanguageOption> Languages => LocalizationManager.SupportedLanguages;
     [ObservableProperty] private LanguageOption? _selectedLanguage;
+
+    // 10 telif-güvenli Windows/OFL fontları
+    public IReadOnlyList<string> FontOptions { get; } =
+    [
+        "Segoe UI",
+        "Segoe UI Variable",
+        "Calibri",
+        "Trebuchet MS",
+        "Comic Sans MS",
+        "Georgia",
+        "Verdana",
+        "Tahoma",
+        "Arial",
+        "Consolas"
+    ];
+
+    [ObservableProperty] private string _selectedFont = "Segoe UI";
 
     // ── Startup page ──────────────────────────────────────────────────────────
 
@@ -56,6 +73,8 @@ public partial class SettingsViewModel(
         SelectedLanguage = Languages.FirstOrDefault(l => l.Code == language) ?? Languages[0];
 
         SelectedStartupPage = await settingsService.GetStartupPageAsync();
+
+        SelectedFont = await settingsService.GetFontAsync();
 
         await LoadTrashAsync();
         _initialized = true;
@@ -88,6 +107,13 @@ public partial class SettingsViewModel(
     {
         if (!_initialized) return;
         await settingsService.SetStartupPageAsync(value);
+    }
+
+    async partial void OnSelectedFontChanged(string value)
+    {
+        if (!_initialized) return;
+        AppThemeManager.ApplyFont(value);
+        await settingsService.SetFontAsync(value);
     }
 
     // ── Backup / Restore ──────────────────────────────────────────────────────

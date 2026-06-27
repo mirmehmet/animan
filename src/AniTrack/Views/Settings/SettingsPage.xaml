@@ -10,30 +10,15 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
 
-    <UserControl.Resources>
-        <!-- Keyed + BasedOn so the default CardControl template (icon + header left,
-             content right — the Windows 11 look) is preserved, not clobbered. -->
-        <Style x:Key="SettingCard" TargetType="ui:CardControl"
-               BasedOn="{StaticResource {x:Type ui:CardControl}}">
-            <Setter Property="Margin" Value="0,0,0,8"/>
-        </Style>
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Margin" Value="2,18,0,8"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
-        </Style>
-    </UserControl.Resources>
-
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="24" MaxWidth="760" HorizontalAlignment="Left">
 
-            <TextBlock Text="{loc:Loc Settings_Title}" FontSize="24" FontWeight="SemiBold"
-                       Margin="0,0,0,8"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <TextBlock Text="{loc:Loc Settings_Title}"
+                       Style="{StaticResource PageTitleText}"
+                       Margin="0,0,0,8"/>
 
             <!-- ══ Appearance ════════════════════════════════════════════════ -->
-            <TextBlock Text="{loc:Loc Settings_Appearance}" Style="{StaticResource SectionHeader}"/>
+            <TextBlock Text="{loc:Loc Settings_Appearance}" Style="{StaticResource SectionSubheaderText}"/>
 
             <!-- Theme: segmented Light / Dark / System -->
             <ui:CardControl Style="{StaticResource SettingCard}"
@@ -77,6 +62,15 @@
                           MinWidth="160"/>
             </ui:CardControl>
 
+            <!-- Font selector -->
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=TextFont24}"
+                            Header="{loc:Loc Settings_Font}">
+                <ComboBox ItemsSource="{Binding FontOptions}"
+                          SelectedItem="{Binding SelectedFont, Mode=TwoWay}"
+                          MinWidth="160"/>
+            </ui:CardControl>
+
             <ui:CardControl Style="{StaticResource SettingCard}"
                             Icon="{ui:SymbolIcon Symbol=Home24}"
                             Header="{loc:Loc Settings_StartupPage}">
@@ -86,7 +80,7 @@
             </ui:CardControl>
 
             <!-- ══ Data & Backup ═════════════════════════════════════════════ -->
-            <TextBlock Text="{loc:Loc Settings_DataBackup}" Style="{StaticResource SectionHeader}"/>
+            <TextBlock Text="{loc:Loc Settings_DataBackup}" Style="{StaticResource SectionSubheaderText}"/>
 
             <ui:CardControl Style="{StaticResource SettingCard}"
                             Icon="{ui:SymbolIcon Symbol=ArrowExportUp24}"
@@ -123,7 +117,7 @@
 
             <!-- Empty state -->
             <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                    CornerRadius="8" Padding="0,20" Margin="0,0,0,8"
+                    CornerRadius="{StaticResource CornerSm}" Padding="0,20" Margin="0,0,0,8"
                     Visibility="{Binding HasTrashItems, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                 <StackPanel HorizontalAlignment="Center">
                     <ui:SymbolIcon Symbol="Delete24" FontSize="28"
@@ -167,7 +161,7 @@
             </ItemsControl>
 
             <!-- ══ About ═════════════════════════════════════════════════════ -->
-            <TextBlock Text="{loc:Loc Settings_About}" Style="{StaticResource SectionHeader}"/>
+            <TextBlock Text="{loc:Loc Settings_About}" Style="{StaticResource SectionSubheaderText}"/>
 
             <ui:CardControl Style="{StaticResource SettingCard}"
                             Icon="{ui:SymbolIcon Symbol=Info24}"

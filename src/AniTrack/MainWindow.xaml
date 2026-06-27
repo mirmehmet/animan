@@ -11,15 +11,8 @@
         Height="720" Width="1280"
         WindowStartupLocation="CenterScreen"
         WindowBackdropType="Mica"
-        ExtendsContentIntoTitleBar="True">
-
-    <ui:FluentWindow.Resources>
-        <Style x:Key="PageTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="Margin" Value="24"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
-        </Style>
-    </ui:FluentWindow.Resources>
+        ExtendsContentIntoTitleBar="True"
+        FontFamily="{DynamicResource AppFontFamily}">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -33,7 +26,7 @@
 
         <ui:NavigationView x:Name="RootNavigation"
                            Grid.Row="1"
-                           PaneDisplayMode="Left"
+                           PaneDisplayMode="LeftFluent"
                            IsPaneOpen="False">
 
             <ui:NavigationView.MenuItems>

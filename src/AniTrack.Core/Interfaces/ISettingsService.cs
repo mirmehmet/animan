@@ -11,4 +11,6 @@ public interface ISettingsService
     Task<int> GetCacheRefreshDaysAsync();
     Task<string> GetStartupPageAsync();
     Task SetStartupPageAsync(string page);
+    Task<string> GetFontAsync();
+    Task SetFontAsync(string fontFamily);
 }

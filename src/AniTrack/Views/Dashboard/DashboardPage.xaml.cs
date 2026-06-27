@@ -43,4 +43,11 @@ public partial class DashboardPage : UserControl
         if ((sender as FrameworkElement)?.DataContext is not LibraryItemSummary item) return;
         _viewModel.OpenLibraryItemCommand.Execute(item.Id);
     }
+
+    private void OnHeroClicked(object sender, MouseButtonEventArgs e)
+    {
+        var first = _viewModel.ContinueItems.FirstOrDefault();
+        if (first is not null)
+            _viewModel.OpenLibraryItemCommand.Execute(first.Id);
+    }
 }
