@@ -28,9 +28,13 @@ public class SettingsService(IDbContextFactory<LibraryDbContext> dbFactory) : IS
     public Task<string> GetThemeAsync() => GetAsync("Theme", "dark");
     public Task SetThemeAsync(string theme) => SetAsync("Theme", theme);
     public Task<string> GetLanguageAsync() => GetAsync("Language", "en");
+    public Task SetLanguageAsync(string language) => SetAsync("Language", language);
     public async Task<int> GetCacheRefreshDaysAsync()
     {
         var val = await GetAsync("CacheRefreshDays", "7");
         return int.TryParse(val, out var days) ? days : 7;
     }
+
+    public Task<string> GetStartupPageAsync() => GetAsync("StartupPage", "Dashboard");
+    public Task SetStartupPageAsync(string page) => SetAsync("StartupPage", page);
 }

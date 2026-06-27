@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:AniTrack.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
@@ -23,11 +24,10 @@
                             </Grid.ColumnDefinitions>
 
                             <CheckBox Grid.Column="0" Margin="0,0,12,0"
-                                      IsChecked="{Binding IsWatched}"
-                                      Command="{Binding ToggleWatchedCommand}"/>
+                                      IsChecked="{Binding IsWatched}"/>
 
                             <TextBlock Grid.Column="1" Margin="0,0,12,0"
-                                       Text="{Binding EpisodeNumber, StringFormat='Ep {0}'}"
+                                       Text="{Binding EpisodeLabel}"
                                        FontWeight="SemiBold" VerticalAlignment="Center"
                                        MinWidth="50"/>
 
@@ -39,14 +39,14 @@
                             <ui:Button Grid.Column="3" Margin="8,0"
                                         Command="{Binding OpenNoteCommand}"
                                         Appearance="Transparent"
-                                        ToolTip="Note">
+                                        ToolTip="{loc:Loc Detail_Note}">
                                 <ui:SymbolIcon Symbol="Note24"/>
                             </ui:Button>
 
                             <ui:Button Grid.Column="4"
                                         Command="{Binding MarkUpToHereCommand}"
                                         Appearance="Transparent"
-                                        ToolTip="Mark up to here">
+                                        ToolTip="{loc:Loc Detail_MarkUpToHere}">
                                 <ui:SymbolIcon Symbol="CheckmarkCircle24"/>
                             </ui:Button>
                         </Grid>

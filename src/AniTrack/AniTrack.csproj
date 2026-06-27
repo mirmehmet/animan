@@ -28,4 +28,19 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <!--
+    Pin a stable AssemblyVersion AFTER MinVer runs. MinVer unconditionally sets
+    AssemblyVersion=$(MinVerMajor).0.0.0 (= 0.0.0.0 with no git tag), but the WPF
+    satellite assembly (Strings.tr.resx -> tr\AniTrack.resources.dll) is bound to
+    AniTrack 1.0.0.0, so a mismatched main version throws FileNotFoundException for
+    "AniTrack, Version=1.0.0.0" at App.InitializeComponent on Turkish-culture machines.
+    MinVer still drives the git-derived InformationalVersion/PackageVersion.
+  -->
+  <Target Name="PinStableAssemblyVersion" AfterTargets="MinVer">
+    <PropertyGroup>
+      <AssemblyVersion>1.0.0.0</AssemblyVersion>
+      <FileVersion>1.0.0.0</FileVersion>
+    </PropertyGroup>
+  </Target>
+
 </Project>

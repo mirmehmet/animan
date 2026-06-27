@@ -21,7 +21,7 @@ internal static class JikanMapper
         Score = dto.Score,
         Rank = dto.Rank,
         Popularity = dto.Popularity,
-        CoverMediumUrl = dto.Images?.Jpg?.MediumImageUrl,
+        CoverMediumUrl = dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl,
         CoverLargeUrl = dto.Images?.Jpg?.LargeImageUrl,
         FetchedAt = DateTime.UtcNow
     };
@@ -41,7 +41,7 @@ internal static class JikanMapper
         Score = dto.Score,
         Rank = dto.Rank,
         Popularity = dto.Popularity,
-        CoverMediumUrl = dto.Images?.Jpg?.MediumImageUrl,
+        CoverMediumUrl = dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl,
         CoverLargeUrl = dto.Images?.Jpg?.LargeImageUrl,
         FetchedAt = DateTime.UtcNow
     };

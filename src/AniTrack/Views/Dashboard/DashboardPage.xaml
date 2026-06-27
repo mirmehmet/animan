@@ -1,0 +1,201 @@
+<UserControl x:Class="AniTrack.Views.Dashboard.DashboardPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:AniTrack.Localization"
+             xmlns:vm="clr-namespace:AniTrack.ViewModels.Dashboard"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,16,24,24">
+
+            <TextBlock Text="{loc:Loc Dashboard_Title}"
+                       FontSize="28" FontWeight="SemiBold"
+                       Margin="0,0,0,20"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+
+            <!-- ── Library Summary cards ───────────────────────────────────── -->
+            <TextBlock Text="{loc:Loc Dashboard_LibrarySummary}"
+                       FontSize="14" FontWeight="SemiBold"
+                       Margin="0,0,0,10"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+            <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,8"
+                         Visibility="{Binding IsLoadingLibrary, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <WrapPanel Margin="0,0,0,24">
+                <Border Width="150" Height="90" Margin="0,0,12,0" CornerRadius="10"
+                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding TotalAnime}" FontSize="28" FontWeight="Bold"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Dashboard_TotalAnime}" FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Width="150" Height="90" Margin="0,0,12,0" CornerRadius="10"
+                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding TotalManga}" FontSize="28" FontWeight="Bold"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Dashboard_TotalManga}" FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Width="150" Height="90" Margin="0,0,12,0" CornerRadius="10"
+                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding WatchingCount}" FontSize="28" FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource SystemAccentColorBrush}"/>
+                        <TextBlock Text="{loc:Loc Dashboard_Watching}" FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <Border Width="150" Height="90" Margin="0,0,0,0" CornerRadius="10"
+                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CompletedCount}" FontSize="28" FontWeight="Bold"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Dashboard_Completed}" FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+            </WrapPanel>
+
+            <!-- ── Continue Watching/Reading ──────────────────────────────── -->
+            <StackPanel Visibility="{Binding HasContinueItems, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{loc:Loc Dashboard_ContinueWatching}"
+                           FontSize="14" FontWeight="SemiBold"
+                           Margin="0,0,0,10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Margin="0,0,0,24">
+                    <ItemsControl ItemsSource="{Binding ContinueItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:LibraryItemSummary}">
+                                <Border Width="120" Height="180" Margin="0,0,10,0"
+                                        CornerRadius="8" ClipToBounds="True"
+                                        Cursor="Hand"
+                                        MouseLeftButtonUp="OnContinueItemClicked">
+                                    <Grid>
+                                        <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
+                                        <Border CornerRadius="8" ClipToBounds="True">
+                                            <Image Source="{Binding CoverImage}" Stretch="UniformToFill"/>
+                                        </Border>
+                                        <Border VerticalAlignment="Bottom"
+                                                Background="#CC000000"
+                                                Padding="6,4" CornerRadius="0,0,8,8">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="White"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="NoWrap"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+
+            <!-- Empty state -->
+            <StackPanel HorizontalAlignment="Center"
+                        Visibility="{Binding HasContinueItems, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="48"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                               Margin="0,0,0,8"/>
+                <TextBlock Text="{loc:Loc Dashboard_EmptyTitle}"
+                           FontSize="16" FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="{loc:Loc Dashboard_EmptyMessage}"
+                           FontSize="12" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                           Margin="0,4,0,12"/>
+                <ui:Button Content="{loc:Loc Dashboard_GoToDiscover}"
+                           Command="{Binding GoToDiscoverCommand}"
+                           Appearance="Primary"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- ── This Season ────────────────────────────────────────────── -->
+            <StackPanel Margin="0,16,0,0">
+                <TextBlock Text="{loc:Loc Dashboard_ThisSeason}"
+                           FontSize="14" FontWeight="SemiBold"
+                           Margin="0,0,0,10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,8"
+                             Visibility="{Binding IsLoadingSeason, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                <!-- Season error state -->
+                <StackPanel HorizontalAlignment="Center"
+                            Visibility="{Binding HasSeasonError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="{loc:Loc Dashboard_ErrorTitle}"
+                               FontSize="13" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding SeasonErrorMessage}"
+                               FontSize="11" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                               Margin="0,0,0,8"/>
+                    <ui:Button Content="{loc:Loc Dashboard_ErrorRetry}"
+                               Command="{Binding RetrySeasonCommand}"
+                               Appearance="Secondary"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Season cards -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Visibility="{Binding HasSeasonItems, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <ItemsControl ItemsSource="{Binding ThisSeasonItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="120" Height="180" Margin="0,0,10,0"
+                                        CornerRadius="8" ClipToBounds="True"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                    <Grid>
+                                        <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
+                                        <Border VerticalAlignment="Bottom"
+                                                Background="#CC000000"
+                                                Padding="6,4" CornerRadius="0,0,8,8">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="White"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="WrapWithOverflow"
+                                                       MaxHeight="48"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

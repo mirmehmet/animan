@@ -1,7 +1,10 @@
 using AniTrack.Core.Interfaces;
 using AniTrack.Infrastructure;
+using AniTrack.Navigation;
 using AniTrack.Infrastructure.Data;
+using AniTrack.Localization;
 using AniTrack.ViewModels;
+using AniTrack.ViewModels.Dashboard;
 using AniTrack.ViewModels.Detail;
 using AniTrack.ViewModels.Library;
 using Microsoft.EntityFrameworkCore;
@@ -36,8 +39,17 @@ public partial class App : Application
 
         await RunMigrationsAsync();
 
-        var theme = await Services.GetRequiredService<ISettingsService>().GetThemeAsync();
+        var settings = Services.GetRequiredService<ISettingsService>();
+
+        var theme = await settings.GetThemeAsync();
         ApplyTheme(theme);
+
+        var language = await settings.GetLanguageAsync();
+        LocalizationManager.SetCulture(language);
+
+        // Purge soft-deleted items older than 30 days on every startup
+        var tracking = Services.GetRequiredService<ITrackingService>();
+        await tracking.PurgeExpiredTrashAsync();
 
         var mainWindow = Services.GetRequiredService<MainWindow>();
         mainWindow.Show();
@@ -57,10 +69,14 @@ public partial class App : Application
 
         services.AddSingleton<MainWindow>();
         services.AddSingleton<MainWindowViewModel>();
+        services.AddSingleton<Wpf.Ui.Abstractions.INavigationViewPageProvider>(
+            sp => new ServiceProviderPageProvider(sp));
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IContentDialogService, ContentDialogService>();
+        services.AddSingleton<NavigationBag>();
 
         // Pages
+        services.AddTransient<Views.Dashboard.DashboardPage>();
         services.AddTransient<Views.Library.AnimeLibraryPage>();
         services.AddTransient<Views.Library.MangaLibraryPage>();
         services.AddTransient<Views.Discover.DiscoverPage>();
@@ -69,6 +85,7 @@ public partial class App : Application
         services.AddTransient<Views.Detail.DetailPage>();
 
         // ViewModels
+        services.AddTransient<DashboardViewModel>();
         services.AddTransient<ViewModels.Settings.SettingsViewModel>();
         services.AddTransient<AnimeLibraryViewModel>();
         services.AddTransient<MangaLibraryViewModel>();
@@ -111,5 +128,12 @@ public partial class App : Application
     {
         Log.CloseAndFlush();
         base.OnExit(e);
+    }
+
+    private sealed class ServiceProviderPageProvider : Wpf.Ui.Abstractions.INavigationViewPageProvider
+    {
+        private readonly IServiceProvider _sp;
+        public ServiceProviderPageProvider(IServiceProvider sp) => _sp = sp;
+        public object? GetPage(Type pageType) => _sp.GetService(pageType);
     }
 }

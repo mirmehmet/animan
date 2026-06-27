@@ -1,4 +1,5 @@
 using AniTrack.Core.Common;
+using AniTrack.Core.Domain.Enums;
 using AniTrack.Core.Domain.Models;
 using AniTrack.Core.Interfaces;
 using AniTrack.Infrastructure.Data;
@@ -14,11 +15,16 @@ public sealed class TrackingService(
     public async Task<Result<IReadOnlyList<LibraryItem>>> GetLibraryAsync(
         string mediaType, CancellationToken ct = default)
     {
+        if (!Enum.TryParse<MediaType>(mediaType, ignoreCase: true, out var parsedType))
+            return Result<IReadOnlyList<LibraryItem>>.Failure($"Unknown media type: {mediaType}");
+
         await using var db = await libraryFactory.CreateDbContextAsync(ct);
         var items = await db.LibraryItems.AsNoTracking()
             .Include(i => i.Snapshot)
             .Include(i => i.Status)
-            .Where(i => i.MediaType.ToString().ToLower() == mediaType.ToLower())
+            .Include(i => i.EpisodeProgress)
+            .Include(i => i.ChapterProgress)
+            .Where(i => i.MediaType == parsedType && i.DeletedAt == null)
             .OrderByDescending(i => i.UpdatedAt)
             .ToListAsync(ct);
         return Result<IReadOnlyList<LibraryItem>>.Success(items);
@@ -64,6 +70,36 @@ public sealed class TrackingService(
         {
             ep.IsWatched = !ep.IsWatched;
             ep.WatchedAt = ep.IsWatched ? DateTime.UtcNow : null;
+        }
+
+        await UpdateItemTimestampAsync(db, libraryItemId, ct);
+        await db.SaveChangesAsync(ct);
+
+        return await BuildTrackingResultAsync(db, libraryItemId, ct);
+    }
+
+    public async Task<Result<TrackingResult>> SetEpisodeWatchedAsync(
+        int libraryItemId, int episodeNumber, bool watched, CancellationToken ct = default)
+    {
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+
+        var ep = await db.EpisodeProgress.FirstOrDefaultAsync(
+            e => e.LibraryItemId == libraryItemId && e.EpisodeNumber == episodeNumber, ct);
+
+        if (ep is null)
+        {
+            db.EpisodeProgress.Add(new EpisodeProgress
+            {
+                LibraryItemId = libraryItemId,
+                EpisodeNumber = episodeNumber,
+                IsWatched = watched,
+                WatchedAt = watched ? DateTime.UtcNow : null
+            });
+        }
+        else
+        {
+            ep.IsWatched = watched;
+            ep.WatchedAt = watched ? DateTime.UtcNow : null;
         }
 
         await UpdateItemTimestampAsync(db, libraryItemId, ct);
@@ -139,6 +175,36 @@ public sealed class TrackingService(
         return await BuildChapterTrackingResultAsync(db, libraryItemId, ct);
     }
 
+    public async Task<Result<TrackingResult>> SetChapterReadAsync(
+        int libraryItemId, int chapterNumber, bool read, CancellationToken ct = default)
+    {
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+
+        var ch = await db.ChapterProgress.FirstOrDefaultAsync(
+            c => c.LibraryItemId == libraryItemId && c.ChapterNumber == chapterNumber, ct);
+
+        if (ch is null)
+        {
+            db.ChapterProgress.Add(new ChapterProgress
+            {
+                LibraryItemId = libraryItemId,
+                ChapterNumber = chapterNumber,
+                IsRead = read,
+                ReadAt = read ? DateTime.UtcNow : null
+            });
+        }
+        else
+        {
+            ch.IsRead = read;
+            ch.ReadAt = read ? DateTime.UtcNow : null;
+        }
+
+        await UpdateItemTimestampAsync(db, libraryItemId, ct);
+        await db.SaveChangesAsync(ct);
+
+        return await BuildChapterTrackingResultAsync(db, libraryItemId, ct);
+    }
+
     public async Task<Result<TrackingResult>> MarkChaptersUpToAsync(
         int libraryItemId, int chapterNumber, CancellationToken ct = default)
     {
@@ -179,6 +245,9 @@ public sealed class TrackingService(
     public async Task<Result> UpdateScoreAsync(
         int libraryItemId, int? score, CancellationToken ct = default)
     {
+        if (score is < 1 or > 10)
+            return Result.Failure("Score must be between 1 and 10");
+
         await using var db = await libraryFactory.CreateDbContextAsync(ct);
         var item = await db.LibraryItems.FindAsync([libraryItemId], ct);
         if (item is null) return Result.Failure($"Item {libraryItemId} not found");
@@ -269,14 +338,122 @@ public sealed class TrackingService(
     {
         await using var db = await libraryFactory.CreateDbContextAsync(ct);
 
+        var item = await db.LibraryItems.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == libraryItemId, ct);
+        if (item is null)
+            return Result<ProgressInfo>.Failure($"Item {libraryItemId} not found");
+
         var snapshot = await db.Snapshots.AsNoTracking()
             .FirstOrDefaultAsync(s => s.LibraryItemId == libraryItemId, ct);
+
+        if (item.MediaType == MediaType.Manga)
+        {
+            var totalChapters = snapshot?.TotalChapters ?? 0;
+            var read = await db.ChapterProgress.CountAsync(
+                c => c.LibraryItemId == libraryItemId && c.IsRead, ct);
+            return Result<ProgressInfo>.Success(new ProgressInfo(read, totalChapters));
+        }
 
         var totalEpisodes = snapshot?.TotalEpisodes ?? 0;
         var watched = await db.EpisodeProgress.CountAsync(
             e => e.LibraryItemId == libraryItemId && e.IsWatched, ct);
 
         return Result<ProgressInfo>.Success(new ProgressInfo(watched, totalEpisodes));
+    }
+
+    public async Task<Result> SetRatingAsync(
+        int libraryItemId, decimal? rating, CancellationToken ct = default)
+    {
+        if (rating is < 0m or > 10m)
+            return Result.Failure("Rating must be between 0.0 and 10.0");
+
+        if (rating.HasValue)
+            rating = Math.Round(rating.Value, 1);
+
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+        var item = await db.LibraryItems.FindAsync([libraryItemId], ct);
+        if (item is null) return Result.Failure($"Item {libraryItemId} not found");
+
+        item.UserRating = rating;
+        item.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    public async Task<Result> SoftDeleteAsync(
+        int libraryItemId, CancellationToken ct = default)
+    {
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+        var item = await db.LibraryItems.FindAsync([libraryItemId], ct);
+        if (item is null) return Result.Failure($"Item {libraryItemId} not found");
+
+        item.DeletedAt = DateTime.UtcNow;
+        item.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    public async Task<Result> RestoreFromTrashAsync(
+        int libraryItemId, CancellationToken ct = default)
+    {
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+        var item = await db.LibraryItems.FindAsync([libraryItemId], ct);
+        if (item is null) return Result.Failure($"Item {libraryItemId} not found");
+
+        item.DeletedAt = null;
+        item.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    public async Task<Result> PermanentDeleteAsync(
+        int libraryItemId, CancellationToken ct = default)
+    {
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+        var item = await db.LibraryItems.FindAsync([libraryItemId], ct);
+        if (item is null) return Result.Success();
+
+        db.LibraryItems.Remove(item);
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    public async Task<Result> EmptyTrashAsync(CancellationToken ct = default)
+    {
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+        var trashed = await db.LibraryItems
+            .Where(i => i.DeletedAt != null)
+            .ToListAsync(ct);
+        db.LibraryItems.RemoveRange(trashed);
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    public async Task<Result<IReadOnlyList<LibraryItem>>> GetTrashAsync(
+        CancellationToken ct = default)
+    {
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+        var items = await db.LibraryItems.AsNoTracking()
+            .Include(i => i.Snapshot)
+            .Where(i => i.DeletedAt != null)
+            .OrderByDescending(i => i.DeletedAt)
+            .ToListAsync(ct);
+        return Result<IReadOnlyList<LibraryItem>>.Success(items);
+    }
+
+    public async Task PurgeExpiredTrashAsync(CancellationToken ct = default)
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-30);
+        await using var db = await libraryFactory.CreateDbContextAsync(ct);
+        var expired = await db.LibraryItems
+            .Where(i => i.DeletedAt != null && i.DeletedAt < cutoff)
+            .ToListAsync(ct);
+        if (expired.Count > 0)
+        {
+            db.LibraryItems.RemoveRange(expired);
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Purged {Count} expired trash items", expired.Count);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

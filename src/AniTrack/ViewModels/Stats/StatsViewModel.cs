@@ -97,6 +97,7 @@ public partial class StatsViewModel : ObservableObject
         var result = await _stats.GetScoreHistogramAsync();
         if (!result.IsSuccess) return;
 
+        if (!result.Value!.Any()) return;
         int max = result.Value!.Values.Max();
         if (max == 0) return;
 

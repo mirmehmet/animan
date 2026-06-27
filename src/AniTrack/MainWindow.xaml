@@ -4,10 +4,12 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:loc="clr-namespace:AniTrack.Localization"
         mc:Ignorable="d"
         Title="AniTrack"
         MinHeight="600" MinWidth="900"
-        Height="750" Width="1200"
+        Height="720" Width="1280"
+        WindowStartupLocation="CenterScreen"
         WindowBackdropType="Mica"
         ExtendsContentIntoTitleBar="True">
 
@@ -20,13 +22,30 @@
     </ui:FluentWindow.Resources>
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar x:Name="RootTitleBar"
+                     Grid.Row="0"
+                     Title="AniTrack"/>
+
         <ui:NavigationView x:Name="RootNavigation"
+                           Grid.Row="1"
                            PaneDisplayMode="Left"
                            IsPaneOpen="False">
 
-
             <ui:NavigationView.MenuItems>
-                <ui:NavigationViewItem Content="Anime"
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Dashboard}"
+                                       TargetPageType="{x:Type dashViews:DashboardPage}"
+                                       xmlns:dashViews="clr-namespace:AniTrack.Views.Dashboard">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="Home24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Anime}"
                                        TargetPageType="{x:Type views:AnimeLibraryPage}"
                                        xmlns:views="clr-namespace:AniTrack.Views.Library">
                     <ui:NavigationViewItem.Icon>
@@ -34,7 +53,7 @@
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
 
-                <ui:NavigationViewItem Content="Manga"
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Manga}"
                                        TargetPageType="{x:Type views:MangaLibraryPage}"
                                        xmlns:views="clr-namespace:AniTrack.Views.Library">
                     <ui:NavigationViewItem.Icon>
@@ -42,15 +61,15 @@
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
 
-                <ui:NavigationViewItem Content="Discover"
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Discover}"
                                        TargetPageType="{x:Type views:DiscoverPage}"
                                        xmlns:views="clr-namespace:AniTrack.Views.Discover">
                     <ui:NavigationViewItem.Icon>
-                        <ui:SymbolIcon Symbol="Compass24" />
+                        <ui:SymbolIcon Symbol="CompassNorthwest24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
 
-                <ui:NavigationViewItem Content="Stats"
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Stats}"
                                        TargetPageType="{x:Type views:StatsPage}"
                                        xmlns:views="clr-namespace:AniTrack.Views.Stats">
                     <ui:NavigationViewItem.Icon>
@@ -60,7 +79,7 @@
             </ui:NavigationView.MenuItems>
 
             <ui:NavigationView.FooterMenuItems>
-                <ui:NavigationViewItem Content="Settings"
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Settings}"
                                        TargetPageType="{x:Type views:SettingsPage}"
                                        xmlns:views="clr-namespace:AniTrack.Views.Settings">
                     <ui:NavigationViewItem.Icon>
@@ -70,6 +89,8 @@
             </ui:NavigationView.FooterMenuItems>
 
         </ui:NavigationView>
-        <ui:ContentDialogHost x:Name="RootContentDialogHost" />
+
+        <ui:ContentDialogHost x:Name="RootContentDialogHost"
+                              Grid.Row="0" Grid.RowSpan="2"/>
     </Grid>
 </ui:FluentWindow>

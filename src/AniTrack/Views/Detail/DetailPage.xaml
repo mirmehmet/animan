@@ -3,24 +3,56 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:controls="clr-namespace:AniTrack.Views.Detail.Controls"
+             xmlns:loc="clr-namespace:AniTrack.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <Style x:Key="StatusPillButton" TargetType="Button">
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="16" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="24">
+        <Grid Margin="0,0,24,24">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <!-- Back button -->
+            <Button Grid.Row="0" Click="OnGoBackClicked"
+                    Content="{Binding BackLabel}"
+                    HorizontalAlignment="Left" Margin="16,12,0,8"
+                    Background="Transparent" BorderThickness="0"
+                    Cursor="Hand" Padding="4,2"
+                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
             <!-- Header: Cover + Metadata -->
-            <Grid Grid.Row="0" Margin="0,0,0,24">
+            <Grid Grid.Row="1" Margin="24,0,0,24">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="180"/>
                     <ColumnDefinition Width="*"/>
@@ -44,54 +76,164 @@
                                FontSize="13" Margin="0,4,0,0"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                        <ui:Button Command="{Binding ToggleFavoriteCommand}"
-                                    Appearance="Transparent" Margin="0,0,8,0">
-                            <ui:SymbolIcon Symbol="Heart24"/>
-                        </ui:Button>
-                        <ui:Button Command="{Binding ReSnapshotCommand}"
-                                    Appearance="Secondary" Margin="0,0,8,0"
-                                    Content="Re-snapshot"/>
+                    <!-- Library actions (hidden in preview mode) -->
+                    <StackPanel Margin="0,14,0,0"
+                                Visibility="{Binding IsPreviewMode,
+                                    Converter={StaticResource InverseBoolToVisibilityConverter}}">
+
+                        <!-- Action buttons row: Heart + Refresh + Delete -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <ui:Button Command="{Binding ToggleFavoriteCommand}"
+                                       Appearance="Transparent" Margin="0,0,8,0"
+                                       ToolTip="Favorite">
+                                <ui:SymbolIcon>
+                                    <ui:SymbolIcon.Style>
+                                        <Style TargetType="ui:SymbolIcon">
+                                            <Setter Property="Symbol" Value="Heart24"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                    <Setter Property="Symbol" Value="HeartFilled24"/>
+                                                    <Setter Property="Foreground" Value="#FF69B4"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ui:SymbolIcon.Style>
+                                </ui:SymbolIcon>
+                            </ui:Button>
+                            <ui:Button Command="{Binding ReSnapshotCommand}"
+                                       Appearance="Secondary" Margin="0,0,8,0"
+                                       Content="{loc:Loc Detail_RefreshData}"/>
+                            <ui:Button Command="{Binding SoftDeleteCommand}"
+                                       Appearance="Transparent" Margin="0,0,0,0"
+                                       ToolTip="{loc:Loc Detail_Delete}"
+                                       Click="OnDeleteClicked">
+                                <ui:SymbolIcon Symbol="Delete24"/>
+                            </ui:Button>
+                        </StackPanel>
+
+                        <!-- Status pills (Anime) -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                    Visibility="{Binding IsManga, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_Watching}"
+                                    Click="OnStatusPillClicked" Tag="1"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_PlanToWatch}"
+                                    Click="OnStatusPillClicked" Tag="6"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_Completed}"
+                                    Click="OnStatusPillClicked" Tag="3"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_OnHold}"
+                                    Click="OnStatusPillClicked" Tag="4"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_Dropped}"
+                                    Click="OnStatusPillClicked" Tag="5"/>
+                        </StackPanel>
+
+                        <!-- Status pills (Manga) -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                    Visibility="{Binding IsManga, Converter={StaticResource BoolToVisibility}}">
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_Reading}"
+                                    Click="OnStatusPillClicked" Tag="2"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_PlanToRead}"
+                                    Click="OnStatusPillClicked" Tag="7"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_Completed}"
+                                    Click="OnStatusPillClicked" Tag="3"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_OnHold}"
+                                    Click="OnStatusPillClicked" Tag="4"/>
+                            <Button Style="{StaticResource StatusPillButton}"
+                                    Content="{loc:Loc Status_Dropped}"
+                                    Click="OnStatusPillClicked" Tag="5"/>
+                        </StackPanel>
+
+                        <!-- MAL score + User rating row -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{loc:Loc Detail_MalScore}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{Binding MediaSnapshot.MalScore, StringFormat=' {0:0.00}'}"
+                                       FontSize="12" VerticalAlignment="Center" Margin="0,0,24,0"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{loc:Loc Detail_MyRating}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBox x:Name="RatingTextBox"
+                                     Width="60" Margin="6,0,4,0"
+                                     FontSize="12" VerticalAlignment="Center"
+                                     HorizontalContentAlignment="Center"
+                                     Text="{Binding UserRating, TargetNullValue='', StringFormat={}{0:0.0}}"
+                                     KeyDown="OnRatingKeyDown"
+                                     LostFocus="OnRatingLostFocus"/>
+                            <TextBlock Text="/ 10" FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                        </StackPanel>
+
                     </StackPanel>
 
-                    <!-- Progress bar -->
-                    <StackPanel Margin="0,16,0,0"
-                                Visibility="{Binding HasEpisodes, Converter={StaticResource BoolToVisibility}}">
+                    <!-- Add to Library button (preview mode only) -->
+                    <ui:Button Margin="0,16,0,0"
+                               Content="{loc:Loc Discover_AddToLibrary}"
+                               Appearance="Primary"
+                               Click="OnAddToLibraryClicked"
+                               Visibility="{Binding IsPreviewMode,
+                                   Converter={StaticResource BoolToVisibility}}"/>
+
+                    <!-- Progress bar (library mode, has episodes or chapters) -->
+                    <StackPanel Margin="0,12,0,0"
+                                Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Margin="0,0,0,4">
                             <Run Text="{Binding WatchedCount, Mode=OneWay}"/>
                             <Run Text=" / "/>
                             <Run Text="{Binding TotalCount, Mode=OneWay}"/>
-                            <Run Text=" episodes"/>
+                            <Run Text="{Binding ProgressSuffix, Mode=OneWay}"/>
                         </TextBlock>
                         <ProgressBar Height="6"
                                      Value="{Binding WatchedCount, Mode=OneWay}"
                                      Maximum="{Binding TotalCount}"/>
                     </StackPanel>
 
+                    <!-- Synopsis -->
                     <TextBlock Text="{Binding MediaSnapshot.Synopsis}"
                                Margin="0,16,0,0" TextWrapping="Wrap"
-                               MaxHeight="120"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
             </Grid>
 
-            <!-- Series Note -->
-            <StackPanel Grid.Row="1" Margin="0,0,0,16">
-                <TextBlock Text="Series Notes" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <!-- Series Note (hidden in preview) -->
+            <StackPanel Grid.Row="2" Margin="24,0,0,16"
+                        Visibility="{Binding IsPreviewMode,
+                            Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <TextBlock Text="{loc:Loc Detail_SeriesNotes}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <ui:TextBox Text="{Binding SeriesNote, UpdateSourceTrigger=PropertyChanged}"
                              AcceptsReturn="True" MinHeight="80"
-                             PlaceholderText="Write notes about this series..."/>
-                <ui:Button Margin="0,6,0,0" Content="Save Note"
+                             PlaceholderText="{loc:Loc Detail_NotesPlaceholder}"/>
+                <ui:Button Margin="0,6,0,0" Content="{loc:Loc Detail_SaveNote}"
                             Command="{Binding SaveSeriesNoteCommand}"
                             Appearance="Secondary" HorizontalAlignment="Right"/>
             </StackPanel>
 
-            <!-- Episode list -->
-            <StackPanel Grid.Row="2"
+            <!-- Episode list (anime, library mode) -->
+            <StackPanel Grid.Row="3" Margin="24,0,0,0"
                         Visibility="{Binding HasEpisodes, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="Episodes" FontWeight="SemiBold" FontSize="16"
+                <TextBlock Text="{loc:Loc Detail_Episodes}" FontWeight="SemiBold" FontSize="16"
                            Margin="0,0,0,8"/>
                 <controls:EpisodeListControl DataContext="{Binding}"/>
+            </StackPanel>
+
+            <!-- Chapter list (manga, library mode) -->
+            <StackPanel Grid.Row="4" Margin="24,0,0,0"
+                        Visibility="{Binding HasChapters, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{loc:Loc Detail_Chapters}" FontWeight="SemiBold" FontSize="16"
+                           Margin="0,0,0,8"/>
+                <controls:ChapterListControl DataContext="{Binding}"/>
             </StackPanel>
 
         </Grid>

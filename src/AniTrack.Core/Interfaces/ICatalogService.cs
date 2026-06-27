@@ -12,6 +12,6 @@ public interface ICatalogService
     Task<Result<IReadOnlyList<CachedEpisode>>> GetAnimeEpisodesAsync(int malId, CancellationToken ct = default);
     Task<Result<IReadOnlyList<CachedAnime>>> GetCurrentSeasonAsync(CancellationToken ct = default);
     Task<Result<IReadOnlyList<CachedAnime>>> GetUpcomingSeasonAsync(CancellationToken ct = default);
-    Task<Result<IReadOnlyList<CachedAnime>>> GetTopAnimeAsync(CancellationToken ct = default);
-    Task<Result<IReadOnlyList<CachedManga>>> GetTopMangaAsync(CancellationToken ct = default);
+    Task<Result<IReadOnlyList<CachedAnime>>> GetTopAnimeAsync(int page = 1, CancellationToken ct = default);
+    Task<Result<IReadOnlyList<CachedManga>>> GetTopMangaAsync(int page = 1, CancellationToken ct = default);
 }

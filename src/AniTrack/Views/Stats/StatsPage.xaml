@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:vm="clr-namespace:AniTrack.ViewModels.Stats"
+             xmlns:loc="clr-namespace:AniTrack.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -13,7 +14,7 @@
         <StackPanel Margin="24,16,24,32">
 
             <!-- Header -->
-            <TextBlock Text="Statistics"
+            <TextBlock Text="{loc:Loc Stats_Title}"
                        FontSize="28" FontWeight="SemiBold"
                        Margin="0,0,0,20"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
@@ -30,7 +31,7 @@
                             <TextBlock Text="{Binding TotalEpisodes}"
                                        FontSize="32" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="Episodes watched"
+                            <TextBlock Text="{loc:Loc Stats_EpisodesWatched}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
@@ -45,7 +46,7 @@
                             <TextBlock Text="{Binding WatchTimeText}"
                                        FontSize="32" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="Watch time"
+                            <TextBlock Text="{loc:Loc Stats_WatchTime}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
@@ -60,7 +61,7 @@
                             <TextBlock Text="{Binding TotalChapters}"
                                        FontSize="32" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="Chapters read"
+                            <TextBlock Text="{loc:Loc Stats_ChaptersRead}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
@@ -75,7 +76,7 @@
                             <TextBlock Text="{Binding MeanScoreText}"
                                        FontSize="32" FontWeight="Bold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                            <TextBlock Text="Mean score"
+                            <TextBlock Text="{loc:Loc Stats_MeanScore}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
@@ -86,7 +87,7 @@
             </WrapPanel>
 
             <!-- Status Breakdown -->
-            <TextBlock Text="Status Breakdown"
+            <TextBlock Text="{loc:Loc Stats_StatusBreakdown}"
                        FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding StatusBreakdown.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
@@ -116,7 +117,7 @@
             </ItemsControl>
 
             <!-- Score Histogram -->
-            <TextBlock Text="Score Distribution"
+            <TextBlock Text="{loc:Loc Stats_ScoreDistribution}"
                        FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ScoreHistogram.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
@@ -150,7 +151,7 @@
             </ItemsControl>
 
             <!-- Top Genres -->
-            <TextBlock Text="Top Genres"
+            <TextBlock Text="{loc:Loc Stats_TopGenres}"
                        FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding TopGenres.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
@@ -180,7 +181,7 @@
             </ItemsControl>
 
             <!-- Monthly Activity -->
-            <TextBlock Text="Monthly Activity (last 12 months)"
+            <TextBlock Text="{loc:Loc Stats_MonthlyActivity}"
                        FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding MonthlyActivity.Count, Converter={StaticResource CountToVisibilityConverter}}"/>

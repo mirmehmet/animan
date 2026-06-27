@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="Common_Search" xml:space="preserve"><value>Ara</value></data>
+  <data name="Common_List" xml:space="preserve"><value>Liste</value></data>
+  <data name="Common_Grid" xml:space="preserve"><value>Izgara</value></data>
+  <data name="Common_Add" xml:space="preserve"><value>Ekle</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>İptal</value></data>
+
+  <data name="Status_Watching" xml:space="preserve"><value>İzleniyor</value></data>
+  <data name="Status_Completed" xml:space="preserve"><value>Tamamlandı</value></data>
+  <data name="Status_OnHold" xml:space="preserve"><value>Beklemede</value></data>
+  <data name="Status_Dropped" xml:space="preserve"><value>Bırakıldı</value></data>
+  <data name="Status_PlanToWatch" xml:space="preserve"><value>İzlenecek</value></data>
+  <data name="Status_Reading" xml:space="preserve"><value>Okunuyor</value></data>
+  <data name="Status_PlanToRead" xml:space="preserve"><value>Okunacak</value></data>
+  <data name="Status_All" xml:space="preserve"><value>Tümü</value></data>
+
+  <data name="Nav_Anime" xml:space="preserve"><value>Anime</value></data>
+  <data name="Nav_Manga" xml:space="preserve"><value>Manga</value></data>
+  <data name="Nav_Discover" xml:space="preserve"><value>Keşfet</value></data>
+  <data name="Nav_Stats" xml:space="preserve"><value>İstatistik</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>Ayarlar</value></data>
+
+  <data name="Settings_Title" xml:space="preserve"><value>Ayarlar</value></data>
+  <data name="Settings_Theme" xml:space="preserve"><value>Tema</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>Dil</value></data>
+  <data name="Settings_RestartTitle" xml:space="preserve"><value>Yeniden başlatma gerekli</value></data>
+  <data name="Settings_RestartMessage" xml:space="preserve"><value>Yeni dili uygulamak için lütfen AniTrack'i yeniden başlatın.</value></data>
+
+  <data name="Stats_Title" xml:space="preserve"><value>İstatistikler</value></data>
+  <data name="Stats_EpisodesWatched" xml:space="preserve"><value>İzlenen bölüm</value></data>
+  <data name="Stats_WatchTime" xml:space="preserve"><value>İzleme süresi</value></data>
+  <data name="Stats_ChaptersRead" xml:space="preserve"><value>Okunan bölüm</value></data>
+  <data name="Stats_MeanScore" xml:space="preserve"><value>Ortalama puan</value></data>
+  <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Durum Dağılımı</value></data>
+  <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Puan Dağılımı</value></data>
+  <data name="Stats_TopGenres" xml:space="preserve"><value>En Çok Türler</value></data>
+  <data name="Stats_MonthlyActivity" xml:space="preserve"><value>Aylık Etkinlik (son 12 ay)</value></data>
+
+  <data name="Discover_Title" xml:space="preserve"><value>Keşfet</value></data>
+  <data name="Discover_ThisSeason" xml:space="preserve"><value>Bu Sezon</value></data>
+  <data name="Discover_Upcoming" xml:space="preserve"><value>Yakında</value></data>
+  <data name="Discover_TopAnime" xml:space="preserve"><value>En İyi Anime</value></data>
+  <data name="Discover_TopManga" xml:space="preserve"><value>En İyi Manga</value></data>
+  <data name="Discover_SearchPlaceholder" xml:space="preserve"><value>Anime veya manga ara…</value></data>
+  <data name="Discover_SearchManga" xml:space="preserve"><value>Manga</value></data>
+  <data name="Discover_AddToLibrary" xml:space="preserve"><value>Kütüphaneye ekle</value></data>
+  <data name="Discover_SelectStatus" xml:space="preserve"><value>Durum seçin:</value></data>
+
+  <data name="Library_SearchAnime" xml:space="preserve"><value>Anime ara...</value></data>
+  <data name="Library_SearchManga" xml:space="preserve"><value>Manga ara...</value></data>
+  <data name="Library_EmptyTitle" xml:space="preserve"><value>Kütüphaneniz boş</value></data>
+  <data name="Library_EmptyMessage" xml:space="preserve"><value>İçerik bulup eklemek için Keşfet'e gidin.</value></data>
+  <data name="Library_NoResultsTitle" xml:space="preserve"><value>Sonuç yok</value></data>
+  <data name="Library_NoResultsMessage" xml:space="preserve"><value>Farklı bir filtre veya arama deneyin.</value></data>
+  <data name="Library_NoTitle" xml:space="preserve"><value>(başlık yok)</value></data>
+
+  <data name="Detail_ReSnapshot" xml:space="preserve"><value>Yeniden çek</value></data>
+  <data name="Detail_EpisodesSuffix" xml:space="preserve"><value> bölüm</value></data>
+  <data name="Detail_SeriesNotes" xml:space="preserve"><value>Seri Notları</value></data>
+  <data name="Detail_NotesPlaceholder" xml:space="preserve"><value>Bu seri hakkında not yazın...</value></data>
+  <data name="Detail_SaveNote" xml:space="preserve"><value>Notu Kaydet</value></data>
+  <data name="Detail_Episodes" xml:space="preserve"><value>Bölümler</value></data>
+  <data name="Detail_Note" xml:space="preserve"><value>Not</value></data>
+  <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Buraya kadar işaretle</value></data>
+  <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Bölüm {0}</value></data>
+  <data name="Detail_Chapters" xml:space="preserve"><value>Bölümler</value></data>
+  <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> bölüm</value></data>
+  <data name="Detail_ChapterNumberFormat" xml:space="preserve"><value>Bölüm {0}</value></data>
+  <data name="Detail_NoteDialogTitle" xml:space="preserve"><value>Not</value></data>
+  <data name="Common_Save" xml:space="preserve"><value>Kaydet</value></data>
+  <data name="Common_Ok" xml:space="preserve"><value>Tamam</value></data>
+  <data name="Detail_AutoCompleteTitle" xml:space="preserve"><value>Tüm bölümler izlendi!</value></data>
+  <data name="Detail_AutoCompleteContent" xml:space="preserve"><value>Bu seriyi Tamamlandı olarak işaretleyelim mi?</value></data>
+  <data name="Detail_AutoCompletePrimary" xml:space="preserve"><value>Evet, tamamla</value></data>
+  <data name="Detail_AutoCompleteClose" xml:space="preserve"><value>Henüz değil</value></data>
+  <data name="Detail_AutoCompleteTitleManga" xml:space="preserve"><value>Tüm bölümler okundu!</value></data>
+  <data name="Detail_AutoCompleteContentManga" xml:space="preserve"><value>Bu seriyi Tamamlandı olarak işaretleyelim mi?</value></data>
+
+  <data name="Status_Favorites" xml:space="preserve"><value>Favoriler</value></data>
+  <data name="Status_Ratings" xml:space="preserve"><value>Puanlarım</value></data>
+
+  <data name="Nav_Dashboard" xml:space="preserve"><value>Ana Sayfa</value></data>
+
+  <data name="Dashboard_Title" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Dashboard_ContinueWatching" xml:space="preserve"><value>İzlemeye Devam</value></data>
+  <data name="Dashboard_ContinueReading" xml:space="preserve"><value>Okumaya Devam</value></data>
+  <data name="Dashboard_ThisSeason" xml:space="preserve"><value>Bu Sezon</value></data>
+  <data name="Dashboard_LibrarySummary" xml:space="preserve"><value>Kütüphane Özeti</value></data>
+  <data name="Dashboard_TotalAnime" xml:space="preserve"><value>Anime</value></data>
+  <data name="Dashboard_TotalManga" xml:space="preserve"><value>Manga</value></data>
+  <data name="Dashboard_Watching" xml:space="preserve"><value>İzleniyor</value></data>
+  <data name="Dashboard_Completed" xml:space="preserve"><value>Tamamlandı</value></data>
+  <data name="Dashboard_EmptyTitle" xml:space="preserve"><value>Kütüphaneniz boş</value></data>
+  <data name="Dashboard_EmptyMessage" xml:space="preserve"><value>Başlamak için anime ve manga keşfedin.</value></data>
+  <data name="Dashboard_GoToDiscover" xml:space="preserve"><value>Keşfete Git</value></data>
+  <data name="Dashboard_ErrorTitle" xml:space="preserve"><value>Sezon animeleri yüklenemedi</value></data>
+  <data name="Dashboard_ErrorRetry" xml:space="preserve"><value>Tekrar Dene</value></data>
+
+  <data name="Detail_RefreshData" xml:space="preserve"><value>Veriyi Yenile</value></data>
+  <data name="Detail_Delete" xml:space="preserve"><value>Sil</value></data>
+  <data name="Detail_MalScore" xml:space="preserve"><value>MAL</value></data>
+  <data name="Detail_MyRating" xml:space="preserve"><value>Puanım</value></data>
+  <data name="Detail_RatingPlaceholder" xml:space="preserve"><value>—</value></data>
+  <data name="Detail_DeleteTitle" xml:space="preserve"><value>Çöp kutusuna at?</value></data>
+  <data name="Detail_DeleteContent" xml:space="preserve"><value>Bu içerik çöp kutusuna taşınacak. Ayarlar'dan 30 gün içinde geri alabilirsiniz.</value></data>
+  <data name="Detail_DeleteConfirm" xml:space="preserve"><value>Çöp Kutusuna At</value></data>
+
+  <data name="Discover_AnimeTab" xml:space="preserve"><value>Anime</value></data>
+  <data name="Discover_MangaTab" xml:space="preserve"><value>Manga</value></data>
+  <data name="Discover_SearchAnime" xml:space="preserve"><value>Anime ara…</value></data>
+  <data name="Discover_SearchMangaPlaceholder" xml:space="preserve"><value>Manga ara…</value></data>
+  <data name="Discover_ErrorTitle" xml:space="preserve"><value>İçerik yüklenemedi</value></data>
+  <data name="Discover_ErrorRetry" xml:space="preserve"><value>Tekrar Dene</value></data>
+  <data name="Discover_LoadMore" xml:space="preserve"><value>Daha fazla yükleniyor…</value></data>
+
+  <data name="Ratings_SortHighToLow" xml:space="preserve"><value>Puanım: Yüksekten Düşüğe</value></data>
+  <data name="Ratings_SortLowToHigh" xml:space="preserve"><value>Puanım: Düşükten Yükseğe</value></data>
+  <data name="Ratings_SortMalHighToLow" xml:space="preserve"><value>MAL Puanı: Yüksekten Düşüğe</value></data>
+  <data name="Ratings_SortAlpha" xml:space="preserve"><value>Alfabetik (A→Z)</value></data>
+
+  <data name="Settings_DarkMode" xml:space="preserve"><value>Karanlık Mod</value></data>
+  <data name="Settings_About" xml:space="preserve"><value>Hakkında</value></data>
+  <data name="Settings_AppVersion" xml:space="preserve"><value>v0.1.0</value></data>
+  <data name="Settings_DataSource" xml:space="preserve"><value>Veri Kaynağı</value></data>
+  <data name="Settings_StartupPage" xml:space="preserve"><value>Başlangıç Sayfası</value></data>
+  <data name="Settings_Export" xml:space="preserve"><value>Dışa Aktar</value></data>
+  <data name="Settings_ExportDesc" xml:space="preserve"><value>Kütüphanenizin yedeğini kaydedin</value></data>
+  <data name="Settings_Import" xml:space="preserve"><value>İçe Al</value></data>
+  <data name="Settings_ImportDesc" xml:space="preserve"><value>Yedek dosyadan geri yükle (yeniden başlatma gerekir)</value></data>
+  <data name="Settings_Trash" xml:space="preserve"><value>Çöp Kutusu</value></data>
+  <data name="Settings_TrashEmpty" xml:space="preserve"><value>Çöp kutusu boş</value></data>
+  <data name="Settings_EmptyTrash" xml:space="preserve"><value>Çöp Kutusunu Boşalt</value></data>
+  <data name="Settings_RestoreItem" xml:space="preserve"><value>Geri Al</value></data>
+  <data name="Settings_TrashDaysLeft" xml:space="preserve"><value>{0} gün kaldı</value></data>
+  <data name="Settings_EmptyTrashTitle" xml:space="preserve"><value>Çöp kutusu boşaltılsın mı?</value></data>
+  <data name="Settings_EmptyTrashContent" xml:space="preserve"><value>Çöp kutusundaki tüm içerikler kalıcı olarak silinecek. Bu işlem geri alınamaz.</value></data>
+  <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Boşalt</value></data>
+  <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Yeniden başlatma gerekli</value></data>
+  <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Veriler başarıyla içe aktarıldı. Değişiklikleri uygulamak için AniTrack yeniden başlatılacak.</value></data>
+
+  <data name="Common_Delete" xml:space="preserve"><value>Sil</value></data>
+  <data name="Common_Restore" xml:space="preserve"><value>Geri Al</value></data>
+  <data name="Common_Confirm" xml:space="preserve"><value>Onayla</value></data>
+</root>

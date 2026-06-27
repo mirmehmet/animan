@@ -38,12 +38,15 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("covers", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AniTrack/1.0");
         });
 
         services.AddTransient<ICatalogService, CatalogService>();
         services.AddTransient<ISnapshotService, SnapshotService>();
         services.AddTransient<ITrackingService, TrackingService>();
         services.AddTransient<IStatisticsService, StatisticsService>();
+        services.AddTransient<IExportService, ExportService>();
 
         return services;
     }

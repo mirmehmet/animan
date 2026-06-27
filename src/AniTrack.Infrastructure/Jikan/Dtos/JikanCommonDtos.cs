@@ -10,6 +10,9 @@ public record JikanImagesDto
 
 public record JikanImageVariantsDto
 {
+    [JsonPropertyName("image_url")]
+    public string? ImageUrl { get; init; }
+
     [JsonPropertyName("medium_image_url")]
     public string? MediumImageUrl { get; init; }
 

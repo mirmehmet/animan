@@ -14,8 +14,10 @@ public class LibraryItem
     public DateOnly? LastRewatchDate { get; set; }
     public DateOnly? StartedAt { get; set; }
     public DateOnly? CompletedAt { get; set; }
+    public decimal? UserRating { get; set; }
     public DateTime AddedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 
     public TrackingStatus? Status { get; set; }
     public MediaSnapshot? Snapshot { get; set; }

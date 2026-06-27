@@ -10,7 +10,17 @@ public sealed class JikanRateLimiter(ILogger<JikanRateLimiter> logger)
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> request, CancellationToken ct = default)
     {
         await _perMinute.WaitAsync(ct);
-        await _perSecond.WaitAsync(ct);
+        try
+        {
+            await _perSecond.WaitAsync(ct);
+        }
+        catch
+        {
+            // Cancelled while waiting for the per-second slot — release the
+            // per-minute permit we already hold so it isn't leaked.
+            _perMinute.Release();
+            throw;
+        }
 
         logger.LogDebug("Jikan slot acquired — per-second: {S}, per-minute: {M}",
             _perSecond.CurrentCount, _perMinute.CurrentCount);

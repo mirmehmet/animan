@@ -18,133 +18,205 @@ public sealed class CatalogService(
     public async Task<Result<IReadOnlyList<CachedAnime>>> SearchAnimeAsync(
         string query, CancellationToken ct = default)
     {
-        var apiResult = await jikanClient.SearchAnimeAsync(query, ct: ct);
-        if (!apiResult.IsSuccess)
-            return Result<IReadOnlyList<CachedAnime>>.Failure(apiResult.Error!);
+        try
+        {
+            var apiResult = await jikanClient.SearchAnimeAsync(query, ct: ct);
+            if (!apiResult.IsSuccess)
+                return Result<IReadOnlyList<CachedAnime>>.Failure(apiResult.Error!);
 
-        var items = apiResult.Value!.Data ?? [];
-        var anime = items.Select(JikanMapper.ToAnime).ToList();
-
-        await UpsertAnimeListAsync(anime, ct);
-        return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+            var items = apiResult.Value!.Data ?? [];
+            var anime = await UpsertAnimeListAsync(items, ct);
+            return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "SearchAnime failed for '{Query}'", query);
+            return Result<IReadOnlyList<CachedAnime>>.Failure("Search failed. Please try again.");
+        }
     }
 
     public async Task<Result<IReadOnlyList<CachedManga>>> SearchMangaAsync(
         string query, CancellationToken ct = default)
     {
-        var apiResult = await jikanClient.SearchMangaAsync(query, ct: ct);
-        if (!apiResult.IsSuccess)
-            return Result<IReadOnlyList<CachedManga>>.Failure(apiResult.Error!);
+        try
+        {
+            var apiResult = await jikanClient.SearchMangaAsync(query, ct: ct);
+            if (!apiResult.IsSuccess)
+                return Result<IReadOnlyList<CachedManga>>.Failure(apiResult.Error!);
 
-        var items = apiResult.Value!.Data ?? [];
-        var manga = items.Select(JikanMapper.ToManga).ToList();
-
-        await UpsertMangaListAsync(manga, ct);
-        return Result<IReadOnlyList<CachedManga>>.Success(manga);
+            var items = apiResult.Value!.Data ?? [];
+            var manga = await UpsertMangaListAsync(items, ct);
+            return Result<IReadOnlyList<CachedManga>>.Success(manga);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "SearchManga failed for '{Query}'", query);
+            return Result<IReadOnlyList<CachedManga>>.Failure("Search failed. Please try again.");
+        }
     }
 
     public async Task<Result<CachedAnime>> GetAnimeAsync(int malId, CancellationToken ct = default)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
-        var cached = await db.Anime.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == malId, ct);
-
-        if (cached is not null)
+        try
         {
-            if (!await IsStaleAsync(cached.FetchedAt))
+            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            var cached = await db.Anime.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == malId, ct);
+
+            if (cached is not null)
+            {
+                if (!await IsStaleAsync(cached.FetchedAt))
+                    return Result<CachedAnime>.Success(cached);
+
+                _ = Task.Run(() => RefreshAnimeAsync(malId), CancellationToken.None);
                 return Result<CachedAnime>.Success(cached);
+            }
 
-            // Stale — return immediately, refresh in background
-            _ = Task.Run(() => RefreshAnimeAsync(malId), CancellationToken.None);
-            return Result<CachedAnime>.Success(cached);
+            return await FetchAndCacheAnimeAsync(malId, ct);
         }
-
-        return await FetchAndCacheAnimeAsync(malId, ct);
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetAnime failed for {Id}", malId);
+            return Result<CachedAnime>.Failure("Failed to load anime details.");
+        }
     }
 
     public async Task<Result<CachedManga>> GetMangaAsync(int malId, CancellationToken ct = default)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
-        var cached = await db.Manga.AsNoTracking()
-            .FirstOrDefaultAsync(m => m.Id == malId, ct);
-
-        if (cached is not null)
+        try
         {
-            if (!await IsStaleAsync(cached.FetchedAt))
+            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            var cached = await db.Manga.AsNoTracking()
+                .FirstOrDefaultAsync(m => m.Id == malId, ct);
+
+            if (cached is not null)
+            {
+                if (!await IsStaleAsync(cached.FetchedAt))
+                    return Result<CachedManga>.Success(cached);
+
+                _ = Task.Run(() => RefreshMangaAsync(malId), CancellationToken.None);
                 return Result<CachedManga>.Success(cached);
+            }
 
-            _ = Task.Run(() => RefreshMangaAsync(malId), CancellationToken.None);
-            return Result<CachedManga>.Success(cached);
+            return await FetchAndCacheMangaAsync(malId, ct);
         }
-
-        return await FetchAndCacheMangaAsync(malId, ct);
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetManga failed for {Id}", malId);
+            return Result<CachedManga>.Failure("Failed to load manga details.");
+        }
     }
 
     public async Task<Result<IReadOnlyList<CachedEpisode>>> GetAnimeEpisodesAsync(
         int malId, CancellationToken ct = default)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
-        var anime = await db.Anime.AsNoTracking().FirstOrDefaultAsync(a => a.Id == malId, ct);
-        if (anime is null)
-            return Result<IReadOnlyList<CachedEpisode>>.Failure($"Anime {malId} not in catalog");
+        try
+        {
+            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            var anime = await db.Anime.AsNoTracking().FirstOrDefaultAsync(a => a.Id == malId, ct);
+            if (anime is null)
+                return Result<IReadOnlyList<CachedEpisode>>.Failure($"Anime {malId} not in catalog");
 
-        var cached = await db.Episodes.AsNoTracking()
-            .Where(e => e.AnimeId == malId)
-            .OrderBy(e => e.EpisodeNumber)
-            .ToListAsync(ct);
+            var cached = await db.Episodes.AsNoTracking()
+                .Where(e => e.AnimeId == malId)
+                .OrderBy(e => e.EpisodeNumber)
+                .ToListAsync(ct);
 
-        if (cached.Count > 0 && !await IsStaleAsync(anime.FetchedAt))
-            return Result<IReadOnlyList<CachedEpisode>>.Success(cached);
+            if (cached.Count > 0 && !await IsStaleAsync(anime.FetchedAt))
+                return Result<IReadOnlyList<CachedEpisode>>.Success(cached);
 
-        return await FetchAndCacheEpisodesAsync(malId, anime.TotalEpisodes, ct);
+            return await FetchAndCacheEpisodesAsync(malId, anime.TotalEpisodes, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetAnimeEpisodes failed for {Id}", malId);
+            return Result<IReadOnlyList<CachedEpisode>>.Failure("Failed to load episode list.");
+        }
     }
 
     public async Task<Result<IReadOnlyList<CachedAnime>>> GetCurrentSeasonAsync(
         CancellationToken ct = default)
     {
-        var result = await jikanClient.GetCurrentSeasonAsync(ct);
-        if (!result.IsSuccess)
-            return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
+        try
+        {
+            var result = await jikanClient.GetCurrentSeasonAsync(ct);
+            if (!result.IsSuccess)
+                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
 
-        var anime = (result.Value!.Data ?? []).Select(JikanMapper.ToAnime).ToList();
-        await UpsertAnimeListAsync(anime, ct);
-        return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct);
+            return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetCurrentSeason failed");
+            return Result<IReadOnlyList<CachedAnime>>.Failure("Failed to load season data.");
+        }
     }
 
     public async Task<Result<IReadOnlyList<CachedAnime>>> GetUpcomingSeasonAsync(
         CancellationToken ct = default)
     {
-        var result = await jikanClient.GetUpcomingSeasonAsync(ct);
-        if (!result.IsSuccess)
-            return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
+        try
+        {
+            var result = await jikanClient.GetUpcomingSeasonAsync(ct);
+            if (!result.IsSuccess)
+                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
 
-        var anime = (result.Value!.Data ?? []).Select(JikanMapper.ToAnime).ToList();
-        await UpsertAnimeListAsync(anime, ct);
-        return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct);
+            return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetUpcomingSeason failed");
+            return Result<IReadOnlyList<CachedAnime>>.Failure("Failed to load upcoming season.");
+        }
     }
 
     public async Task<Result<IReadOnlyList<CachedAnime>>> GetTopAnimeAsync(
-        CancellationToken ct = default)
+        int page = 1, CancellationToken ct = default)
     {
-        var result = await jikanClient.GetTopAnimeAsync(ct: ct);
-        if (!result.IsSuccess)
-            return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
+        try
+        {
+            var result = await jikanClient.GetTopAnimeAsync(page, ct);
+            if (!result.IsSuccess)
+                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
 
-        var anime = (result.Value!.Data ?? []).Select(JikanMapper.ToAnime).ToList();
-        await UpsertAnimeListAsync(anime, ct);
-        return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct);
+            return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetTopAnime page {Page} failed", page);
+            return Result<IReadOnlyList<CachedAnime>>.Failure("Failed to load top anime.");
+        }
     }
 
     public async Task<Result<IReadOnlyList<CachedManga>>> GetTopMangaAsync(
-        CancellationToken ct = default)
+        int page = 1, CancellationToken ct = default)
     {
-        var result = await jikanClient.GetTopMangaAsync(ct: ct);
-        if (!result.IsSuccess)
-            return Result<IReadOnlyList<CachedManga>>.Failure(result.Error!);
+        try
+        {
+            var result = await jikanClient.GetTopMangaAsync(page, ct);
+            if (!result.IsSuccess)
+                return Result<IReadOnlyList<CachedManga>>.Failure(result.Error!);
 
-        var manga = (result.Value!.Data ?? []).Select(JikanMapper.ToManga).ToList();
-        await UpsertMangaListAsync(manga, ct);
-        return Result<IReadOnlyList<CachedManga>>.Success(manga);
+            var manga = await UpsertMangaListAsync(result.Value!.Data ?? [], ct);
+            return Result<IReadOnlyList<CachedManga>>.Success(manga);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetTopManga page {Page} failed", page);
+            return Result<IReadOnlyList<CachedManga>>.Failure("Failed to load top manga.");
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -257,18 +329,23 @@ public sealed class CatalogService(
         string mediaType,
         CancellationToken ct)
     {
-        foreach (var genre in genres)
+        var distinct = genres.DistinctBy(g => g.Id).ToList();
+
+        foreach (var genre in distinct)
         {
             var existingGenre = await db.Genres.FindAsync([genre.Id], ct);
             if (existingGenre is null)
                 db.Genres.Add(genre);
         }
 
-        // Remove old links for this media, re-add
-        var oldLinks = db.MediaGenres.Where(mg => mg.MediaId == mediaId && mg.MediaType == mediaType);
-        db.MediaGenres.RemoveRange(oldLinks);
+        // ExecuteDeleteAsync bypasses the EF tracker, so no mid-loop SaveChanges is needed.
+        // Using RemoveRange+SaveChanges here would flush all other pending tracker changes
+        // (previous anime's Added entities) causing spurious saves and tracker conflicts.
+        await db.MediaGenres
+            .Where(mg => mg.MediaId == mediaId && mg.MediaType == mediaType)
+            .ExecuteDeleteAsync(ct);
 
-        foreach (var genre in genres)
+        foreach (var genre in distinct)
         {
             db.MediaGenres.Add(new CachedMediaGenre
             {
@@ -279,32 +356,48 @@ public sealed class CatalogService(
         }
     }
 
-    private async Task UpsertAnimeListAsync(IEnumerable<CachedAnime> animeList, CancellationToken ct)
+    private async Task<List<CachedAnime>> UpsertAnimeListAsync(
+        IReadOnlyList<JikanAnimeDto> dtos, CancellationToken ct)
     {
         await using var db = await catalogFactory.CreateDbContextAsync(ct);
-        foreach (var anime in animeList)
+        var mapped = new List<CachedAnime>(dtos.Count);
+        foreach (var dto in dtos)
         {
+            var anime = JikanMapper.ToAnime(dto);
+            mapped.Add(anime);
+
             var existing = await db.Anime.FindAsync([anime.Id], ct);
             if (existing is null)
                 db.Anime.Add(anime);
             else
                 db.Entry(existing).CurrentValues.SetValues(anime);
+
+            await UpsertGenresAsync(db, JikanMapper.ExtractAnimeGenres(dto), anime.Id, "anime", ct);
         }
         await db.SaveChangesAsync(ct);
+        return mapped;
     }
 
-    private async Task UpsertMangaListAsync(IEnumerable<CachedManga> mangaList, CancellationToken ct)
+    private async Task<List<CachedManga>> UpsertMangaListAsync(
+        IReadOnlyList<JikanMangaDto> dtos, CancellationToken ct)
     {
         await using var db = await catalogFactory.CreateDbContextAsync(ct);
-        foreach (var manga in mangaList)
+        var mapped = new List<CachedManga>(dtos.Count);
+        foreach (var dto in dtos)
         {
+            var manga = JikanMapper.ToManga(dto);
+            mapped.Add(manga);
+
             var existing = await db.Manga.FindAsync([manga.Id], ct);
             if (existing is null)
                 db.Manga.Add(manga);
             else
                 db.Entry(existing).CurrentValues.SetValues(manga);
+
+            await UpsertGenresAsync(db, JikanMapper.ExtractMangaGenres(dto), manga.Id, "manga", ct);
         }
         await db.SaveChangesAsync(ct);
+        return mapped;
     }
 
     private async Task FetchAndCacheStreamingAsync(int malId)

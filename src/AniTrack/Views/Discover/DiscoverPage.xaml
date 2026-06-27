@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:vm="clr-namespace:AniTrack.ViewModels.Discover"
+             xmlns:loc="clr-namespace:AniTrack.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -13,129 +14,165 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Header + tabs -->
         <StackPanel Grid.Row="0" Margin="24,16,24,0">
-            <TextBlock Text="Discover"
+            <TextBlock Text="{loc:Loc Discover_Title}"
                        FontSize="28" FontWeight="SemiBold"
                        Margin="0,0,0,12"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <ui:Button Content="This Season" Margin="0,0,6,0"
-                           Command="{Binding SwitchTabCommand}"
-                           CommandParameter="{x:Static vm:DiscoverTab.ThisSeason}"/>
-                <ui:Button Content="Upcoming" Margin="0,0,6,0"
-                           Command="{Binding SwitchTabCommand}"
-                           CommandParameter="{x:Static vm:DiscoverTab.Upcoming}"/>
-                <ui:Button Content="Top Anime" Margin="0,0,6,0"
-                           Command="{Binding SwitchTabCommand}"
-                           CommandParameter="{x:Static vm:DiscoverTab.TopAnime}"/>
-                <ui:Button Content="Top Manga"
-                           Command="{Binding SwitchTabCommand}"
-                           CommandParameter="{x:Static vm:DiscoverTab.TopManga}"/>
-            </StackPanel>
+            <Border BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="DiscoverTabs"
+                                 Content="{loc:Loc Discover_AnimeTab}"
+                                 IsChecked="{Binding ActiveTab,
+                                     Converter={StaticResource EqualityConverter},
+                                     ConverterParameter={x:Static vm:DiscoverTab.Anime},
+                                     Mode=OneWay}"
+                                 Command="{Binding SwitchTabCommand}"
+                                 CommandParameter="{x:Static vm:DiscoverTab.Anime}"/>
+                    <RadioButton Style="{StaticResource TabRadioButton}" GroupName="DiscoverTabs"
+                                 Content="{loc:Loc Discover_MangaTab}"
+                                 IsChecked="{Binding ActiveTab,
+                                     Converter={StaticResource EqualityConverter},
+                                     ConverterParameter={x:Static vm:DiscoverTab.Manga},
+                                     Mode=OneWay}"
+                                 Command="{Binding SwitchTabCommand}"
+                                 CommandParameter="{x:Static vm:DiscoverTab.Manga}"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <!-- Search bar -->
-        <Grid Grid.Row="1" Margin="24,0,24,12">
+        <Grid Grid.Row="1" Margin="24,10,24,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <ui:TextBox Grid.Column="0"
-                        PlaceholderText="Search anime or manga…"
+                        PlaceholderText="{loc:Loc Discover_SearchAnime}"
                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                        Margin="0,0,8,0"/>
-            <CheckBox Grid.Column="1" Content="Manga"
-                      IsChecked="{Binding SearchManga}"
-                      VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <ui:Button Grid.Column="2" Content="Search"
+                        Margin="0,0,8,0"
+                        KeyDown="OnSearchKeyDown"/>
+            <ui:Button Grid.Column="1" Content="{loc:Loc Common_Search}"
                        Command="{Binding SearchCommand}"
                        Appearance="Primary"/>
         </Grid>
 
         <!-- Loading indicator -->
-        <ProgressBar Grid.Row="0" Grid.RowSpan="2"
-                     VerticalAlignment="Bottom"
+        <ProgressBar Grid.Row="2"
                      IsIndeterminate="True" Height="3"
                      Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-        <!-- Cards grid -->
-        <ScrollViewer Grid.Row="2"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding Cards}"
-                          Margin="24,0,24,24">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:DiscoverCardViewModel}">
-                        <Border Width="150" Height="250"
-                                Margin="6" CornerRadius="8"
-                                Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                ClipToBounds="True">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+        <!-- Main content area -->
+        <Grid Grid.Row="3">
 
-                                <!-- Cover -->
-                                <Image Grid.Row="0"
-                                       Source="{Binding CoverUrl}"
-                                       Stretch="UniformToFill"
-                                       VerticalAlignment="Top"/>
+            <!-- Error state -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{Binding HasError, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <ui:SymbolIcon Symbol="ErrorCircle24" FontSize="48"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="{loc:Loc Discover_ErrorTitle}"
+                           FontSize="16" FontWeight="SemiBold"
+                           Margin="0,12,0,4" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="{Binding ErrorMessage}"
+                           FontSize="12" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                <ui:Button Content="{loc:Loc Discover_ErrorRetry}"
+                           Command="{Binding LoadCommand}"
+                           Appearance="Secondary"
+                           Margin="0,12,0,0" HorizontalAlignment="Center"/>
+            </StackPanel>
 
-                                <!-- Info panel -->
-                                <Border Grid.Row="1"
+            <!-- Cards grid with infinite scroll -->
+            <ScrollViewer x:Name="CardsScrollViewer"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          ScrollChanged="OnScrollChanged"
+                          Visibility="{Binding HasError, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <StackPanel>
+                    <ItemsControl ItemsSource="{Binding Cards}"
+                                  Margin="24,4,24,8">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:DiscoverCardViewModel}">
+                                <Border Width="150" Height="250"
+                                        Margin="6" CornerRadius="8"
                                         Background="{DynamicResource ControlFillColorDefaultBrush}"
-                                        Padding="8,6">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Title}"
-                                                   FontSize="11" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   MaxHeight="32"
-                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
-                                        <Grid Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0"
-                                                       Text="{Binding Score, StringFormat='★ {0:F1}'}"
-                                                       FontSize="10"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                            <ui:Button Grid.Column="1"
-                                                       Width="24" Height="24" Padding="0"
-                                                       ToolTip="Add to library"
-                                                       Command="{Binding DataContext.RequestAddCommand,
-                                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                       CommandParameter="{Binding}"
-                                                       Visibility="{Binding IsInLibrary,
-                                                           Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                                                <ui:SymbolIcon Symbol="Add24" FontSize="14"/>
-                                            </ui:Button>
-                                            <ui:SymbolIcon Grid.Column="1" Symbol="Checkmark24"
-                                                           FontSize="16"
-                                                           Foreground="{DynamicResource SystemAccentColorBrush}"
-                                                           Visibility="{Binding IsInLibrary,
-                                                               Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                        </Grid>
-                                    </StackPanel>
+                                        ClipToBounds="True" Cursor="Hand"
+                                        MouseLeftButtonUp="Card_MouseLeftButtonUp">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <Image Grid.Row="0"
+                                               Source="{Binding CoverImage}"
+                                               Stretch="UniformToFill"
+                                               VerticalAlignment="Top"/>
+
+                                        <Border Grid.Row="1"
+                                                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                                Padding="8,6">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontSize="11" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxHeight="32"
+                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <Grid Margin="0,4,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding Score, StringFormat='★ {0:F1}'}"
+                                                               FontSize="10"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                    <ui:Button Grid.Column="1"
+                                                               Width="24" Height="24" Padding="0"
+                                                               ToolTip="{loc:Loc Discover_AddToLibrary}"
+                                                               Command="{Binding DataContext.RequestAddCommand,
+                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                               CommandParameter="{Binding}"
+                                                               Visibility="{Binding IsInLibrary,
+                                                                   Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                                        <ui:SymbolIcon Symbol="Add24" FontSize="14"/>
+                                                    </ui:Button>
+                                                    <ui:SymbolIcon Grid.Column="1" Symbol="Checkmark24"
+                                                                   FontSize="16"
+                                                                   Foreground="{DynamicResource SystemAccentColorBrush}"
+                                                                   Visibility="{Binding IsInLibrary,
+                                                                       Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
                                 </Border>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Load more indicator -->
+                    <StackPanel HorizontalAlignment="Center" Margin="0,8,0,16"
+                                Visibility="{Binding IsLoadingMore, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ProgressBar IsIndeterminate="True" Width="120" Height="3"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
     </Grid>
 </UserControl>
