@@ -42,7 +42,8 @@ public partial class App : Application
         var settings = Services.GetRequiredService<ISettingsService>();
 
         var theme = await settings.GetThemeAsync();
-        ApplyTheme(theme);
+        var themeMode = Theming.AppThemeManager.Parse(theme);
+        ApplyTheme(themeMode);
 
         var language = await settings.GetLanguageAsync();
         LocalizationManager.SetCulture(language);
@@ -53,6 +54,10 @@ public partial class App : Application
 
         var mainWindow = Services.GetRequiredService<MainWindow>();
         mainWindow.Show();
+
+        // SystemThemeWatcher needs a window handle, so (re)apply once the window exists.
+        if (themeMode == ViewModels.Settings.ThemeMode.System)
+            Theming.AppThemeManager.Apply(themeMode);
     }
 
     private static IServiceProvider BuildServiceProvider()
@@ -118,11 +123,8 @@ public partial class App : Application
             .CreateLogger();
     }
 
-    private static void ApplyTheme(string theme)
-    {
-        var appTheme = theme == "light" ? ApplicationTheme.Light : ApplicationTheme.Dark;
-        ApplicationThemeManager.Apply(appTheme);
-    }
+    private static void ApplyTheme(ViewModels.Settings.ThemeMode mode) =>
+        Theming.AppThemeManager.Apply(mode);
 
     protected override void OnExit(ExitEventArgs e)
     {

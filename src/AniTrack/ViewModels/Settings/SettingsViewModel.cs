@@ -3,12 +3,14 @@ using System.IO;
 using AniTrack.Core.Domain.Models;
 using AniTrack.Core.Interfaces;
 using AniTrack.Localization;
+using AniTrack.Theming;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
-using Wpf.Ui.Appearance;
 
 namespace AniTrack.ViewModels.Settings;
+
+public enum ThemeMode { Light, Dark, System }
 
 public partial class SettingsViewModel(
     ISettingsService settingsService,
@@ -25,7 +27,7 @@ public partial class SettingsViewModel(
 
     // ── Appearance ────────────────────────────────────────────────────────────
 
-    [ObservableProperty] private bool _isDarkTheme = true;
+    [ObservableProperty] private ThemeMode _selectedThemeMode = ThemeMode.Dark;
     public IReadOnlyList<LanguageOption> Languages => LocalizationManager.SupportedLanguages;
     [ObservableProperty] private LanguageOption? _selectedLanguage;
 
@@ -41,12 +43,14 @@ public partial class SettingsViewModel(
     [ObservableProperty] private ObservableCollection<LibraryItem> _trashItems = [];
     [ObservableProperty] private bool _isTrashLoading;
 
+    public bool HasTrashItems => TrashItems.Count > 0;
+
     // ── Init ──────────────────────────────────────────────────────────────────
 
     public async Task InitializeAsync()
     {
         var theme = await settingsService.GetThemeAsync();
-        IsDarkTheme = theme != "light";
+        SelectedThemeMode = AppThemeManager.Parse(theme);
 
         var language = await settingsService.GetLanguageAsync();
         SelectedLanguage = Languages.FirstOrDefault(l => l.Code == language) ?? Languages[0];
@@ -60,12 +64,13 @@ public partial class SettingsViewModel(
     // ── Theme ─────────────────────────────────────────────────────────────────
 
     [RelayCommand]
-    private async Task ToggleThemeAsync()
+    private async Task SetThemeModeAsync(ThemeMode mode)
     {
-        IsDarkTheme = !IsDarkTheme;
-        var themeName = IsDarkTheme ? "dark" : "light";
-        await settingsService.SetThemeAsync(themeName);
-        ApplicationThemeManager.Apply(IsDarkTheme ? ApplicationTheme.Dark : ApplicationTheme.Light);
+        if (!_initialized && mode == SelectedThemeMode) return;
+
+        SelectedThemeMode = mode;
+        AppThemeManager.Apply(mode);
+        await settingsService.SetThemeAsync(AppThemeManager.ToStored(mode));
     }
 
     async partial void OnSelectedLanguageChanged(LanguageOption? value)
@@ -157,7 +162,10 @@ public partial class SettingsViewModel(
     {
         var result = await trackingService.RestoreFromTrashAsync(item.Id);
         if (result.IsSuccess)
+        {
             TrashItems.Remove(item);
+            OnPropertyChanged(nameof(HasTrashItems));
+        }
     }
 
     [RelayCommand]
@@ -165,6 +173,12 @@ public partial class SettingsViewModel(
     {
         var result = await trackingService.EmptyTrashAsync();
         if (result.IsSuccess)
+        {
             TrashItems.Clear();
+            OnPropertyChanged(nameof(HasTrashItems));
+        }
     }
+
+    partial void OnTrashItemsChanged(ObservableCollection<LibraryItem> value) =>
+        OnPropertyChanged(nameof(HasTrashItems));
 }

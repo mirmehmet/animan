@@ -86,13 +86,11 @@
                             <ui:Button Command="{Binding ToggleFavoriteCommand}"
                                        Appearance="Transparent" Margin="0,0,8,0"
                                        ToolTip="Favorite">
-                                <ui:SymbolIcon>
+                                <ui:SymbolIcon Symbol="Heart24">
                                     <ui:SymbolIcon.Style>
                                         <Style TargetType="ui:SymbolIcon">
-                                            <Setter Property="Symbol" Value="Heart24"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                    <Setter Property="Symbol" Value="HeartFilled24"/>
                                                     <Setter Property="Foreground" Value="#FF69B4"/>
                                                 </DataTrigger>
                                             </Style.Triggers>

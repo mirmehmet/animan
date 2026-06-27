@@ -197,6 +197,14 @@
   <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Empty Trash</value></data>
   <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Restart required</value></data>
   <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Data imported successfully. AniTrack will now restart to apply changes.</value></data>
+  <data name="Settings_Appearance" xml:space="preserve"><value>Appearance</value></data>
+  <data name="Settings_ThemeLight" xml:space="preserve"><value>Light</value></data>
+  <data name="Settings_ThemeDark" xml:space="preserve"><value>Dark</value></data>
+  <data name="Settings_ThemeSystem" xml:space="preserve"><value>System</value></data>
+  <data name="Settings_DataBackup" xml:space="preserve"><value>Data &amp; Backup</value></data>
+  <data name="Settings_ExportAction" xml:space="preserve"><value>Back Up</value></data>
+  <data name="Settings_ImportAction" xml:space="preserve"><value>Choose File</value></data>
+  <data name="Settings_GitHub" xml:space="preserve"><value>Project on GitHub</value></data>
 
   <data name="Common_Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Common_Restore" xml:space="preserve"><value>Restore</value></data>

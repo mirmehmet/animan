@@ -52,4 +52,19 @@ public partial class SettingsPage : UserControl
         System.Diagnostics.Process.Start(
             System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!);
     }
+
+    private async void OnEmptyTrashClicked(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = LocalizationManager.Get("Settings_EmptyTrashTitle"),
+            Content = LocalizationManager.Get("Settings_EmptyTrashContent"),
+            PrimaryButtonText = LocalizationManager.Get("Settings_EmptyTrashConfirm"),
+            CloseButtonText = LocalizationManager.Get("Common_Cancel")
+        };
+
+        var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
+        if (result == ContentDialogResult.Primary)
+            _viewModel.EmptyTrashCommand.Execute(null);
+    }
 }

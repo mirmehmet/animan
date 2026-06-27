@@ -197,6 +197,14 @@
   <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Boşalt</value></data>
   <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Yeniden başlatma gerekli</value></data>
   <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Veriler başarıyla içe aktarıldı. Değişiklikleri uygulamak için AniTrack yeniden başlatılacak.</value></data>
+  <data name="Settings_Appearance" xml:space="preserve"><value>Görünüm</value></data>
+  <data name="Settings_ThemeLight" xml:space="preserve"><value>Açık</value></data>
+  <data name="Settings_ThemeDark" xml:space="preserve"><value>Koyu</value></data>
+  <data name="Settings_ThemeSystem" xml:space="preserve"><value>Sistem</value></data>
+  <data name="Settings_DataBackup" xml:space="preserve"><value>Veri &amp; Yedekleme</value></data>
+  <data name="Settings_ExportAction" xml:space="preserve"><value>Yedekle</value></data>
+  <data name="Settings_ImportAction" xml:space="preserve"><value>Dosya Seç</value></data>
+  <data name="Settings_GitHub" xml:space="preserve"><value>GitHub'da Proje</value></data>
 
   <data name="Common_Delete" xml:space="preserve"><value>Sil</value></data>
   <data name="Common_Restore" xml:space="preserve"><value>Geri Al</value></data>

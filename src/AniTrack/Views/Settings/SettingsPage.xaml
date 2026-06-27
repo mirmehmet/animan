@@ -3,148 +3,193 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:loc="clr-namespace:AniTrack.Localization"
+             xmlns:vm="clr-namespace:AniTrack.ViewModels.Settings"
              xmlns:domain="clr-namespace:AniTrack.Core.Domain.Models;assembly=AniTrack.Core"
              d:DesignHeight="700" d:DesignWidth="800"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
 
+    <UserControl.Resources>
+        <!-- Keyed + BasedOn so the default CardControl template (icon + header left,
+             content right — the Windows 11 look) is preserved, not clobbered. -->
+        <Style x:Key="SettingCard" TargetType="ui:CardControl"
+               BasedOn="{StaticResource {x:Type ui:CardControl}}">
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="2,18,0,8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+    </UserControl.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24">
-            <StackPanel.Resources>
-                <Style TargetType="ui:CardControl">
-                    <Setter Property="Margin" Value="0,0,0,8"/>
-                </Style>
-                <Style TargetType="TextBlock" x:Key="SectionHeader">
-                    <Setter Property="FontSize" Value="13"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                    <Setter Property="Margin" Value="0,16,0,8"/>
-                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
-                </Style>
-            </StackPanel.Resources>
+        <StackPanel Margin="24" MaxWidth="760" HorizontalAlignment="Left">
 
             <TextBlock Text="{loc:Loc Settings_Title}" FontSize="24" FontWeight="SemiBold"
-                       Margin="0,0,0,16"
+                       Margin="0,0,0,8"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
 
-            <!-- ── Appearance ──────────────────────────────────────────────── -->
+            <!-- ══ Appearance ════════════════════════════════════════════════ -->
+            <TextBlock Text="{loc:Loc Settings_Appearance}" Style="{StaticResource SectionHeader}"/>
 
-            <ui:CardControl Icon="{ui:SymbolIcon Symbol=DarkTheme24}"
-                            Header="{loc:Loc Settings_DarkMode}">
-                <ui:ToggleSwitch IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
-                                 Command="{Binding ToggleThemeCommand}"/>
+            <!-- Theme: segmented Light / Dark / System -->
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=DarkTheme24}"
+                            Header="{loc:Loc Settings_Theme}">
+                <Border CornerRadius="6" ClipToBounds="True"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Style="{StaticResource SegmentRadioButton}" GroupName="ThemeMode"
+                                     Content="{loc:Loc Settings_ThemeLight}"
+                                     IsChecked="{Binding SelectedThemeMode,
+                                         Converter={StaticResource EqualityConverter},
+                                         ConverterParameter={x:Static vm:ThemeMode.Light}, Mode=OneWay}"
+                                     Command="{Binding SetThemeModeCommand}"
+                                     CommandParameter="{x:Static vm:ThemeMode.Light}"/>
+                        <RadioButton Style="{StaticResource SegmentRadioButton}" GroupName="ThemeMode"
+                                     Content="{loc:Loc Settings_ThemeDark}"
+                                     IsChecked="{Binding SelectedThemeMode,
+                                         Converter={StaticResource EqualityConverter},
+                                         ConverterParameter={x:Static vm:ThemeMode.Dark}, Mode=OneWay}"
+                                     Command="{Binding SetThemeModeCommand}"
+                                     CommandParameter="{x:Static vm:ThemeMode.Dark}"/>
+                        <RadioButton Style="{StaticResource SegmentRadioButton}" GroupName="ThemeMode"
+                                     Content="{loc:Loc Settings_ThemeSystem}"
+                                     IsChecked="{Binding SelectedThemeMode,
+                                         Converter={StaticResource EqualityConverter},
+                                         ConverterParameter={x:Static vm:ThemeMode.System}, Mode=OneWay}"
+                                     Command="{Binding SetThemeModeCommand}"
+                                     CommandParameter="{x:Static vm:ThemeMode.System}"/>
+                    </StackPanel>
+                </Border>
             </ui:CardControl>
 
-            <ui:CardControl Icon="{ui:SymbolIcon Symbol=LocalLanguage24}"
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=LocalLanguage24}"
                             Header="{loc:Loc Settings_Language}">
                 <ComboBox ItemsSource="{Binding Languages}"
                           SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}"
                           DisplayMemberPath="Display"
-                          MinWidth="140"/>
+                          MinWidth="160"/>
             </ui:CardControl>
 
-            <ui:CardControl Icon="{ui:SymbolIcon Symbol=Home24}"
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=Home24}"
                             Header="{loc:Loc Settings_StartupPage}">
                 <ComboBox ItemsSource="{Binding StartupPageOptions}"
                           SelectedItem="{Binding SelectedStartupPage, Mode=TwoWay}"
-                          MinWidth="140"/>
+                          MinWidth="160"/>
             </ui:CardControl>
 
-            <!-- ── Data / Backup ───────────────────────────────────────────── -->
+            <!-- ══ Data & Backup ═════════════════════════════════════════════ -->
+            <TextBlock Text="{loc:Loc Settings_DataBackup}" Style="{StaticResource SectionHeader}"/>
 
-            <TextBlock Text="{loc:Loc Settings_Export}" Style="{StaticResource SectionHeader}"/>
-
-            <ui:CardControl Icon="{ui:SymbolIcon Symbol=ArrowExportUp24}"
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=ArrowExportUp24}"
                             Header="{loc:Loc Settings_Export}">
-                <ui:Button Content="{loc:Loc Settings_Export}"
+                <ui:Button Content="{loc:Loc Settings_ExportAction}"
                            Command="{Binding ExportDataCommand}"
                            Appearance="Secondary"/>
             </ui:CardControl>
 
-            <ui:CardControl Icon="{ui:SymbolIcon Symbol=ArrowImport24}"
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=ArrowImport24}"
                             Header="{loc:Loc Settings_Import}">
-                <ui:Button Content="{loc:Loc Settings_Import}"
+                <ui:Button Content="{loc:Loc Settings_ImportAction}"
                            Command="{Binding ImportDataCommand}"
                            Appearance="Secondary"/>
             </ui:CardControl>
 
-            <!-- ── Trash ───────────────────────────────────────────────────── -->
+            <!-- ══ Trash ═════════════════════════════════════════════════════ -->
+            <Grid Margin="2,18,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Trash}"
+                           FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <ui:Button Grid.Column="1" Content="{loc:Loc Settings_EmptyTrash}"
+                           Appearance="Caution" Click="OnEmptyTrashClicked"
+                           Visibility="{Binding HasTrashItems, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </Grid>
 
-            <TextBlock Text="{loc:Loc Settings_Trash}" Style="{StaticResource SectionHeader}"/>
+            <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,8"
+                         Visibility="{Binding IsTrashLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-            <StackPanel Margin="0,0,0,8">
-                <!-- Trash list header row -->
-                <Grid Margin="0,0,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <ui:Button Grid.Column="1"
-                               Content="{loc:Loc Settings_EmptyTrash}"
-                               Command="{Binding EmptyTrashCommand}"
-                               Appearance="Caution"
-                               HorizontalAlignment="Right"/>
-                </Grid>
+            <!-- Empty state -->
+            <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    CornerRadius="8" Padding="0,20" Margin="0,0,0,8"
+                    Visibility="{Binding HasTrashItems, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                <StackPanel HorizontalAlignment="Center">
+                    <ui:SymbolIcon Symbol="Delete24" FontSize="28"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                    <TextBlock Text="{loc:Loc Settings_TrashEmpty}"
+                               FontSize="12" Margin="0,6,0,0" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                </StackPanel>
+            </Border>
 
-                <!-- Loading indicator for trash -->
-                <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,8"
-                             Visibility="{Binding IsTrashLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <!-- Trash items -->
+            <ItemsControl ItemsSource="{Binding TrashItems}"
+                          Visibility="{Binding HasTrashItems, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type domain:LibraryItem}">
+                        <ui:CardControl Margin="0,0,0,4">
+                            <ui:CardControl.Icon>
+                                <ui:SymbolIcon Symbol="Delete24"/>
+                            </ui:CardControl.Icon>
+                            <ui:CardControl.Header>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Snapshot.Title}"
+                                               FontWeight="SemiBold" FontSize="13"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                               Text="{Binding DeletedAt,
+                                                   Converter={StaticResource DaysRemainingConverter},
+                                                   StringFormat='{}{0} days left'}"/>
+                                </StackPanel>
+                            </ui:CardControl.Header>
+                            <ui:Button Content="{loc:Loc Common_Restore}"
+                                       Appearance="Secondary"
+                                       Command="{Binding DataContext.RestoreItemCommand,
+                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                       CommandParameter="{Binding}"/>
+                        </ui:CardControl>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-                <!-- Empty trash state -->
-                <TextBlock Text="{loc:Loc Settings_TrashEmpty}"
-                           FontSize="12" HorizontalAlignment="Center"
-                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                           Margin="0,8,0,8"
-                           Visibility="{Binding TrashItems.Count, ConverterParameter=Invert,
-                               Converter={StaticResource CountToVisibilityConverter}}"/>
-
-                <!-- Trash items list -->
-                <ItemsControl ItemsSource="{Binding TrashItems}"
-                              Visibility="{Binding TrashItems.Count, Converter={StaticResource CountToVisibilityConverter}}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type domain:LibraryItem}">
-                            <ui:CardControl Margin="0,0,0,4">
-                                <ui:CardControl.Icon>
-                                    <ui:SymbolIcon Symbol="Delete24"/>
-                                </ui:CardControl.Icon>
-                                <ui:CardControl.Header>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Snapshot.Title}"
-                                                   FontWeight="SemiBold" FontSize="13"/>
-                                        <TextBlock FontSize="11"
-                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                   Text="{Binding DeletedAt,
-                                                       Converter={StaticResource DaysRemainingConverter},
-                                                       StringFormat='{}{0} days left'}"/>
-                                    </StackPanel>
-                                </ui:CardControl.Header>
-                                <ui:Button Content="{loc:Loc Common_Restore}"
-                                           Appearance="Secondary"
-                                           Command="{Binding DataContext.RestoreItemCommand,
-                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                           CommandParameter="{Binding}"/>
-                            </ui:CardControl>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-
-            <!-- ── About ───────────────────────────────────────────────────── -->
-
+            <!-- ══ About ═════════════════════════════════════════════════════ -->
             <TextBlock Text="{loc:Loc Settings_About}" Style="{StaticResource SectionHeader}"/>
 
-            <ui:CardControl Icon="{ui:SymbolIcon Symbol=Info24}"
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=Info24}"
                             Header="AniTrack">
                 <TextBlock Text="{loc:Loc Settings_AppVersion}"
-                           FontSize="12"
+                           FontSize="12" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
             </ui:CardControl>
 
-            <ui:CardControl Icon="{ui:SymbolIcon Symbol=Globe24}"
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=Globe24}"
                             Header="{loc:Loc Settings_DataSource}">
                 <TextBlock Text="Jikan API (api.jikan.moe)"
-                           FontSize="12"
+                           FontSize="12" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+            </ui:CardControl>
+
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=Code24}"
+                            Header="{loc:Loc Settings_GitHub}">
+                <ui:HyperlinkButton Content="github.com/mirmehmet/animaTrack"
+                                    NavigateUri="https://github.com/mirmehmet/animaTrack"/>
             </ui:CardControl>
 
         </StackPanel>
