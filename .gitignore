@@ -24,7 +24,7 @@ logs/
 *.log
 
 ## Covers cache
-src/AniTrack/Assets/Covers/
+src/AniMan/Assets/Covers/
 
 ## dotnet-skills (cloned at setup time, not committed)
 .github/skills/
@@ -36,5 +36,5 @@ desktop.ini
 
 blueprint.md
 CLAUDE.md
-anitrack_ui_prototype.html
+animan_ui_prototype.html
 wiki/
