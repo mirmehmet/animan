@@ -3,6 +3,17 @@
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
     <!-- ═══════════════════════════════════════════════════════════════════════
+         GLOBAL TEXTBLOCK DEFAULT
+         Ensures all TextBlocks respond to theme changes via DynamicResource
+         instead of relying on inherited-property propagation (which can lag).
+         Explicit Foreground on any TextBlock overrides this style.
+    ═══════════════════════════════════════════════════════════════════════════ -->
+
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+    </Style>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
          TYPOGRAPHY
     ═══════════════════════════════════════════════════════════════════════════ -->
 
@@ -116,7 +127,8 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             Padding="{TemplateBinding Padding}"
                             CornerRadius="0">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
@@ -151,7 +163,8 @@
                             BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
@@ -199,7 +212,8 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource CornerPill}"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">

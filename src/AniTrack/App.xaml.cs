@@ -58,9 +58,10 @@ public partial class App : Application
         var mainWindow = Services.GetRequiredService<MainWindow>();
         mainWindow.Show();
 
-        // SystemThemeWatcher needs a window handle, so (re)apply once the window exists.
+        // SystemThemeWatcher needs a window handle — attach AFTER Show(), without
+        // re-applying the theme (which would briefly reset DynamicResource values).
         if (themeMode == ViewModels.Settings.ThemeMode.System)
-            Theming.AppThemeManager.Apply(themeMode);
+            Theming.AppThemeManager.AttachSystemWatcher(mainWindow);
     }
 
     private static IServiceProvider BuildServiceProvider()

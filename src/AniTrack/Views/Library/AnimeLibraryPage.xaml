@@ -4,6 +4,7 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:loc="clr-namespace:AniTrack.Localization"
              xmlns:vm="clr-namespace:AniTrack.ViewModels.Library"
+             xmlns:ctrl="clr-namespace:AniTrack.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignHeight="600" d:DesignWidth="1000">
@@ -61,6 +62,9 @@
                                  Content="{loc:Loc Status_OnHold}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=4, Converter={StaticResource EqualityConverter}}"/>
                     <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
+                                 Content="{loc:Loc Status_Dropped}"
+                                 IsChecked="{Binding ActiveStatusId, ConverterParameter=5, Converter={StaticResource EqualityConverter}}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
                                  Content="{loc:Loc Status_PlanToWatch}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=6, Converter={StaticResource EqualityConverter}}"/>
                     <RadioButton Style="{StaticResource PillTab}" GroupName="AnimeStatus"
@@ -88,18 +92,12 @@
         <!-- Content -->
         <Grid Grid.Row="3">
             <!-- Empty state -->
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{Binding Items.Count, ConverterParameter=Invert, Converter={StaticResource CountToVisibilityConverter}}">
-                <ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="48"
-                               HorizontalAlignment="Center"
-                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
-                <TextBlock Text="{loc:Loc Library_EmptyTitle}" FontSize="16" FontWeight="SemiBold"
-                           Margin="0,12,0,4" HorizontalAlignment="Center"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                <TextBlock Text="{loc:Loc Library_EmptyMessage}" FontSize="12"
-                           HorizontalAlignment="Center"
-                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
-            </StackPanel>
+            <ctrl:EmptyStateControl
+                Icon="MoviesAndTv24"
+                Title="{loc:Loc Library_EmptyTitle}"
+                Subtitle="{loc:Loc Library_EmptyMessage}"
+                Visibility="{Binding Items.Count, ConverterParameter=Invert,
+                             Converter={StaticResource CountToVisibilityConverter}}"/>
 
             <!-- Cards -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
@@ -112,50 +110,17 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:LibraryCardViewModel}">
-                            <Border Style="{StaticResource MediaCard}"
-                                    Margin="{StaticResource CardMargin}"
-                                    Width="150" Height="252"
-                                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                                    MouseLeftButtonUp="Card_MouseLeftButtonUp">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="200"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-
-                                    <!-- Cover + badge -->
-                                    <Border Grid.Row="0" CornerRadius="{StaticResource CornerCardTop}"
-                                            ClipToBounds="True">
-                                        <Grid>
-                                            <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
-                                            <Image Source="{Binding CoverImage}" Stretch="UniformToFill"/>
-                                            <Border VerticalAlignment="Top" HorizontalAlignment="Left"
-                                                    Margin="8" Padding="7,3"
-                                                    CornerRadius="{StaticResource CornerPill}"
-                                                    Background="{Binding StatusBackground}">
-                                                <TextBlock Text="{Binding StatusName}"
-                                                           FontSize="9" FontWeight="SemiBold"
-                                                           Foreground="{Binding StatusForeground}"/>
-                                            </Border>
-                                        </Grid>
-                                    </Border>
-
-                                    <!-- Info -->
-                                    <StackPanel Grid.Row="1" Margin="10,7,10,8">
-                                        <TextBlock Text="{Binding Title}"
-                                                   FontSize="11" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Height="30" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding ProgressText}"
-                                                   FontSize="10" Margin="0,2,0,4"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                        <ProgressBar Style="{StaticResource BrandProgressBar}"
-                                                     Minimum="0" Maximum="100"
-                                                     Value="{Binding ProgressPercent, Mode=OneWay}"
-                                                     Foreground="{Binding ProgressAccent}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
+                            <ctrl:LibraryMediaCard
+                                Margin="{StaticResource CardMargin}"
+                                CoverSource="{Binding CoverImage}"
+                                Title="{Binding Title}"
+                                StatusName="{Binding StatusName}"
+                                StatusBackground="{Binding StatusBackground}"
+                                StatusForeground="{Binding StatusForeground}"
+                                ProgressText="{Binding ProgressText}"
+                                ProgressPercent="{Binding ProgressPercent}"
+                                ProgressAccent="{Binding ProgressAccent}"
+                                MouseLeftButtonUp="Card_MouseLeftButtonUp"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

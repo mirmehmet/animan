@@ -95,6 +95,17 @@ public static class AppThemeManager
             _ => ApplicationTheme.Dark
         };
 
+    /// <summary>
+    /// Attaches SystemThemeWatcher after the window is shown (needs a HWND).
+    /// Does NOT re-apply the theme — call this only after Apply() already ran.
+    /// </summary>
+    public static void AttachSystemWatcher(Window window)
+    {
+        if (_watching) return;
+        SystemThemeWatcher.Watch(window);
+        _watching = true;
+    }
+
     private static void StartWatching(Window? window)
     {
         if (window is null || _watching) return;
