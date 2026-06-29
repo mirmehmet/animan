@@ -27,10 +27,10 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore AniTrack.slnx
+        run: dotnet restore AniMan.slnx
 
       - name: Build
-        run: dotnet build AniTrack.slnx --configuration Release --no-restore
+        run: dotnet build AniMan.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test AniTrack.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test AniMan.slnx --configuration Release --no-build --verbosity normal

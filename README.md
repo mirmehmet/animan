@@ -1,5 +1,8 @@
 # AniMan
 
+[![CI](https://github.com/mirmehmet/animan/actions/workflows/ci.yml/badge.svg)](https://github.com/mirmehmet/animan/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](LICENSE)
+
 A WPF desktop app for tracking anime and manga, powered by the [Jikan](https://jikan.moe/) (MyAnimeList) API.
 
 ---
@@ -63,7 +66,7 @@ dotnet run --project src/AniMan/AniMan.csproj
 To produce a single self-contained executable:
 
 ```bash
-dotnet publish src/AniMan/AniMan.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -o publish
+dotnet publish src/AniMan/AniMan.csproj -c Release -o publish
 ```
 
 Output: `publish/AniMan.exe` — no .NET installation needed on the target machine.
