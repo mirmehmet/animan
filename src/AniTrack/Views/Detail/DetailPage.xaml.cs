@@ -189,41 +189,11 @@ public partial class DetailPage : UserControl, INavigationAware
 
     private void OnStatusPillClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not SWC.Button btn || btn.Tag is not string tagStr) return;
+        if (sender is not System.Windows.Controls.Primitives.ButtonBase btn
+            || btn.Tag is not string tagStr) return;
         if (!int.TryParse(tagStr, out int statusId)) return;
         var vm = (DetailViewModel)DataContext;
         vm.UpdateStatusCommand.Execute(statusId);
-        HighlightActivePill(statusId);
-    }
-
-    private void HighlightActivePill(int activeStatusId)
-    {
-        // Walk all pill buttons in the status rows and update visuals
-        WalkPills(this, activeStatusId);
-    }
-
-    private static void WalkPills(DependencyObject parent, int activeStatusId)
-    {
-        int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < count; i++)
-        {
-            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
-            if (child is SWC.Button btn && btn.Style?.TargetType == typeof(SWC.Button)
-                && btn.Tag is string tagStr && int.TryParse(tagStr, out int id))
-            {
-                bool isActive = id == activeStatusId;
-                btn.Background = isActive
-                    ? (System.Windows.Media.Brush)btn.FindResource("AccentFillColorDefaultBrush")
-                    : (System.Windows.Media.Brush)btn.FindResource("ControlFillColorDefaultBrush");
-                btn.Foreground = isActive
-                    ? (System.Windows.Media.Brush)btn.FindResource("TextOnAccentFillColorPrimaryBrush")
-                    : (System.Windows.Media.Brush)btn.FindResource("TextFillColorSecondaryBrush");
-            }
-            else
-            {
-                WalkPills(child, activeStatusId);
-            }
-        }
     }
 
     private async void OnDeleteClicked(object sender, RoutedEventArgs e)

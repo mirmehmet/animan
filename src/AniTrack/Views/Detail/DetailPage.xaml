@@ -147,41 +147,41 @@
                         <!-- Status pills (Anime) -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
                                     Visibility="{Binding IsManga, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_Watching}"
-                                    Click="OnStatusPillClicked" Tag="1"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_PlanToWatch}"
-                                    Click="OnStatusPillClicked" Tag="6"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_Completed}"
-                                    Click="OnStatusPillClicked" Tag="3"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_OnHold}"
-                                    Click="OnStatusPillClicked" Tag="4"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_Dropped}"
-                                    Click="OnStatusPillClicked" Tag="5"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="AnimeStatus"
+                                         Content="{loc:Loc Status_Watching}" Tag="1" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=1, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="AnimeStatus"
+                                         Content="{loc:Loc Status_PlanToWatch}" Tag="6" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=6, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="AnimeStatus"
+                                         Content="{loc:Loc Status_Completed}" Tag="3" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=3, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="AnimeStatus"
+                                         Content="{loc:Loc Status_OnHold}" Tag="4" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=4, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="AnimeStatus"
+                                         Content="{loc:Loc Status_Dropped}" Tag="5" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=5, Mode=OneWay}"/>
                         </StackPanel>
 
                         <!-- Status pills (Manga) -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
                                     Visibility="{Binding IsManga, Converter={StaticResource BoolToVisibility}}">
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_Reading}"
-                                    Click="OnStatusPillClicked" Tag="2"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_PlanToRead}"
-                                    Click="OnStatusPillClicked" Tag="7"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_Completed}"
-                                    Click="OnStatusPillClicked" Tag="3"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_OnHold}"
-                                    Click="OnStatusPillClicked" Tag="4"/>
-                            <Button Style="{StaticResource StatusPillButton}"
-                                    Content="{loc:Loc Status_Dropped}"
-                                    Click="OnStatusPillClicked" Tag="5"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="MangaStatus"
+                                         Content="{loc:Loc Status_Reading}" Tag="2" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=2, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="MangaStatus"
+                                         Content="{loc:Loc Status_PlanToRead}" Tag="7" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=7, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="MangaStatus"
+                                         Content="{loc:Loc Status_Completed}" Tag="3" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=3, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="MangaStatus"
+                                         Content="{loc:Loc Status_OnHold}" Tag="4" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=4, Mode=OneWay}"/>
+                            <RadioButton Style="{StaticResource StatusPillRadio}" GroupName="MangaStatus"
+                                         Content="{loc:Loc Status_Dropped}" Tag="5" Click="OnStatusPillClicked"
+                                         IsChecked="{Binding CurrentStatusId, Converter={StaticResource EqualityConverter}, ConverterParameter=5, Mode=OneWay}"/>
                         </StackPanel>
 
                         <!-- MAL score + User rating row -->
