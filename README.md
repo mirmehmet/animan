@@ -1,36 +1,79 @@
 # AniMan
 
-[![CI](https://github.com/mirmehmet/animaTrack/actions/workflows/ci.yml/badge.svg)](https://github.com/mirmehmet/animaTrack/actions/workflows/ci.yml)
+A WPF desktop app for tracking anime and manga, powered by the [Jikan](https://jikan.moe/) (MyAnimeList) API.
 
-A WPF desktop app (.NET 10) for tracking anime and manga, backed by the [Jikan](https://jikan.moe/) (MyAnimeList) API.
+---
 
-## Stack
+## Features
 
-WPF · WPF UI 3 · CommunityToolkit.Mvvm · EF Core 9 · SQLite · Polly · Serilog · xUnit
+- Search and discover anime & manga via the Jikan API
+- Personal library with status tracking (Watching, Completed, On-hold, Dropped, Plan to watch)
+- Episode and chapter progress tracking
+- Cover art downloaded and cached locally
+- Stats page with score distribution, top genres, and monthly activity
+- Export & import library as a portable JSON backup (Merge or Overwrite)
+- Light / Dark / System theme with violet accent
+- Turkish and English localization
 
-## Architecture
+---
 
-| Project | Responsibility |
-|---|---|
-| `AniMan.Core` | Domain models, service interfaces, `Result<T>` |
-| `AniMan.Infrastructure` | EF Core (two DbContexts), Jikan client, services |
-| `AniMan` | WPF UI (views, view models) |
-| `AniMan.Tests` | xUnit unit/integration tests |
+## Built With
 
-Two SQLite databases live under `%APPDATA%\AniMan\`: `catalog.db` (disposable API cache)
-and `library.db` (user data). They never share a transaction.
+- **WPF + WPF UI 3** — UI framework and Fluent controls
+- **CommunityToolkit.Mvvm** — MVVM source generators
+- **EF Core 9 + SQLite** — Two separate databases: `catalog.db` (disposable API cache) and `library.db` (user data)
+- **Polly** — Retry and resilience for Jikan API calls
+- **Serilog** — Structured daily rolling logs
+- **xUnit** — Unit and integration tests
 
-## Build & Test
+---
 
-```bash
-dotnet restore AniMan.slnx
-dotnet build AniMan.slnx -c Release
-dotnet test AniMan.slnx -c Release
+## Data
+
+All user data lives under `%APPDATA%\AniMan\`:
+
+```
+AniMan/
+├── catalog.db    — Jikan API cache (can be deleted safely)
+├── library.db    — your library, progress, notes
+├── covers/       — downloaded cover images
+└── logs/         — daily log files
 ```
 
-Requires the .NET 10 SDK. The app builds and runs on Windows only (WPF).
+---
 
-## Backup & Restore
+## Download
 
-The library can be exported to a portable JSON backup and re-imported in either
-**Merge** (add missing, keep existing) or **Overwrite** (replace all) mode.
+Go to **[Releases](https://github.com/mirmehmet/animan/releases)** and grab the latest `AniMan.exe`. No installation or .NET runtime required — just run it.
+
+---
+
+## Build & Run
+
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download). Windows only (WPF).
+
+```bash
+git clone https://github.com/mirmehmet/animan.git
+cd animan
+dotnet restore AniMan.slnx
+dotnet build AniMan.slnx
+dotnet run --project src/AniMan/AniMan.csproj
+```
+
+To produce a single self-contained executable:
+
+```bash
+dotnet publish src/AniMan/AniMan.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -o publish
+```
+
+Output: `publish/AniMan.exe` — no .NET installation needed on the target machine.
+
+To run tests:
+
+```bash
+dotnet test AniMan.slnx
+```
+
+---
+
+*Made with curiosity by [Mir](https://github.com/mirmehmet)*
