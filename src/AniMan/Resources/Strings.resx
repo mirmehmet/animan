@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="Common_Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Common_List" xml:space="preserve"><value>List</value></data>
+  <data name="Common_Grid" xml:space="preserve"><value>Grid</value></data>
+  <data name="Common_Add" xml:space="preserve"><value>Add</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Cancel</value></data>
+
+  <data name="Status_Watching" xml:space="preserve"><value>Watching</value></data>
+  <data name="Status_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Status_OnHold" xml:space="preserve"><value>On-hold</value></data>
+  <data name="Status_Dropped" xml:space="preserve"><value>Dropped</value></data>
+  <data name="Status_PlanToWatch" xml:space="preserve"><value>Plan to watch</value></data>
+  <data name="Status_Reading" xml:space="preserve"><value>Reading</value></data>
+  <data name="Status_PlanToRead" xml:space="preserve"><value>Plan to read</value></data>
+  <data name="Status_All" xml:space="preserve"><value>All</value></data>
+
+  <data name="Nav_Anime" xml:space="preserve"><value>Anime</value></data>
+  <data name="Nav_Manga" xml:space="preserve"><value>Manga</value></data>
+  <data name="Nav_Discover" xml:space="preserve"><value>Discover</value></data>
+  <data name="Nav_Stats" xml:space="preserve"><value>Stats</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>Settings</value></data>
+
+  <data name="Settings_Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings_Theme" xml:space="preserve"><value>Theme</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Settings_RestartTitle" xml:space="preserve"><value>Restart required</value></data>
+  <data name="Settings_RestartMessage" xml:space="preserve"><value>Please restart AniMan to apply the new language.</value></data>
+
+  <data name="Stats_Title" xml:space="preserve"><value>Statistics</value></data>
+  <data name="Stats_EpisodesWatched" xml:space="preserve"><value>Episodes watched</value></data>
+  <data name="Stats_WatchTime" xml:space="preserve"><value>Watch time</value></data>
+  <data name="Stats_ChaptersRead" xml:space="preserve"><value>Chapters read</value></data>
+  <data name="Stats_MeanScore" xml:space="preserve"><value>Mean score</value></data>
+  <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Status Breakdown</value></data>
+  <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Score Distribution</value></data>
+  <data name="Stats_TopGenres" xml:space="preserve"><value>Top Genres</value></data>
+  <data name="Stats_MonthlyActivity" xml:space="preserve"><value>Monthly Activity (last 12 months)</value></data>
+
+  <data name="Discover_Title" xml:space="preserve"><value>Discover</value></data>
+  <data name="Discover_ThisSeason" xml:space="preserve"><value>This Season</value></data>
+  <data name="Discover_Upcoming" xml:space="preserve"><value>Upcoming</value></data>
+  <data name="Discover_TopAnime" xml:space="preserve"><value>Top Anime</value></data>
+  <data name="Discover_TopManga" xml:space="preserve"><value>Top Manga</value></data>
+  <data name="Discover_SearchPlaceholder" xml:space="preserve"><value>Search anime or manga…</value></data>
+  <data name="Discover_SearchManga" xml:space="preserve"><value>Manga</value></data>
+  <data name="Discover_AddToLibrary" xml:space="preserve"><value>Add to library</value></data>
+  <data name="Discover_SelectStatus" xml:space="preserve"><value>Select status:</value></data>
+
+  <data name="Library_SearchAnime" xml:space="preserve"><value>Search anime...</value></data>
+  <data name="Library_SearchManga" xml:space="preserve"><value>Search manga...</value></data>
+  <data name="Library_EmptyTitle" xml:space="preserve"><value>Your library is empty</value></data>
+  <data name="Library_EmptyMessage" xml:space="preserve"><value>Head to Discover to find titles and add them here.</value></data>
+  <data name="Library_NoResultsTitle" xml:space="preserve"><value>No matches</value></data>
+  <data name="Library_NoResultsMessage" xml:space="preserve"><value>Try a different filter or search term.</value></data>
+  <data name="Library_NoTitle" xml:space="preserve"><value>(no title)</value></data>
+
+  <data name="Detail_ReSnapshot" xml:space="preserve"><value>Re-snapshot</value></data>
+  <data name="Detail_EpisodesSuffix" xml:space="preserve"><value> episodes</value></data>
+  <data name="Detail_SeriesNotes" xml:space="preserve"><value>Series Notes</value></data>
+  <data name="Detail_NotesPlaceholder" xml:space="preserve"><value>Write notes about this series...</value></data>
+  <data name="Detail_SaveNote" xml:space="preserve"><value>Save Note</value></data>
+  <data name="Detail_Episodes" xml:space="preserve"><value>Episodes</value></data>
+  <data name="Detail_Note" xml:space="preserve"><value>Note</value></data>
+  <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Mark up to here</value></data>
+  <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Ep {0}</value></data>
+  <data name="Detail_Chapters" xml:space="preserve"><value>Chapters</value></data>
+  <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> chapters</value></data>
+  <data name="Detail_ChapterNumberFormat" xml:space="preserve"><value>Ch {0}</value></data>
+  <data name="Detail_NoteDialogTitle" xml:space="preserve"><value>Note</value></data>
+  <data name="Common_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Common_Ok" xml:space="preserve"><value>OK</value></data>
+  <data name="Detail_AutoCompleteTitle" xml:space="preserve"><value>All episodes watched!</value></data>
+  <data name="Detail_AutoCompleteContent" xml:space="preserve"><value>Mark this series as Completed?</value></data>
+  <data name="Detail_AutoCompletePrimary" xml:space="preserve"><value>Yes, complete it</value></data>
+  <data name="Detail_AutoCompleteClose" xml:space="preserve"><value>Not yet</value></data>
+  <data name="Detail_AutoCompleteTitleManga" xml:space="preserve"><value>All chapters read!</value></data>
+  <data name="Detail_AutoCompleteContentManga" xml:space="preserve"><value>Mark this series as Completed?</value></data>
+
+  <data name="Status_Favorites" xml:space="preserve"><value>Favorites</value></data>
+  <data name="Status_Ratings" xml:space="preserve"><value>My Ratings</value></data>
+
+  <data name="Nav_Dashboard" xml:space="preserve"><value>Home</value></data>
+
+  <data name="Dashboard_Title" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Dashboard_ContinueWatching" xml:space="preserve"><value>Continue Watching</value></data>
+  <data name="Dashboard_ContinueReading" xml:space="preserve"><value>Continue Reading</value></data>
+  <data name="Dashboard_ThisSeason" xml:space="preserve"><value>This Season</value></data>
+  <data name="Dashboard_LibrarySummary" xml:space="preserve"><value>Library Summary</value></data>
+  <data name="Dashboard_TotalAnime" xml:space="preserve"><value>Anime</value></data>
+  <data name="Dashboard_TotalManga" xml:space="preserve"><value>Manga</value></data>
+  <data name="Dashboard_Watching" xml:space="preserve"><value>Watching</value></data>
+  <data name="Dashboard_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Dashboard_EmptyTitle" xml:space="preserve"><value>Your library is empty</value></data>
+  <data name="Dashboard_EmptyMessage" xml:space="preserve"><value>Discover anime and manga to get started.</value></data>
+  <data name="Dashboard_GoToDiscover" xml:space="preserve"><value>Go to Discover</value></data>
+  <data name="Dashboard_ErrorTitle" xml:space="preserve"><value>Could not load seasonal anime</value></data>
+  <data name="Dashboard_ErrorRetry" xml:space="preserve"><value>Try Again</value></data>
+
+  <data name="Detail_Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Detail_Season" xml:space="preserve"><value>Season</value></data>
+  <data name="Detail_Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Detail_Volumes" xml:space="preserve"><value>Volumes</value></data>
+  <data name="Detail_Streaming" xml:space="preserve"><value>Available on</value></data>
+  <data name="Detail_OpenOnMal" xml:space="preserve"><value>Open on MAL</value></data>
+  <data name="Detail_Aired" xml:space="preserve"><value>Aired</value></data>
+  <data name="Detail_Studio" xml:space="preserve"><value>Studio</value></data>
+  <data name="Detail_Publisher" xml:space="preserve"><value>Publisher</value></data>
+  <data name="Season_Winter" xml:space="preserve"><value>Winter</value></data>
+  <data name="Season_Spring" xml:space="preserve"><value>Spring</value></data>
+  <data name="Season_Summer" xml:space="preserve"><value>Summer</value></data>
+  <data name="Season_Fall" xml:space="preserve"><value>Fall</value></data>
+  <data name="MediaStatus_FinishedAiring" xml:space="preserve"><value>Finished Airing</value></data>
+  <data name="MediaStatus_CurrentlyAiring" xml:space="preserve"><value>Airing</value></data>
+  <data name="MediaStatus_NotYetAired" xml:space="preserve"><value>Not Yet Aired</value></data>
+  <data name="MediaStatus_Publishing" xml:space="preserve"><value>Publishing</value></data>
+  <data name="MediaStatus_Finished" xml:space="preserve"><value>Finished</value></data>
+  <data name="MediaStatus_OnHiatus" xml:space="preserve"><value>On Hiatus</value></data>
+  <data name="MediaStatus_Discontinued" xml:space="preserve"><value>Discontinued</value></data>
+  <data name="MediaStatus_NotYetPublished" xml:space="preserve"><value>Not Yet Published</value></data>
+  <data name="Detail_RefreshData" xml:space="preserve"><value>Refresh Data</value></data>
+  <data name="Detail_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Detail_MalScore" xml:space="preserve"><value>MAL</value></data>
+  <data name="Detail_MyRating" xml:space="preserve"><value>My Rating</value></data>
+  <data name="Detail_RatingPlaceholder" xml:space="preserve"><value>—</value></data>
+  <data name="Detail_DeleteTitle" xml:space="preserve"><value>Move to trash?</value></data>
+  <data name="Detail_DeleteContent" xml:space="preserve"><value>This item will be moved to trash. You can restore it within 30 days from Settings.</value></data>
+  <data name="Detail_DeleteConfirm" xml:space="preserve"><value>Move to Trash</value></data>
+
+  <data name="Discover_AnimeTab" xml:space="preserve"><value>Anime</value></data>
+  <data name="Discover_MangaTab" xml:space="preserve"><value>Manga</value></data>
+  <data name="Discover_SearchAnime" xml:space="preserve"><value>Search anime…</value></data>
+  <data name="Discover_SearchMangaPlaceholder" xml:space="preserve"><value>Search manga…</value></data>
+  <data name="Discover_ErrorTitle" xml:space="preserve"><value>Could not load content</value></data>
+  <data name="Discover_ErrorRetry" xml:space="preserve"><value>Try Again</value></data>
+  <data name="Discover_LoadMore" xml:space="preserve"><value>Loading more…</value></data>
+
+  <data name="Ratings_SortHighToLow" xml:space="preserve"><value>My Score: High to Low</value></data>
+  <data name="Ratings_SortLowToHigh" xml:space="preserve"><value>My Score: Low to High</value></data>
+  <data name="Ratings_SortMalHighToLow" xml:space="preserve"><value>MAL Score: High to Low</value></data>
+  <data name="Ratings_SortAlpha" xml:space="preserve"><value>Alphabetical (A→Z)</value></data>
+
+  <data name="Settings_DarkMode" xml:space="preserve"><value>Dark Mode</value></data>
+  <data name="Settings_About" xml:space="preserve"><value>About</value></data>
+  <data name="Settings_AppVersion" xml:space="preserve"><value>v0.1.0</value></data>
+  <data name="Settings_DataSource" xml:space="preserve"><value>Data Source</value></data>
+  <data name="Settings_StartupPage" xml:space="preserve"><value>Startup Page</value></data>
+  <data name="Settings_Export" xml:space="preserve"><value>Export Data</value></data>
+  <data name="Settings_ExportDesc" xml:space="preserve"><value>Save a backup of your library</value></data>
+  <data name="Settings_Import" xml:space="preserve"><value>Import Data</value></data>
+  <data name="Settings_ImportDesc" xml:space="preserve"><value>Restore from a backup file (requires restart)</value></data>
+  <data name="Settings_Trash" xml:space="preserve"><value>Trash</value></data>
+  <data name="Settings_TrashEmpty" xml:space="preserve"><value>Trash is empty</value></data>
+  <data name="Settings_EmptyTrash" xml:space="preserve"><value>Empty Trash</value></data>
+  <data name="Settings_RestoreItem" xml:space="preserve"><value>Restore</value></data>
+  <data name="Settings_TrashDaysLeft" xml:space="preserve"><value>{0} days left</value></data>
+  <data name="Settings_EmptyTrashTitle" xml:space="preserve"><value>Empty trash?</value></data>
+  <data name="Settings_EmptyTrashContent" xml:space="preserve"><value>All items in trash will be permanently deleted. This cannot be undone.</value></data>
+  <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Empty Trash</value></data>
+  <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Restart required</value></data>
+  <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Data imported successfully. AniMan will now restart to apply changes.</value></data>
+  <data name="Settings_Appearance" xml:space="preserve"><value>Appearance</value></data>
+  <data name="Settings_ThemeLight" xml:space="preserve"><value>Light</value></data>
+  <data name="Settings_ThemeDark" xml:space="preserve"><value>Dark</value></data>
+  <data name="Settings_ThemeSystem" xml:space="preserve"><value>System</value></data>
+  <data name="Settings_DataBackup" xml:space="preserve"><value>Data &amp; Backup</value></data>
+  <data name="Settings_ExportAction" xml:space="preserve"><value>Back Up</value></data>
+  <data name="Settings_ImportAction" xml:space="preserve"><value>Choose File</value></data>
+  <data name="Settings_GitHub" xml:space="preserve"><value>Project on GitHub</value></data>
+  <data name="Settings_DangerZone" xml:space="preserve"><value>Danger Zone</value></data>
+  <data name="Settings_DeleteAllData" xml:space="preserve"><value>Delete All Data</value></data>
+  <data name="Settings_DeleteAllDataDesc" xml:space="preserve"><value>Permanently deletes your library, all progress, notes, cover images, and cached data. This cannot be undone.</value></data>
+  <data name="Settings_DeleteAllDataTitle" xml:space="preserve"><value>Delete all data?</value></data>
+  <data name="Settings_DeleteAllDataInstruction" xml:space="preserve"><value>This action is irreversible. To confirm, type the word shown below:</value></data>
+  <data name="Settings_DeleteAllDataPlaceholder" xml:space="preserve"><value>Type the word above…</value></data>
+  <data name="Settings_DeleteAllDataConfirm" xml:space="preserve"><value>Delete Everything</value></data>
+  <data name="Settings_DeleteAllDataSuccessTitle" xml:space="preserve"><value>Done</value></data>
+  <data name="Settings_DeleteAllDataSuccessContent" xml:space="preserve"><value>All data has been deleted.</value></data>
+
+  <data name="Settings_Font" xml:space="preserve"><value>Font</value></data>
+
+  <data name="Common_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Common_Restore" xml:space="preserve"><value>Restore</value></data>
+  <data name="Common_Confirm" xml:space="preserve"><value>Confirm</value></data>
+</root>

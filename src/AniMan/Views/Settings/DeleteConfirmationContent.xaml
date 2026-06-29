@@ -1,0 +1,25 @@
+<UserControl x:Class="AniMan.Views.Settings.DeleteConfirmationContent"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:AniMan.Localization"
+             MinWidth="340">
+    <StackPanel>
+        <TextBlock Text="{loc:Loc Settings_DeleteAllDataInstruction}"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+        <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+                CornerRadius="6" Padding="12,8" Margin="0,0,0,12"
+                HorizontalAlignment="Left">
+            <TextBlock x:Name="WordDisplay"
+                       FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"/>
+        </Border>
+
+        <ui:TextBox x:Name="ConfirmTextBox"
+                    PlaceholderText="{loc:Loc Settings_DeleteAllDataPlaceholder}"
+                    TextChanged="OnTextChanged"/>
+    </StackPanel>
+</UserControl>

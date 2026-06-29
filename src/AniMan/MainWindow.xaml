@@ -1,0 +1,89 @@
+<ui:FluentWindow x:Class="AniMan.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:loc="clr-namespace:AniMan.Localization"
+        mc:Ignorable="d"
+        Title="AniMan"
+        MinHeight="600" MinWidth="900"
+        Height="720" Width="1280"
+        WindowStartupLocation="CenterScreen"
+        WindowBackdropType="None"
+        ExtendsContentIntoTitleBar="True"
+        FontFamily="{DynamicResource AppFontFamily}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar x:Name="RootTitleBar"
+                     Grid.Row="0"
+                     Title="AniMan"/>
+
+        <ui:NavigationView x:Name="RootNavigation"
+                           Grid.Row="1"
+                           PaneDisplayMode="LeftFluent"
+                           IsPaneOpen="False">
+
+            <ui:NavigationView.MenuItems>
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Dashboard}"
+                                       TargetPageType="{x:Type dashViews:DashboardPage}"
+                                       xmlns:dashViews="clr-namespace:AniMan.Views.Dashboard">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="Home24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Anime}"
+                                       TargetPageType="{x:Type views:AnimeLibraryPage}"
+                                       xmlns:views="clr-namespace:AniMan.Views.Library">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="Tv24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Manga}"
+                                       TargetPageType="{x:Type views:MangaLibraryPage}"
+                                       xmlns:views="clr-namespace:AniMan.Views.Library">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="BookOpen24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Discover}"
+                                       TargetPageType="{x:Type views:DiscoverPage}"
+                                       xmlns:views="clr-namespace:AniMan.Views.Discover">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="CompassNorthwest24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Stats}"
+                                       TargetPageType="{x:Type views:StatsPage}"
+                                       xmlns:views="clr-namespace:AniMan.Views.Stats">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="DataHistogram24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.MenuItems>
+
+            <ui:NavigationView.FooterMenuItems>
+                <ui:NavigationViewItem Content="{loc:Loc Nav_Settings}"
+                                       TargetPageType="{x:Type views:SettingsPage}"
+                                       xmlns:views="clr-namespace:AniMan.Views.Settings">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="Settings24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.FooterMenuItems>
+
+        </ui:NavigationView>
+
+        <ui:ContentDialogHost x:Name="RootContentDialogHost"
+                              Grid.Row="0" Grid.RowSpan="2"/>
+    </Grid>
+</ui:FluentWindow>

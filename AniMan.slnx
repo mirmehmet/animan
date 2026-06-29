@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AniMan.Core/AniMan.Core.csproj" />
+    <Project Path="src/AniMan.Infrastructure/AniMan.Infrastructure.csproj" />
+    <Project Path="src/AniMan.Tests/AniMan.Tests.csproj" />
+    <Project Path="src/AniMan/AniMan.csproj" />
+  </Folder>
+</Solution>

@@ -1,8 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/AniTrack.Core/AniTrack.Core.csproj" />
-    <Project Path="src/AniTrack.Infrastructure/AniTrack.Infrastructure.csproj" />
-    <Project Path="src/AniTrack.Tests/AniTrack.Tests.csproj" />
-    <Project Path="src/AniTrack/AniTrack.csproj" />
-  </Folder>
-</Solution>

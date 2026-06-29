@@ -1,4 +1,4 @@
-# AniTrack
+# AniMan
 
 [![CI](https://github.com/mirmehmet/animaTrack/actions/workflows/ci.yml/badge.svg)](https://github.com/mirmehmet/animaTrack/actions/workflows/ci.yml)
 
@@ -12,20 +12,20 @@ WPF · WPF UI 3 · CommunityToolkit.Mvvm · EF Core 9 · SQLite · Polly · Seri
 
 | Project | Responsibility |
 |---|---|
-| `AniTrack.Core` | Domain models, service interfaces, `Result<T>` |
-| `AniTrack.Infrastructure` | EF Core (two DbContexts), Jikan client, services |
-| `AniTrack` | WPF UI (views, view models) |
-| `AniTrack.Tests` | xUnit unit/integration tests |
+| `AniMan.Core` | Domain models, service interfaces, `Result<T>` |
+| `AniMan.Infrastructure` | EF Core (two DbContexts), Jikan client, services |
+| `AniMan` | WPF UI (views, view models) |
+| `AniMan.Tests` | xUnit unit/integration tests |
 
-Two SQLite databases live under `%APPDATA%\AniTrack\`: `catalog.db` (disposable API cache)
+Two SQLite databases live under `%APPDATA%\AniMan\`: `catalog.db` (disposable API cache)
 and `library.db` (user data). They never share a transaction.
 
 ## Build & Test
 
 ```bash
-dotnet restore AniTrack.slnx
-dotnet build AniTrack.slnx -c Release
-dotnet test AniTrack.slnx -c Release
+dotnet restore AniMan.slnx
+dotnet build AniMan.slnx -c Release
+dotnet test AniMan.slnx -c Release
 ```
 
 Requires the .NET 10 SDK. The app builds and runs on Windows only (WPF).
