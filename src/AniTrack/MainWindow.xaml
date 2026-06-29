@@ -10,7 +10,7 @@
         MinHeight="600" MinWidth="900"
         Height="720" Width="1280"
         WindowStartupLocation="CenterScreen"
-        WindowBackdropType="Mica"
+        WindowBackdropType="None"
         ExtendsContentIntoTitleBar="True"
         FontFamily="{DynamicResource AppFontFamily}">
 

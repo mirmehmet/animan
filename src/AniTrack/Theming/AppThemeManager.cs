@@ -29,25 +29,30 @@ public static class AppThemeManager
     public static void Apply(ThemeMode mode)
     {
         var window = Application.Current?.MainWindow;
+        var applied = ApplicationTheme.Dark;
 
         switch (mode)
         {
             case ThemeMode.Light:
                 StopWatching(window);
-                ApplicationThemeManager.Apply(ApplicationTheme.Light);
+                applied = ApplicationTheme.Light;
+                ApplicationThemeManager.Apply(applied);
                 break;
 
             case ThemeMode.Dark:
                 StopWatching(window);
-                ApplicationThemeManager.Apply(ApplicationTheme.Dark);
+                applied = ApplicationTheme.Dark;
+                ApplicationThemeManager.Apply(applied);
                 break;
 
             case ThemeMode.System:
-                ApplicationThemeManager.Apply(ResolveSystemTheme());
+                applied = ResolveSystemTheme();
+                ApplicationThemeManager.Apply(applied);
                 StartWatching(window);
                 break;
         }
 
+        ApplyPalette(applied);
         ApplyBrandAccent();
     }
 
@@ -57,6 +62,50 @@ public static class AppThemeManager
         if (Application.Current is null) return;
         Application.Current.Resources["AppFontFamily"] = new FontFamily(fontFamily);
     }
+
+    // Theme-dependent background / surface / text palette. Overrides Wpf.Ui's
+    // theme brushes at the top resource level so they win over the merged theme
+    // dictionary, and is re-applied on every theme switch so it stays sticky.
+    private static void ApplyPalette(ApplicationTheme theme)
+    {
+        if (Application.Current is null) return;
+
+        var res = Application.Current.Resources;
+        bool dark = theme != ApplicationTheme.Light;
+
+        // (background, card, controlFill, controlFillHover, stroke, textPrimary, textSecondary, textTertiary)
+        var appBg     = dark ? "#0D0D10" : "#F4F5F7";
+        var cardBg    = dark ? "#16161A" : "#FFFFFF";
+        var ctrlFill  = dark ? "#1B1B21" : "#F0F1F3";
+        var ctrlFill2 = dark ? "#232329" : "#E8EAED";
+        var stroke    = dark ? "#14FFFFFF" : "#14000000";
+        var textPri   = dark ? "#F5F5F7" : "#1A1A1F";
+        var textSec   = dark ? "#9CA0A8" : "#5C616B";
+        var textTer   = dark ? "#6B6F76" : "#8A8F99";
+
+        var appBgColor = Hex(appBg);
+        res["ApplicationBackgroundColor"] = appBgColor;
+        res["ApplicationBackgroundBrush"] = Brush(appBgColor);
+
+        res["CardBackgroundFillColorDefaultBrush"]    = Freeze(Hex(cardBg));
+        res["ControlFillColorDefaultBrush"]           = Freeze(Hex(ctrlFill));
+        res["ControlFillColorSecondaryBrush"]         = Freeze(Hex(ctrlFill2));
+        res["ControlStrokeColorDefaultBrush"]         = Freeze(Hex(stroke));
+        res["TextFillColorPrimaryBrush"]              = Freeze(Hex(textPri));
+        res["TextFillColorSecondaryBrush"]            = Freeze(Hex(textSec));
+        res["TextFillColorTertiaryBrush"]             = Freeze(Hex(textTer));
+    }
+
+    private static Color Hex(string hex) => (Color)ColorConverter.ConvertFromString(hex)!;
+
+    private static SolidColorBrush Brush(Color c)
+    {
+        var b = new SolidColorBrush(c);
+        b.Freeze();
+        return b;
+    }
+
+    private static SolidColorBrush Freeze(Color c) => Brush(c);
 
     private static void ApplyBrandAccent()
     {

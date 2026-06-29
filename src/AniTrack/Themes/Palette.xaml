@@ -20,16 +20,18 @@
 
     <!-- Overlays -->
     <SolidColorBrush x:Key="CardOverlayBrush"    Color="#CC000000"/>
-    <SolidColorBrush x:Key="HairlineBorderBrush"  Color="#20FFFFFF"/>
+    <SolidColorBrush x:Key="HairlineBorderBrush"  Color="#14FFFFFF"/>
 
     <!-- Status palette (mirrors LibraryCardViewModel defaults) -->
-    <SolidColorBrush x:Key="Status.WatchingBg"  Color="#2a1840"/>
-    <SolidColorBrush x:Key="Status.WatchingFg"  Color="#9060c8"/>
-    <SolidColorBrush x:Key="Status.CompletedBg" Color="#0e2e20"/>
-    <SolidColorBrush x:Key="Status.CompletedFg" Color="#309060"/>
-    <SolidColorBrush x:Key="Status.OnHoldBg"    Color="#2e2410"/>
-    <SolidColorBrush x:Key="Status.OnHoldFg"    Color="#8a7020"/>
-    <SolidColorBrush x:Key="Status.DroppedBg"   Color="#2e1010"/>
-    <SolidColorBrush x:Key="Status.DroppedFg"   Color="#803030"/>
+    <SolidColorBrush x:Key="Status.WatchingBg"  Color="#2E1F47"/>
+    <SolidColorBrush x:Key="Status.WatchingFg"  Color="#B79CF0"/>
+    <SolidColorBrush x:Key="Status.CompletedBg" Color="#13301F"/>
+    <SolidColorBrush x:Key="Status.CompletedFg" Color="#4FB07A"/>
+    <SolidColorBrush x:Key="Status.OnHoldBg"    Color="#332814"/>
+    <SolidColorBrush x:Key="Status.OnHoldFg"    Color="#C9A23E"/>
+    <SolidColorBrush x:Key="Status.DroppedBg"   Color="#341515"/>
+    <SolidColorBrush x:Key="Status.DroppedFg"   Color="#D06A6A"/>
+    <SolidColorBrush x:Key="Status.PlannedBg"   Color="#202329"/>
+    <SolidColorBrush x:Key="Status.PlannedFg"   Color="#9CA0A8"/>
 
 </ResourceDictionary>
