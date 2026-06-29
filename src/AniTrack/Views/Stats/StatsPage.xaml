@@ -95,6 +95,7 @@
                             <TextBlock Grid.Column="0" Text="{Binding Name}"
                                        VerticalAlignment="Center"/>
                             <ProgressBar Grid.Column="1" Style="{StaticResource BrandProgressBar}"
+                                         Foreground="{Binding Brush}"
                                          Value="{Binding Fraction}" Maximum="1"
                                          VerticalAlignment="Center" Margin="8,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding Count}"

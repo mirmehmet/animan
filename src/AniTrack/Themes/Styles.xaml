@@ -113,8 +113,22 @@
     <Style x:Key="BrandProgressBar" TargetType="ProgressBar"
            BasedOn="{StaticResource {x:Type ProgressBar}}">
         <Setter Property="Foreground"      Value="{StaticResource BrandAccentBrush}"/>
-        <Setter Property="Height"          Value="5"/>
+        <Setter Property="Background"      Value="{DynamicResource ControlFillColorDefaultBrush}"/>
+        <Setter Property="Height"          Value="8"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="999"/>
+                        <Border x:Name="PART_Track"/>
+                        <Border x:Name="PART_Indicator" CornerRadius="999"
+                                Background="{TemplateBinding Foreground}"
+                                HorizontalAlignment="Left"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
