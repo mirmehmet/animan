@@ -17,6 +17,7 @@ public class CachedManga
     public int? Popularity { get; set; }
     public string? CoverMediumUrl { get; set; }
     public string? CoverLargeUrl { get; set; }
+    public string? Serializations { get; set; }
     public DateTime FetchedAt { get; set; }
 
     public ICollection<CachedMediaGenre> MediaGenres { get; set; } = [];

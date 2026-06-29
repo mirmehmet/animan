@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ITrackingService, TrackingService>();
         services.AddTransient<IStatisticsService, StatisticsService>();
         services.AddTransient<IExportService, ExportService>();
+        services.AddTransient<IDataManagementService, DataManagementService>();
 
         return services;
     }

@@ -18,6 +18,7 @@ public class CachedAnime
     public int? Popularity { get; set; }
     public string? CoverMediumUrl { get; set; }
     public string? CoverLargeUrl { get; set; }
+    public string? Studios { get; set; }
     public DateTime FetchedAt { get; set; }
 
     public ICollection<CachedEpisode> Episodes { get; set; } = [];

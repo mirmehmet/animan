@@ -219,6 +219,44 @@ public sealed class CatalogService(
         }
     }
 
+    public async Task<Result<IReadOnlyList<CachedAnimeStreaming>>> GetAnimeStreamingAsync(
+        int malId, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            var rows = await db.AnimeStreaming.AsNoTracking()
+                .Where(s => s.AnimeId == malId).ToListAsync(ct);
+            return Result<IReadOnlyList<CachedAnimeStreaming>>.Success(rows);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetAnimeStreaming failed for {Id}", malId);
+            return Result<IReadOnlyList<CachedAnimeStreaming>>.Failure("Failed to load streaming info.");
+        }
+    }
+
+    public async Task<Result<IReadOnlyList<string>>> GetGenresAsync(
+        int malId, string mediaType, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            var names = await db.MediaGenres
+                .Where(mg => mg.MediaId == malId && mg.MediaType == mediaType)
+                .Join(db.Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name)
+                .ToListAsync(ct);
+            return Result<IReadOnlyList<string>>.Success(names);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetGenres failed for {Id}/{Type}", malId, mediaType);
+            return Result<IReadOnlyList<string>>.Failure("Failed to load genres.");
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private int? _cacheRefreshDays;
@@ -340,6 +378,13 @@ public sealed class CatalogService(
             .Select(g => g.Id)
             .ToListAsync(ct))
             .ToHashSet();
+
+        // Include genres already staged in this unit of work but not yet saved to DB.
+        // Without this, a genre shared by multiple anime in the same batch (e.g. "Action")
+        // would be Add()ed twice → EF "already tracked" InvalidOperationException.
+        foreach (var entry in db.ChangeTracker.Entries<CachedGenre>()
+            .Where(e => e.State == Microsoft.EntityFrameworkCore.EntityState.Added))
+            existingGenreIds.Add(entry.Entity.Id);
 
         foreach (var genre in distinct)
             if (!existingGenreIds.Contains(genre.Id))

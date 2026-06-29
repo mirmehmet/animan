@@ -156,6 +156,27 @@
   <data name="Dashboard_ErrorTitle" xml:space="preserve"><value>Could not load seasonal anime</value></data>
   <data name="Dashboard_ErrorRetry" xml:space="preserve"><value>Try Again</value></data>
 
+  <data name="Detail_Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Detail_Season" xml:space="preserve"><value>Season</value></data>
+  <data name="Detail_Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Detail_Volumes" xml:space="preserve"><value>Volumes</value></data>
+  <data name="Detail_Streaming" xml:space="preserve"><value>Available on</value></data>
+  <data name="Detail_OpenOnMal" xml:space="preserve"><value>Open on MAL</value></data>
+  <data name="Detail_Aired" xml:space="preserve"><value>Aired</value></data>
+  <data name="Detail_Studio" xml:space="preserve"><value>Studio</value></data>
+  <data name="Detail_Publisher" xml:space="preserve"><value>Publisher</value></data>
+  <data name="Season_Winter" xml:space="preserve"><value>Winter</value></data>
+  <data name="Season_Spring" xml:space="preserve"><value>Spring</value></data>
+  <data name="Season_Summer" xml:space="preserve"><value>Summer</value></data>
+  <data name="Season_Fall" xml:space="preserve"><value>Fall</value></data>
+  <data name="MediaStatus_FinishedAiring" xml:space="preserve"><value>Finished Airing</value></data>
+  <data name="MediaStatus_CurrentlyAiring" xml:space="preserve"><value>Airing</value></data>
+  <data name="MediaStatus_NotYetAired" xml:space="preserve"><value>Not Yet Aired</value></data>
+  <data name="MediaStatus_Publishing" xml:space="preserve"><value>Publishing</value></data>
+  <data name="MediaStatus_Finished" xml:space="preserve"><value>Finished</value></data>
+  <data name="MediaStatus_OnHiatus" xml:space="preserve"><value>On Hiatus</value></data>
+  <data name="MediaStatus_Discontinued" xml:space="preserve"><value>Discontinued</value></data>
+  <data name="MediaStatus_NotYetPublished" xml:space="preserve"><value>Not Yet Published</value></data>
   <data name="Detail_RefreshData" xml:space="preserve"><value>Refresh Data</value></data>
   <data name="Detail_Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Detail_MalScore" xml:space="preserve"><value>MAL</value></data>
@@ -205,6 +226,15 @@
   <data name="Settings_ExportAction" xml:space="preserve"><value>Back Up</value></data>
   <data name="Settings_ImportAction" xml:space="preserve"><value>Choose File</value></data>
   <data name="Settings_GitHub" xml:space="preserve"><value>Project on GitHub</value></data>
+  <data name="Settings_DangerZone" xml:space="preserve"><value>Danger Zone</value></data>
+  <data name="Settings_DeleteAllData" xml:space="preserve"><value>Delete All Data</value></data>
+  <data name="Settings_DeleteAllDataDesc" xml:space="preserve"><value>Permanently deletes your library, all progress, notes, cover images, and cached data. This cannot be undone.</value></data>
+  <data name="Settings_DeleteAllDataTitle" xml:space="preserve"><value>Delete all data?</value></data>
+  <data name="Settings_DeleteAllDataInstruction" xml:space="preserve"><value>This action is irreversible. To confirm, type the word shown below:</value></data>
+  <data name="Settings_DeleteAllDataPlaceholder" xml:space="preserve"><value>Type the word above…</value></data>
+  <data name="Settings_DeleteAllDataConfirm" xml:space="preserve"><value>Delete Everything</value></data>
+  <data name="Settings_DeleteAllDataSuccessTitle" xml:space="preserve"><value>Done</value></data>
+  <data name="Settings_DeleteAllDataSuccessContent" xml:space="preserve"><value>All data has been deleted.</value></data>
 
   <data name="Settings_Font" xml:space="preserve"><value>Font</value></data>
 

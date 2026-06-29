@@ -45,4 +45,7 @@ public record JikanMangaDto
 
     [JsonPropertyName("genres")]
     public IReadOnlyList<JikanGenreDto>? Genres { get; init; }
+
+    [JsonPropertyName("serializations")]
+    public IReadOnlyList<JikanNamedEntityDto>? Serializations { get; init; }
 }

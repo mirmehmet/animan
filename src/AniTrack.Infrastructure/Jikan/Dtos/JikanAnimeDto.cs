@@ -48,6 +48,9 @@ public record JikanAnimeDto
 
     [JsonPropertyName("genres")]
     public IReadOnlyList<JikanGenreDto>? Genres { get; init; }
+
+    [JsonPropertyName("studios")]
+    public IReadOnlyList<JikanNamedEntityDto>? Studios { get; init; }
 }
 
 public record JikanDateRangeDto

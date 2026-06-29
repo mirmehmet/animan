@@ -7,7 +7,14 @@ public partial class ErrorStateControl : System.Windows.Controls.UserControl
 {
     public static readonly DependencyProperty ErrorMessageProperty =
         DependencyProperty.Register(nameof(ErrorMessage), typeof(string),
-            typeof(ErrorStateControl), new PropertyMetadata(string.Empty));
+            typeof(ErrorStateControl), new PropertyMetadata(null, OnErrorMessageChanged));
+
+    private static void OnErrorMessageChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        ((ErrorStateControl)d).Visibility = string.IsNullOrEmpty((string?)e.NewValue)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
 
     public static readonly DependencyProperty RetryCommandProperty =
         DependencyProperty.Register(nameof(RetryCommand), typeof(ICommand),

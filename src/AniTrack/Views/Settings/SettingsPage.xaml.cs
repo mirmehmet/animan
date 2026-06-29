@@ -67,4 +67,35 @@ public partial class SettingsPage : UserControl
         if (result == ContentDialogResult.Primary)
             _viewModel.EmptyTrashCommand.Execute(null);
     }
+
+    private async void OnDeleteAllDataClicked(object sender, RoutedEventArgs e)
+    {
+        var word = ConfirmationWords.GetRandom();
+        var content = new DeleteConfirmationContent(word);
+
+        var dialog = new ContentDialog
+        {
+            Title = LocalizationManager.Get("Settings_DeleteAllDataTitle"),
+            Content = content,
+            PrimaryButtonText = LocalizationManager.Get("Settings_DeleteAllDataConfirm"),
+            CloseButtonText = LocalizationManager.Get("Common_Cancel"),
+            IsPrimaryButtonEnabled = false
+        };
+
+        content.ConfirmTextChanged += text =>
+            dialog.IsPrimaryButtonEnabled = string.Equals(text, word, StringComparison.Ordinal);
+
+        var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
+        if (result != ContentDialogResult.Primary) return;
+
+        await _viewModel.DeleteAllDataCommand.ExecuteAsync(null);
+
+        var success = new ContentDialog
+        {
+            Title = LocalizationManager.Get("Settings_DeleteAllDataSuccessTitle"),
+            Content = LocalizationManager.Get("Settings_DeleteAllDataSuccessContent"),
+            CloseButtonText = LocalizationManager.Get("Common_Ok")
+        };
+        await _dialogService.ShowAsync(success, CancellationToken.None);
+    }
 }

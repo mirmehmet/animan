@@ -186,6 +186,35 @@
                                     NavigateUri="https://github.com/mirmehmet/animaTrack"/>
             </ui:CardControl>
 
+            <!-- ══ Danger Zone ═══════════════════════════════════════════════ -->
+            <Separator Margin="0,16,0,16"/>
+
+            <Grid Margin="2,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <ui:SymbolIcon Grid.Column="0" Symbol="Warning24" FontSize="16"
+                               Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="1"
+                           Text="{loc:Loc Settings_DangerZone}"
+                           FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"/>
+            </Grid>
+
+            <TextBlock Text="{loc:Loc Settings_DeleteAllDataDesc}"
+                       TextWrapping="Wrap" FontSize="12" Margin="2,0,0,8"
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+
+            <ui:CardControl Style="{StaticResource SettingCard}"
+                            Icon="{ui:SymbolIcon Symbol=Delete24}"
+                            Header="{loc:Loc Settings_DeleteAllData}">
+                <ui:Button Content="{loc:Loc Settings_DeleteAllData}"
+                           Appearance="Danger"
+                           Click="OnDeleteAllDataClicked"/>
+            </ui:CardControl>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

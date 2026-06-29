@@ -29,6 +29,12 @@ public record JikanGenreDto
     public string Name { get; init; } = string.Empty;
 }
 
+public record JikanNamedEntityDto
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+}
+
 public record JikanPaginationDto
 {
     [JsonPropertyName("last_visible_page")]

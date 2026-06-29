@@ -5,19 +5,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignHeight="140" d:DesignWidth="360"
-             x:Name="Root">
-
-    <!-- Self-collapses when ErrorMessage is null or empty via DataTrigger below -->
-    <UserControl.Style>
-        <Style TargetType="UserControl">
-            <Setter Property="Visibility" Value="Visible"/>
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding ErrorMessage, ElementName=Root}" Value="">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-    </UserControl.Style>
+             x:Name="Root"
+             Visibility="Collapsed">
 
     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                 AutomationProperties.LiveSetting="Assertive"

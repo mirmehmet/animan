@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:controls="clr-namespace:AniTrack.Views.Detail.Controls"
+             xmlns:ctrl="clr-namespace:AniTrack.Controls"
              xmlns:loc="clr-namespace:AniTrack.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -53,6 +54,62 @@
                     <TextBlock Text="{Binding MediaSnapshot.TitleJapanese}"
                                FontSize="13" Margin="0,4,0,0"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                    <!-- Metadata InfoRows (visible in both modes; each auto-hides when empty) -->
+                    <StackPanel Margin="0,12,0,0">
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Type}"     Value="{Binding MediaSnapshot.Type}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Episodes}" Value="{Binding MediaSnapshot.TotalEpisodes, TargetNullValue='', StringFormat={}{0}}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Chapters}" Value="{Binding MediaSnapshot.TotalChapters, TargetNullValue='', StringFormat={}{0}}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Volumes}"  Value="{Binding MediaSnapshot.TotalVolumes, TargetNullValue='', StringFormat={}{0}}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Season}"   Value="{Binding SeasonDisplay}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Aired}"    Value="{Binding AiringDisplay}"/>
+                        <ctrl:InfoRow Label="{Binding StudioLabel}"     Value="{Binding MediaSnapshot.Studio}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Status}"   Value="{Binding StatusDisplay}"/>
+                    </StackPanel>
+
+                    <!-- Genre pills -->
+                    <ItemsControl ItemsSource="{Binding Genres}" Margin="0,8,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource GenrePill}">
+                                    <TextBlock Text="{Binding}" FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Streaming platforms (anime only) -->
+                    <StackPanel Margin="0,12,0,0"
+                                Visibility="{Binding IsManga, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <TextBlock Text="{loc:Loc Detail_Streaming}"
+                                   FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"
+                                   Visibility="{Binding HasStreamingPlatforms, Converter={StaticResource BoolToVisibility}}"/>
+                        <ItemsControl ItemsSource="{Binding StreamingPlatforms}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Background="{Binding Background}" Foreground="White"
+                                            Tag="{Binding Url}" Margin="0,0,6,4" Padding="10,5"
+                                            Cursor="Hand" Click="OnStreamingPlatformClicked"
+                                            BorderThickness="0">
+                                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="White"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- MAL link -->
+                    <ui:Button Margin="0,6,0,14" Content="{loc:Loc Detail_OpenOnMal}"
+                               Command="{Binding OpenOnMalCommand}" Appearance="Secondary"
+                               HorizontalAlignment="Left"/>
 
                     <!-- Library actions (hidden in preview mode) -->
                     <StackPanel Margin="0,14,0,0"

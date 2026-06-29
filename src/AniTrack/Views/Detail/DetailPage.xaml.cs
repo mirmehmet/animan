@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AniTrack.Core.Domain.Enums;
 using AniTrack.Localization;
 using AniTrack.Navigation;
@@ -46,6 +47,12 @@ public partial class DetailPage : UserControl, INavigationAware
 
     private void OnGoBackClicked(object sender, RoutedEventArgs e) =>
         _navigationService.GoBack();
+
+    private void OnStreamingPlatformClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is SWC.Button { Tag: string url } && !string.IsNullOrEmpty(url))
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
 
     private void OnAddToLibraryClicked(object sender, RoutedEventArgs e)
     {

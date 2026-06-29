@@ -23,6 +23,7 @@ internal static class JikanMapper
         Popularity = dto.Popularity,
         CoverMediumUrl = dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl,
         CoverLargeUrl = dto.Images?.Jpg?.LargeImageUrl,
+        Studios = dto.Studios is { Count: > 0 } s ? string.Join(", ", s.Select(x => x.Name)) : null,
         FetchedAt = DateTime.UtcNow
     };
 
@@ -43,6 +44,7 @@ internal static class JikanMapper
         Popularity = dto.Popularity,
         CoverMediumUrl = dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl,
         CoverLargeUrl = dto.Images?.Jpg?.LargeImageUrl,
+        Serializations = dto.Serializations is { Count: > 0 } x ? string.Join(", ", x.Select(e => e.Name)) : null,
         FetchedAt = DateTime.UtcNow
     };
 

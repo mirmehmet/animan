@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using AniTrack.Core.Domain.Enums;
@@ -41,13 +43,21 @@ public partial class DetailViewModel : ObservableObject
     [ObservableProperty] private int _currentStatusId;
     [ObservableProperty] private decimal? _userRating;
     [ObservableProperty] private bool _isFavorite;
+    [ObservableProperty] private IReadOnlyList<string> _genres = [];
+    [ObservableProperty] private ObservableCollection<StreamingBadgeViewModel> _streamingPlatforms = [];
 
+    public bool HasStreamingPlatforms => StreamingPlatforms.Count > 0;
     public bool HasProgress => TotalCount > 0;
     public bool HasEpisodes => !IsManga && TotalCount > 0;
     public bool HasChapters => IsManga && TotalCount > 0;
     public string ProgressSuffix => IsManga
         ? Localization.LocalizationManager.Get("Detail_ChaptersSuffix")
         : Localization.LocalizationManager.Get("Detail_EpisodesSuffix");
+
+    public string SeasonDisplay => MediaMetadataDisplay.Season(MediaSnapshot?.Season, MediaSnapshot?.Year);
+    public string StatusDisplay => MediaMetadataDisplay.Status(MediaSnapshot?.Status);
+    public string AiringDisplay => MediaMetadataDisplay.AiringRange(MediaSnapshot?.AiringStart, MediaSnapshot?.AiringEnd);
+    public string StudioLabel => Localization.LocalizationManager.Get(IsManga ? "Detail_Publisher" : "Detail_Studio");
 
     public event EventHandler<TrackingAutoCompleteEventArgs>? AutoCompleteRequested;
     public event EventHandler<(int MalId, MediaType MediaType)>? AddToLibraryFromPreviewRequested;
@@ -111,11 +121,15 @@ public partial class DetailViewModel : ObservableObject
 
             LoadCoverImage();
             LoadSeriesNote();
+            Genres = DeserializeGenres(MediaSnapshot?.Genres);
             await LoadProgressAsync();
             if (IsManga)
                 await LoadChaptersAsync();
             else
+            {
                 await LoadEpisodesAsync();
+                await LoadStreamingAsync(Item!.MalId);
+            }
         }
         finally
         {
@@ -243,7 +257,12 @@ public partial class DetailViewModel : ObservableObject
                     Title = a.Title,
                     TitleJapanese = a.TitleJapanese,
                     Synopsis = a.Synopsis,
+                    Type = a.Type,
+                    Status = a.Status,
+                    Studio = a.Studios,
                     TotalEpisodes = a.TotalEpisodes,
+                    Season = a.Season,
+                    Year = a.Year,
                     MalScore = a.Score,
                     CoverOriginalUrl = a.CoverLargeUrl ?? a.CoverMediumUrl,
                     Genres = "[]",
@@ -261,6 +280,9 @@ public partial class DetailViewModel : ObservableObject
                     Title = m.Title,
                     TitleJapanese = m.TitleJapanese,
                     Synopsis = m.Synopsis,
+                    Type = m.Type,
+                    Status = m.Status,
+                    Studio = m.Serializations,
                     TotalChapters = m.TotalChapters,
                     TotalVolumes = m.TotalVolumes,
                     MalScore = m.Score,
@@ -271,12 +293,46 @@ public partial class DetailViewModel : ObservableObject
                 coverUrl = m.CoverLargeUrl ?? m.CoverMediumUrl;
             }
 
+            var genreResult = await _catalog.GetGenresAsync(malId,
+                mediaType == MediaType.Anime ? "anime" : "manga");
+            Genres = genreResult.IsSuccess ? genreResult.Value! : [];
+            if (mediaType == MediaType.Anime)
+                await LoadStreamingAsync(malId);
+
             await LoadCoverFromUrlAsync(coverUrl);
         }
         finally
         {
             IsLoading = false;
         }
+    }
+
+    [RelayCommand]
+    private void OpenOnMal()
+    {
+        var type = IsManga ? "manga" : "anime";
+        var id = IsPreviewMode ? _previewMalId : Item?.MalId;
+        if (id is null) return;
+        Process.Start(new ProcessStartInfo($"https://myanimelist.net/{type}/{id}")
+            { UseShellExecute = true });
+    }
+
+    private static IReadOnlyList<string> DeserializeGenres(string? json) =>
+        string.IsNullOrEmpty(json) ? [] :
+        JsonSerializer.Deserialize<List<string>>(json) ?? [];
+
+    private async Task LoadStreamingAsync(int malId)
+    {
+        var result = await _catalog.GetAnimeStreamingAsync(malId);
+        if (!result.IsSuccess || result.Value!.Count == 0) return;
+        StreamingPlatforms = new ObservableCollection<StreamingBadgeViewModel>(
+            result.Value!.Select(s => new StreamingBadgeViewModel
+            {
+                Name = s.PlatformName,
+                Url = s.Url,
+                Background = StreamingPlatformColors.GetBrush(s.PlatformName)
+            }));
+        OnPropertyChanged(nameof(HasStreamingPlatforms));
     }
 
     private void LoadCoverImage()
@@ -527,6 +583,14 @@ public partial class DetailViewModel : ObservableObject
         OnPropertyChanged(nameof(HasEpisodes));
         OnPropertyChanged(nameof(HasChapters));
         OnPropertyChanged(nameof(ProgressSuffix));
+        OnPropertyChanged(nameof(StudioLabel));
+    }
+
+    partial void OnMediaSnapshotChanged(MediaSnapshot? value)
+    {
+        OnPropertyChanged(nameof(SeasonDisplay));
+        OnPropertyChanged(nameof(StatusDisplay));
+        OnPropertyChanged(nameof(AiringDisplay));
     }
 }
 

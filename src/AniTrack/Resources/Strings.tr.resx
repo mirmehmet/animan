@@ -156,6 +156,27 @@
   <data name="Dashboard_ErrorTitle" xml:space="preserve"><value>Sezon animeleri yüklenemedi</value></data>
   <data name="Dashboard_ErrorRetry" xml:space="preserve"><value>Tekrar Dene</value></data>
 
+  <data name="Detail_Type" xml:space="preserve"><value>Tür</value></data>
+  <data name="Detail_Season" xml:space="preserve"><value>Sezon</value></data>
+  <data name="Detail_Status" xml:space="preserve"><value>Durum</value></data>
+  <data name="Detail_Volumes" xml:space="preserve"><value>Cilt</value></data>
+  <data name="Detail_Streaming" xml:space="preserve"><value>Platformlar</value></data>
+  <data name="Detail_OpenOnMal" xml:space="preserve"><value>MAL'da aç</value></data>
+  <data name="Detail_Aired" xml:space="preserve"><value>Yayın</value></data>
+  <data name="Detail_Studio" xml:space="preserve"><value>Stüdyo</value></data>
+  <data name="Detail_Publisher" xml:space="preserve"><value>Yayınevi</value></data>
+  <data name="Season_Winter" xml:space="preserve"><value>Kış</value></data>
+  <data name="Season_Spring" xml:space="preserve"><value>İlkbahar</value></data>
+  <data name="Season_Summer" xml:space="preserve"><value>Yaz</value></data>
+  <data name="Season_Fall" xml:space="preserve"><value>Sonbahar</value></data>
+  <data name="MediaStatus_FinishedAiring" xml:space="preserve"><value>Tamamlandı</value></data>
+  <data name="MediaStatus_CurrentlyAiring" xml:space="preserve"><value>Yayında</value></data>
+  <data name="MediaStatus_NotYetAired" xml:space="preserve"><value>Henüz başlamadı</value></data>
+  <data name="MediaStatus_Publishing" xml:space="preserve"><value>Devam ediyor</value></data>
+  <data name="MediaStatus_Finished" xml:space="preserve"><value>Tamamlandı</value></data>
+  <data name="MediaStatus_OnHiatus" xml:space="preserve"><value>Ara verildi</value></data>
+  <data name="MediaStatus_Discontinued" xml:space="preserve"><value>Yarıda bırakıldı</value></data>
+  <data name="MediaStatus_NotYetPublished" xml:space="preserve"><value>Henüz yayınlanmadı</value></data>
   <data name="Detail_RefreshData" xml:space="preserve"><value>Veriyi Yenile</value></data>
   <data name="Detail_Delete" xml:space="preserve"><value>Sil</value></data>
   <data name="Detail_MalScore" xml:space="preserve"><value>MAL</value></data>
@@ -205,6 +226,15 @@
   <data name="Settings_ExportAction" xml:space="preserve"><value>Yedekle</value></data>
   <data name="Settings_ImportAction" xml:space="preserve"><value>Dosya Seç</value></data>
   <data name="Settings_GitHub" xml:space="preserve"><value>GitHub'da Proje</value></data>
+  <data name="Settings_DangerZone" xml:space="preserve"><value>Tehlikeli Alan</value></data>
+  <data name="Settings_DeleteAllData" xml:space="preserve"><value>Tüm Veriyi Sil</value></data>
+  <data name="Settings_DeleteAllDataDesc" xml:space="preserve"><value>Kütüphanenizi, tüm ilerlemenizi, notlarınızı, kapak resimlerini ve önbellek verilerini kalıcı olarak siler. Bu işlem geri alınamaz.</value></data>
+  <data name="Settings_DeleteAllDataTitle" xml:space="preserve"><value>Tüm veri silinsin mi?</value></data>
+  <data name="Settings_DeleteAllDataInstruction" xml:space="preserve"><value>Bu işlem geri alınamaz. Onaylamak için aşağıdaki kelimeyi yazın:</value></data>
+  <data name="Settings_DeleteAllDataPlaceholder" xml:space="preserve"><value>Kelimeyi buraya yazın…</value></data>
+  <data name="Settings_DeleteAllDataConfirm" xml:space="preserve"><value>Her Şeyi Sil</value></data>
+  <data name="Settings_DeleteAllDataSuccessTitle" xml:space="preserve"><value>Tamamlandı</value></data>
+  <data name="Settings_DeleteAllDataSuccessContent" xml:space="preserve"><value>Tüm veriler silindi.</value></data>
 
   <data name="Settings_Font" xml:space="preserve"><value>Yazı Tipi</value></data>
 

@@ -95,6 +95,17 @@
     </Style>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
+         GENRE PILL  –  neutral filled badge for genre tags
+    ═══════════════════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="GenrePill" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource CornerPill}"/>
+        <Setter Property="Background"   Value="{DynamicResource ControlFillColorDefaultBrush}"/>
+        <Setter Property="Padding"      Value="8,3"/>
+        <Setter Property="Margin"       Value="0,0,4,4"/>
+    </Style>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
          PROGRESS BAR  –  brand accent foreground + rounded track
     ═══════════════════════════════════════════════════════════════════════════ -->
 

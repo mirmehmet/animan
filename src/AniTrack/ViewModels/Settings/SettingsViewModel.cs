@@ -14,7 +14,8 @@ public enum ThemeMode { Light, Dark, System }
 
 public partial class SettingsViewModel(
     ISettingsService settingsService,
-    ITrackingService trackingService) : ObservableObject
+    ITrackingService trackingService,
+    IDataManagementService dataManagementService) : ObservableObject
 {
     private bool _initialized;
     private static readonly string LibraryDbPath =
@@ -207,4 +208,14 @@ public partial class SettingsViewModel(
 
     partial void OnTrashItemsChanged(ObservableCollection<LibraryItem> value) =>
         OnPropertyChanged(nameof(HasTrashItems));
+
+    // ── Data reset ────────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private async Task DeleteAllDataAsync()
+    {
+        await dataManagementService.ResetAllDataAsync();
+        TrashItems.Clear();
+        OnPropertyChanged(nameof(HasTrashItems));
+    }
 }

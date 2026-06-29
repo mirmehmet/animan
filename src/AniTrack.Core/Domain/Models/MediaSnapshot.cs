@@ -7,6 +7,8 @@ public class MediaSnapshot
     public string? TitleJapanese { get; set; }
     public string? Synopsis { get; set; }
     public string? Type { get; set; }
+    public string? Status { get; set; }
+    public string? Studio { get; set; }
     public int? TotalEpisodes { get; set; }
     public int? TotalChapters { get; set; }
     public int? TotalVolumes { get; set; }
