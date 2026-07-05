@@ -37,6 +37,18 @@ public partial class LibraryMediaCard : System.Windows.Controls.UserControl
         DependencyProperty.Register(nameof(ProgressAccent), typeof(Brush),
             typeof(LibraryMediaCard), new PropertyMetadata(null));
 
+    public static readonly DependencyProperty ShowRatingsProperty =
+        DependencyProperty.Register(nameof(ShowRatings), typeof(bool),
+            typeof(LibraryMediaCard), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty MalScoreTextProperty =
+        DependencyProperty.Register(nameof(MalScoreText), typeof(string),
+            typeof(LibraryMediaCard), new PropertyMetadata(string.Empty));
+
+    public static readonly DependencyProperty UserRatingTextProperty =
+        DependencyProperty.Register(nameof(UserRatingText), typeof(string),
+            typeof(LibraryMediaCard), new PropertyMetadata(string.Empty));
+
     public ImageSource? CoverSource
     {
         get => (ImageSource?)GetValue(CoverSourceProperty);
@@ -83,6 +95,24 @@ public partial class LibraryMediaCard : System.Windows.Controls.UserControl
     {
         get => (Brush?)GetValue(ProgressAccentProperty);
         set => SetValue(ProgressAccentProperty, value);
+    }
+
+    public bool ShowRatings
+    {
+        get => (bool)GetValue(ShowRatingsProperty);
+        set => SetValue(ShowRatingsProperty, value);
+    }
+
+    public string MalScoreText
+    {
+        get => (string)GetValue(MalScoreTextProperty);
+        set => SetValue(MalScoreTextProperty, value);
+    }
+
+    public string UserRatingText
+    {
+        get => (string)GetValue(UserRatingTextProperty);
+        set => SetValue(UserRatingTextProperty, value);
     }
 
     public LibraryMediaCard()

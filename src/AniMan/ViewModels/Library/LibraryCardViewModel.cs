@@ -30,6 +30,9 @@ public partial class LibraryCardViewModel : ObservableObject
         ? $"{ProgressWatched} / {ProgressTotal}"
         : $"{ProgressWatched} / ?";
 
+    public string MalScoreText   => MalScore is { } s ? s.ToString("0.0") : "–";
+    public string UserRatingText => UserRating is { } r ? r.ToString("0.0") : "–";
+
     public double ProgressPercent => ProgressTotal is > 0
         ? Math.Min(100.0 * ProgressWatched / ProgressTotal.Value, 100)
         : 0;
