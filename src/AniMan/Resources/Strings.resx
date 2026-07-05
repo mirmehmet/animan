@@ -218,6 +218,14 @@
   <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Empty Trash</value></data>
   <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Restart required</value></data>
   <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Data imported successfully. AniMan will now restart to apply changes.</value></data>
+  <data name="Settings_ExportSuccessTitle" xml:space="preserve"><value>Backup created</value></data>
+  <data name="Settings_ExportSuccessContent" xml:space="preserve"><value>Your library was exported successfully.</value></data>
+  <data name="Settings_ExportErrorTitle" xml:space="preserve"><value>Export failed</value></data>
+  <data name="Settings_ImportErrorTitle" xml:space="preserve"><value>Import failed</value></data>
+  <data name="Settings_ImportModeTitle" xml:space="preserve"><value>How should the backup be imported?</value></data>
+  <data name="Settings_ImportModeContent" xml:space="preserve"><value>Merge adds items from the backup to your current library, skipping ones you already have. Replace deletes your current library and restores everything from the backup.</value></data>
+  <data name="Settings_ImportModeMerge" xml:space="preserve"><value>Merge</value></data>
+  <data name="Settings_ImportModeOverwrite" xml:space="preserve"><value>Replace</value></data>
   <data name="Settings_Appearance" xml:space="preserve"><value>Appearance</value></data>
   <data name="Settings_ThemeLight" xml:space="preserve"><value>Light</value></data>
   <data name="Settings_ThemeDark" xml:space="preserve"><value>Dark</value></data>

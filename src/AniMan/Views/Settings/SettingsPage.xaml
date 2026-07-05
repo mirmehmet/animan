@@ -86,7 +86,7 @@
                             Icon="{ui:SymbolIcon Symbol=ArrowExportUp24}"
                             Header="{loc:Loc Settings_Export}">
                 <ui:Button Content="{loc:Loc Settings_ExportAction}"
-                           Command="{Binding ExportDataCommand}"
+                           Click="OnExportClicked"
                            Appearance="Secondary"/>
             </ui:CardControl>
 
@@ -94,7 +94,7 @@
                             Icon="{ui:SymbolIcon Symbol=ArrowImport24}"
                             Header="{loc:Loc Settings_Import}">
                 <ui:Button Content="{loc:Loc Settings_ImportAction}"
-                           Command="{Binding ImportDataCommand}"
+                           Click="OnImportClicked"
                            Appearance="Secondary"/>
             </ui:CardControl>
 

@@ -218,6 +218,14 @@
   <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Boşalt</value></data>
   <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Yeniden başlatma gerekli</value></data>
   <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Veriler başarıyla içe aktarıldı. Değişiklikleri uygulamak için AniMan yeniden başlatılacak.</value></data>
+  <data name="Settings_ExportSuccessTitle" xml:space="preserve"><value>Yedek oluşturuldu</value></data>
+  <data name="Settings_ExportSuccessContent" xml:space="preserve"><value>Kütüphaneniz başarıyla dışa aktarıldı.</value></data>
+  <data name="Settings_ExportErrorTitle" xml:space="preserve"><value>Dışa aktarma başarısız</value></data>
+  <data name="Settings_ImportErrorTitle" xml:space="preserve"><value>İçe aktarma başarısız</value></data>
+  <data name="Settings_ImportModeTitle" xml:space="preserve"><value>Yedek nasıl içe aktarılsın?</value></data>
+  <data name="Settings_ImportModeContent" xml:space="preserve"><value>Birleştir, yedekteki öğeleri mevcut kütüphanenize ekler; zaten sahip olduklarınızı atlar. Değiştir, mevcut kütüphanenizi siler ve her şeyi yedekten geri yükler.</value></data>
+  <data name="Settings_ImportModeMerge" xml:space="preserve"><value>Birleştir</value></data>
+  <data name="Settings_ImportModeOverwrite" xml:space="preserve"><value>Değiştir</value></data>
   <data name="Settings_Appearance" xml:space="preserve"><value>Görünüm</value></data>
   <data name="Settings_ThemeLight" xml:space="preserve"><value>Açık</value></data>
   <data name="Settings_ThemeDark" xml:space="preserve"><value>Koyu</value></data>

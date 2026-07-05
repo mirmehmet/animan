@@ -13,8 +13,7 @@ public sealed class SnapshotService(
     IDbContextFactory<LibraryDbContext> libraryFactory,
     IDbContextFactory<CatalogDbContext> catalogFactory,
     ICatalogService catalogService,
-    IHttpClientFactory httpClientFactory,
-    StoragePaths storagePaths,
+    CoverStore coverStore,
     ILogger<SnapshotService> logger) : ISnapshotService
 {
     public async Task<Result<LibraryItem>> SnapshotAsync(
@@ -52,7 +51,7 @@ public sealed class SnapshotService(
         snapshot.Genres = await LoadGenresJsonAsync(malId, mediaType == MediaType.Anime ? "anime" : "manga");
 
         // Download cover
-        snapshot.CoverLocalPath = await DownloadCoverAsync(malId, mediaType, coverUrl, ct);
+        snapshot.CoverLocalPath = await coverStore.DownloadAsync(malId, mediaType, coverUrl, ct);
         snapshot.CoverOriginalUrl = coverUrl;
 
         snapshot.SnapshotAt = DateTime.UtcNow;
@@ -105,7 +104,7 @@ public sealed class SnapshotService(
         }
 
         fresh.Genres = await LoadGenresJsonAsync(item.MalId, item.MediaType == MediaType.Anime ? "anime" : "manga");
-        fresh.CoverLocalPath = await DownloadCoverAsync(item.MalId, item.MediaType, coverUrl, ct);
+        fresh.CoverLocalPath = await coverStore.DownloadAsync(item.MalId, item.MediaType, coverUrl, ct);
         fresh.CoverOriginalUrl = coverUrl;
         fresh.LibraryItemId = libraryItemId;
         fresh.SnapshotAt = DateTime.UtcNow;
@@ -173,28 +172,6 @@ public sealed class SnapshotService(
         {
             logger.LogWarning(ex, "Genre load failed for {MalId}", malId);
             return "[]";
-        }
-    }
-
-    private async Task<string?> DownloadCoverAsync(
-        int malId, MediaType mediaType, string? url, CancellationToken ct)
-    {
-        if (url is null) return null;
-
-        var fileName = $"{malId}_{mediaType.ToString().ToLowerInvariant()}.jpg";
-        var filePath = Path.Combine(storagePaths.CoversPath, fileName);
-
-        try
-        {
-            using var http = httpClientFactory.CreateClient("covers");
-            var bytes = await http.GetByteArrayAsync(url, ct);
-            await File.WriteAllBytesAsync(filePath, bytes, ct);
-            return filePath;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Cover download failed for {MalId} — continuing without cover", malId);
-            return null;
         }
     }
 }
