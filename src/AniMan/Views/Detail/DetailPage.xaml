@@ -67,8 +67,8 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Style="{StaticResource GenrePill}">
-                                    <TextBlock Text="{Binding}" FontSize="11"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource BrandAccentBrush}"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
