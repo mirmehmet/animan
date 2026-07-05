@@ -1,3 +1,6 @@
+using AniMan.Core.Domain.Enums;
+using AniMan.Core.Domain.Models;
+using AniMan.Localization;
 using AniMan.Navigation;
 using AniMan.ViewModels.Dashboard;
 using System.Windows;
@@ -42,6 +45,14 @@ public partial class DashboardPage : UserControl
     {
         if ((sender as FrameworkElement)?.DataContext is not LibraryItemSummary item) return;
         _viewModel.OpenLibraryItemCommand.Execute(item.Id);
+    }
+
+    private void OnSeasonItemClicked(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not CachedAnime anime) return;
+        var backLabel = "← " + LocalizationManager.Get("Dashboard_Title");
+        _bag.Put(new DetailNavigationArgs(anime.Id, MediaType.Anime, null, backLabel));
+        _navigationService.Navigate(typeof(Detail.DetailPage));
     }
 
     private void OnHeroClicked(object sender, MouseButtonEventArgs e)

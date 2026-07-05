@@ -251,8 +251,9 @@
                             <DataTemplate>
                                 <Border Style="{StaticResource MediaCard}"
                                         Width="120" Height="180" Margin="0,0,10,4"
-                                        ClipToBounds="True"
-                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                        ClipToBounds="True" Cursor="Hand"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        MouseLeftButtonUp="OnSeasonItemClicked">
                                     <Grid>
                                         <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
                                         <Border CornerRadius="{StaticResource CornerMd}" ClipToBounds="True">
