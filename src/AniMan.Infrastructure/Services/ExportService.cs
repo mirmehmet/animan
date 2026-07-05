@@ -11,6 +11,7 @@ namespace AniMan.Infrastructure.Services;
 
 public sealed class ExportService(
     IDbContextFactory<LibraryDbContext> libraryFactory,
+    CoverStore coverStore,
     ILogger<ExportService> logger) : IExportService
 {
     internal const int CurrentSchemaVersion = 1;
@@ -112,7 +113,16 @@ public sealed class ExportService(
                 if (mode == ImportMode.Merge && existingKeys.Contains((dto.MalId, mediaType)))
                     continue;
 
-                db.LibraryItems.Add(BuildEntity(dto, mediaType, statusMap));
+                var entity = BuildEntity(dto, mediaType, statusMap);
+
+                // The backup stores an absolute CoverLocalPath from the exporting
+                // machine — never trust it. Re-point to this machine's covers folder,
+                // re-downloading from CoverOriginalUrl when the file is gone.
+                if (entity.Snapshot is { } snap)
+                    snap.CoverLocalPath = await coverStore.EnsureAsync(
+                        dto.MalId, mediaType, snap.CoverOriginalUrl, ct);
+
+                db.LibraryItems.Add(entity);
                 imported++;
             }
 

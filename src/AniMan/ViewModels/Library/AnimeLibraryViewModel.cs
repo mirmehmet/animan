@@ -113,12 +113,13 @@ public partial class AnimeLibraryViewModel : ObservableObject
         Items = new ObservableCollection<LibraryCardViewModel>(filtered);
     }
 
+    // Unrated items always sort to the end, regardless of direction.
     private IEnumerable<LibraryCardViewModel> ApplyRatingSort(IEnumerable<LibraryCardViewModel> source) =>
         RatingSortMode switch
         {
-            LibraryRatingSort.MyScoreHighToLow  => source.OrderByDescending(c => c.UserRating ?? 0m),
-            LibraryRatingSort.MyScoreLowToHigh  => source.OrderBy(c => c.UserRating ?? 0m),
-            LibraryRatingSort.MalScoreHighToLow => source.OrderByDescending(c => c.MalScore ?? 0.0),
+            LibraryRatingSort.MyScoreHighToLow  => source.OrderBy(c => c.UserRating is null).ThenByDescending(c => c.UserRating),
+            LibraryRatingSort.MyScoreLowToHigh  => source.OrderBy(c => c.UserRating is null).ThenBy(c => c.UserRating),
+            LibraryRatingSort.MalScoreHighToLow => source.OrderBy(c => c.MalScore is null).ThenByDescending(c => c.MalScore),
             LibraryRatingSort.Alphabetical      => source.OrderBy(c => c.Title, StringComparer.OrdinalIgnoreCase),
             _                                   => source
         };

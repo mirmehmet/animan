@@ -12,26 +12,18 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
 
+    <Grid>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="0,0,24,24">
+        <Grid Margin="0,44,24,24">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Back button -->
-            <Button Grid.Row="0" Click="OnGoBackClicked"
-                    Content="{Binding BackLabel}"
-                    HorizontalAlignment="Left" Margin="16,12,0,8"
-                    Background="Transparent" BorderThickness="0"
-                    Cursor="Hand" Padding="4,2"
-                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-
             <!-- Header: Cover + Metadata -->
-            <Grid Grid.Row="1" Margin="24,0,0,24">
+            <Grid Grid.Row="0" Margin="24,0,0,24">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="180"/>
                     <ColumnDefinition Width="*"/>
@@ -75,8 +67,8 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Style="{StaticResource GenrePill}">
-                                    <TextBlock Text="{Binding}" FontSize="11"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource BrandAccentBrush}"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -241,7 +233,7 @@
             </Grid>
 
             <!-- Series Note (hidden in preview) -->
-            <StackPanel Grid.Row="2" Margin="24,0,0,16"
+            <StackPanel Grid.Row="1" Margin="24,0,0,16"
                         Visibility="{Binding IsPreviewMode,
                             Converter={StaticResource InverseBoolToVisibilityConverter}}">
                 <TextBlock Text="{loc:Loc Detail_SeriesNotes}" FontWeight="SemiBold" Margin="0,0,0,6"/>
@@ -254,7 +246,7 @@
             </StackPanel>
 
             <!-- Episode list (anime, library mode) -->
-            <StackPanel Grid.Row="3" Margin="24,0,0,0"
+            <StackPanel Grid.Row="2" Margin="24,0,0,0"
                         Visibility="{Binding HasEpisodes, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="{loc:Loc Detail_Episodes}" FontWeight="SemiBold" FontSize="16"
                            Margin="0,0,0,8"/>
@@ -262,7 +254,7 @@
             </StackPanel>
 
             <!-- Chapter list (manga, library mode) -->
-            <StackPanel Grid.Row="4" Margin="24,0,0,0"
+            <StackPanel Grid.Row="3" Margin="24,0,0,0"
                         Visibility="{Binding HasChapters, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="{loc:Loc Detail_Chapters}" FontWeight="SemiBold" FontSize="16"
                            Margin="0,0,0,8"/>
@@ -271,4 +263,16 @@
 
         </Grid>
     </ScrollViewer>
+
+    <!-- Floating back button — stays visible while the content scrolls under it -->
+    <Border HorizontalAlignment="Left" VerticalAlignment="Top"
+            Margin="16,12,0,0" CornerRadius="6"
+            Background="{DynamicResource ControlFillColorDefaultBrush}">
+        <Button Click="OnGoBackClicked"
+                Content="{Binding BackLabel}"
+                Background="Transparent" BorderThickness="0"
+                Cursor="Hand" Padding="8,4"
+                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+    </Border>
+    </Grid>
 </UserControl>

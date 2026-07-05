@@ -120,6 +120,10 @@
                                 ProgressText="{Binding ProgressText}"
                                 ProgressPercent="{Binding ProgressPercent}"
                                 ProgressAccent="{Binding ProgressAccent}"
+                                ShowRatings="{Binding DataContext.IsRatingsTab,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                MalScoreText="{Binding MalScoreText}"
+                                UserRatingText="{Binding UserRatingText}"
                                 MouseLeftButtonUp="Card_MouseLeftButtonUp"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

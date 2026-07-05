@@ -58,8 +58,7 @@ public class SnapshotServiceTests : IDisposable
     private SnapshotService CreateService() => new(
         _libraryFactory, _catalogFactory,
         _catalogServiceMock.Object,
-        _httpClientFactoryMock.Object,
-        _paths,
+        new CoverStore(_httpClientFactoryMock.Object, _paths, NullLogger<CoverStore>.Instance),
         NullLogger<SnapshotService>.Instance);
 
     [Fact]

@@ -57,6 +57,7 @@
 
                 <ui:NavigationViewItem Content="{loc:Loc Nav_Discover}"
                                        TargetPageType="{x:Type views:DiscoverPage}"
+                                       Click="OnDiscoverNavClicked"
                                        xmlns:views="clr-namespace:AniMan.Views.Discover">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="CompassNorthwest24" />

@@ -53,7 +53,8 @@ public class AddToLibrarySmokeTests : IDisposable
 
         var snapshotService = new SnapshotService(
             _libraryFactory, _catalogFactory, catalogService,
-            httpFactory.Object, storagePaths, NullLogger<SnapshotService>.Instance);
+            new CoverStore(httpFactory.Object, storagePaths, NullLogger<CoverStore>.Instance),
+            NullLogger<SnapshotService>.Instance);
 
         // ── Act: add anime 1 with status "Watching" (id 1) ───────────────────────
         var result = await snapshotService.SnapshotAsync(1, MediaType.Anime, statusId: 1);
@@ -97,8 +98,10 @@ public class AddToLibrarySmokeTests : IDisposable
             _catalogFactory, jikan.Object, settings.Object, NullLogger<CatalogService>.Instance);
         var snapshotService = new SnapshotService(
             _libraryFactory, _catalogFactory, catalogService,
-            new Mock<IHttpClientFactory>().Object,
-            new StoragePaths(Path.GetTempPath(), Path.GetTempPath()),
+            new CoverStore(
+                new Mock<IHttpClientFactory>().Object,
+                new StoragePaths(Path.GetTempPath(), Path.GetTempPath()),
+                NullLogger<CoverStore>.Instance),
             NullLogger<SnapshotService>.Instance);
 
         var result = await snapshotService.SnapshotAsync(1, MediaType.Anime, 1);

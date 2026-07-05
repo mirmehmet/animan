@@ -18,6 +18,10 @@
         <GradientStop Color="#2d1b4e" Offset="1"/>
     </LinearGradientBrush>
 
+    <!-- Genre / status tags — translucent violet tints, legible on both themes -->
+    <SolidColorBrush x:Key="GenreTagBackgroundBrush" Color="#1F8B5CF6"/>
+    <SolidColorBrush x:Key="GenreTagBorderBrush"     Color="#4D8B5CF6"/>
+
     <!-- Overlays -->
     <SolidColorBrush x:Key="CardOverlayBrush"    Color="#CC000000"/>
     <SolidColorBrush x:Key="HairlineBorderBrush"  Color="#14FFFFFF"/>
