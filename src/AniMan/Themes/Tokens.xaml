@@ -7,6 +7,7 @@
     <CornerRadius x:Key="CornerMd">12</CornerRadius>
     <CornerRadius x:Key="CornerLg">16</CornerRadius>
     <CornerRadius x:Key="CornerPill">999</CornerRadius>
+    <CornerRadius x:Key="CornerTag">6</CornerRadius>
     <CornerRadius x:Key="CornerCardTop">12,12,0,0</CornerRadius>
     <CornerRadius x:Key="CornerCardBottom">0,0,12,12</CornerRadius>
 

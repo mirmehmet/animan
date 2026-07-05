@@ -1,12 +1,11 @@
 using System.Collections.ObjectModel;
-using System.IO;
+using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Localization;
 using AniMan.Theming;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 
 namespace AniMan.ViewModels.Settings;
 
@@ -15,16 +14,12 @@ public enum ThemeMode { Light, Dark, System }
 public partial class SettingsViewModel(
     ISettingsService settingsService,
     ITrackingService trackingService,
-    IDataManagementService dataManagementService) : ObservableObject
+    IDataManagementService dataManagementService,
+    IExportService exportService) : ObservableObject
 {
     private bool _initialized;
-    private static readonly string LibraryDbPath =
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AniMan", "library.db");
 
     public event EventHandler? LanguageChangeRequiresRestart;
-    public event EventHandler? ImportRequiresRestart;
 
     // ── Appearance ────────────────────────────────────────────────────────────
 
@@ -119,55 +114,11 @@ public partial class SettingsViewModel(
 
     // ── Backup / Restore ──────────────────────────────────────────────────────
 
-    [RelayCommand]
-    private void ExportData()
-    {
-        var dlg = new SaveFileDialog
-        {
-            Title = LocalizationManager.Get("Settings_Export"),
-            Filter = "AniMan Backup (*.AniMan)|*.AniMan|SQLite DB (*.db)|*.db",
-            FileName = $"AniMan-backup-{DateTime.Today:yyyy-MM-dd}"
-        };
-        if (dlg.ShowDialog() != true) return;
+    public Task<Result> ExportAsync(string filePath) =>
+        exportService.ExportAsync(filePath);
 
-        try
-        {
-            File.Copy(LibraryDbPath, dlg.FileName, overwrite: true);
-        }
-        catch (Exception ex)
-        {
-            System.Windows.MessageBox.Show(
-                $"Export failed: {ex.Message}",
-                "Export Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
-        }
-    }
-
-    [RelayCommand]
-    private void ImportData()
-    {
-        var dlg = new OpenFileDialog
-        {
-            Title = LocalizationManager.Get("Settings_Import"),
-            Filter = "AniMan Backup (*.AniMan;*.db)|*.AniMan;*.db"
-        };
-        if (dlg.ShowDialog() != true) return;
-
-        try
-        {
-            File.Copy(dlg.FileName, LibraryDbPath, overwrite: true);
-            ImportRequiresRestart?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception ex)
-        {
-            System.Windows.MessageBox.Show(
-                $"Import failed: {ex.Message}",
-                "Import Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
-        }
-    }
+    public Task<Result> ImportAsync(string filePath, ImportMode mode) =>
+        exportService.ImportAsync(filePath, mode);
 
     // ── Trash management ─────────────────────────────────────────────────────
 

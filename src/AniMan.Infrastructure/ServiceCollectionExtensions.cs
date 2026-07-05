@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AniMan/1.0");
         });
 
+        services.AddSingleton<CoverStore>();
         services.AddTransient<ICatalogService, CatalogService>();
         services.AddTransient<ISnapshotService, SnapshotService>();
         services.AddTransient<ITrackingService, TrackingService>();

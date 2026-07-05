@@ -30,6 +30,23 @@ public partial class DiscoverViewModel : ObservableObject
     [ObservableProperty] private bool _isLoadingMore;
     [ObservableProperty] private string? _errorMessage;
 
+    /// <summary>Scroll offset saved when leaving for a detail page; the page instance
+    /// is transient, so the position must survive here on the singleton VM.</summary>
+    public double SavedScrollOffset { get; set; }
+
+    /// <summary>True while a DiscoverPage instance is loaded — lets MainWindow tell a
+    /// re-click on the Discover nav item apart from navigation from another page.</summary>
+    public bool IsPageActive { get; set; }
+
+    /// <summary>Full reset to the initial Discover view: Anime tab, top list, empty search.</summary>
+    public async Task ResetToInitialAsync()
+    {
+        ActiveTab = DiscoverTab.Anime;
+        SearchQuery = string.Empty;
+        SavedScrollOffset = 0;
+        await LoadAsync();
+    }
+
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
@@ -159,6 +176,16 @@ public partial class DiscoverViewModel : ObservableObject
             }
         }
         finally { IsLoadingMore = false; }
+    }
+
+    /// <summary>Re-syncs the ✓ markers on existing cards without reloading the list —
+    /// used when returning to a preserved Discover state (items may have been added
+    /// to the library from the detail page in the meantime).</summary>
+    public async Task RefreshLibraryFlagsAsync()
+    {
+        await LoadLibrarySetAsync();
+        foreach (var card in Cards)
+            card.IsInLibrary = _librarySet.Contains((card.MalId, card.MediaType));
     }
 
     [RelayCommand]

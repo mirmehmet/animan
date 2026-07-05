@@ -100,7 +100,9 @@ public partial class App : Application
         services.AddTransient<MangaLibraryViewModel>();
         services.AddTransient<DetailViewModel>();
         services.AddTransient<ViewModels.Stats.StatsViewModel>();
-        services.AddTransient<ViewModels.Discover.DiscoverViewModel>();
+        // Singleton: keeps tab/search/results/scroll alive so navigating to a
+        // detail page and back (or to any other page) doesn't reset Discover.
+        services.AddSingleton<ViewModels.Discover.DiscoverViewModel>();
 
         return services.BuildServiceProvider();
     }

@@ -27,11 +27,36 @@ public partial class DiscoverPage : SWC.UserControl
         _bag = bag;
         _navigationService = navigationService;
         DataContext = viewModel;
-        viewModel.AddToLibraryRequested += OnAddToLibraryRequested;
+        // The VM is a singleton but this page is transient: subscribe/unsubscribe
+        // per Loaded/Unloaded so dead page instances don't accumulate handlers.
+        Unloaded += (_, _) =>
+        {
+            _vm.AddToLibraryRequested -= OnAddToLibraryRequested;
+            _vm.IsPageActive = false;
+        };
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e) =>
-        await _vm.LoadCommand.ExecuteAsync(null);
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _vm.AddToLibraryRequested += OnAddToLibraryRequested;
+        _vm.IsPageActive = true;
+
+        // A nav re-click may have kicked off ResetToInitialAsync already;
+        // don't start a second load on top of it.
+        if (_vm.IsLoading) return;
+
+        if (_vm.Cards.Count > 0)
+        {
+            // Returning to preserved state (e.g. back from a detail page):
+            // keep tab/query/results, just re-sync ✓ markers and scroll position.
+            await _vm.RefreshLibraryFlagsAsync();
+            CardsScrollViewer.ScrollToVerticalOffset(_vm.SavedScrollOffset);
+        }
+        else
+        {
+            await _vm.LoadCommand.ExecuteAsync(null);
+        }
+    }
 
     private void OnSearchKeyDown(object sender, KeyEventArgs e)
     {
@@ -49,6 +74,7 @@ public partial class DiscoverPage : SWC.UserControl
     private void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not DiscoverCardViewModel card) return;
+        _vm.SavedScrollOffset = CardsScrollViewer.VerticalOffset;
         var backLabel = "← " + LocalizationManager.Get("Discover_Title");
         _bag.Put(new DetailNavigationArgs(card.MalId, card.MediaType, null, backLabel));
         _navigationService.Navigate(typeof(Detail.DetailPage));
