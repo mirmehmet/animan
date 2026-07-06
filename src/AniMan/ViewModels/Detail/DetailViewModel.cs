@@ -381,7 +381,8 @@ public partial class DetailViewModel : ObservableObject
                 Title = titleMap.GetValueOrDefault(i),
                 HasNote = episodeNotes.Contains(i)
             };
-            row.InitWatched(episodeProgress.TryGetValue(i, out var ep) && ep.IsWatched);
+            var watched = episodeProgress.TryGetValue(i, out var ep) && ep.IsWatched;
+            row.InitWatched(watched, watched ? ep!.WatchedAt : null);
 
             row.WatchedToggled += OnEpisodeWatchedToggled;
             row.MarkUpToHereRequested += OnEpisodeMarkUpToHere;
@@ -414,7 +415,8 @@ public partial class DetailViewModel : ObservableObject
                 ChapterNumber = i,
                 HasNote = chapterNotes.Contains(i)
             };
-            row.InitRead(chapterProgress.TryGetValue(i, out var cp) && cp.IsRead);
+            var read = chapterProgress.TryGetValue(i, out var cp) && cp.IsRead;
+            row.InitRead(read, read ? cp!.ReadAt : null);
 
             row.ReadToggled += OnChapterReadToggled;
             row.MarkUpToHereRequested += OnChapterMarkUpToHere;
@@ -450,9 +452,16 @@ public partial class DetailViewModel : ObservableObject
             var result = await _tracking.MarkUpToHereAsync(LibraryItemId, row.EpisodeNumber);
             if (!result.IsSuccess) return;
 
-            // Already persisted by the service — update UI without re-triggering writes.
-            foreach (var ep in Episodes.Where(e => e.EpisodeNumber <= row.EpisodeNumber))
-                ep.InitWatched(true);
+            // Already persisted by the service — sync the UI both ways without
+            // re-triggering writes: at/below the target watched (dates kept),
+            // above it cleared.
+            foreach (var ep in Episodes)
+            {
+                if (ep.EpisodeNumber <= row.EpisodeNumber)
+                    ep.InitWatched(true, ep.WatchedAt ?? DateTime.UtcNow);
+                else
+                    ep.InitWatched(false, null);
+            }
 
             await LoadProgressAsync();
 
@@ -497,8 +506,13 @@ public partial class DetailViewModel : ObservableObject
             var result = await _tracking.MarkChaptersUpToAsync(LibraryItemId, row.ChapterNumber);
             if (!result.IsSuccess) return;
 
-            foreach (var ch in Chapters.Where(c => c.ChapterNumber <= row.ChapterNumber))
-                ch.InitRead(true);
+            foreach (var ch in Chapters)
+            {
+                if (ch.ChapterNumber <= row.ChapterNumber)
+                    ch.InitRead(true, ch.ReadAt ?? DateTime.UtcNow);
+                else
+                    ch.InitRead(false, null);
+            }
 
             await LoadProgressAsync();
 

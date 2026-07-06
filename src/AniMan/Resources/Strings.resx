@@ -121,7 +121,7 @@
   <data name="Detail_SaveNote" xml:space="preserve"><value>Save Note</value></data>
   <data name="Detail_Episodes" xml:space="preserve"><value>Episodes</value></data>
   <data name="Detail_Note" xml:space="preserve"><value>Note</value></data>
-  <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Mark up to here</value></data>
+  <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Select up to here</value></data>
   <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Ep {0}</value></data>
   <data name="Detail_Chapters" xml:space="preserve"><value>Chapters</value></data>
   <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> chapters</value></data>

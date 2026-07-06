@@ -121,7 +121,7 @@
   <data name="Detail_SaveNote" xml:space="preserve"><value>Notu Kaydet</value></data>
   <data name="Detail_Episodes" xml:space="preserve"><value>Bölümler</value></data>
   <data name="Detail_Note" xml:space="preserve"><value>Not</value></data>
-  <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Buraya kadar işaretle</value></data>
+  <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Buraya kadar seç</value></data>
   <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Bölüm {0}</value></data>
   <data name="Detail_Chapters" xml:space="preserve"><value>Bölümler</value></data>
   <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> bölüm</value></data>

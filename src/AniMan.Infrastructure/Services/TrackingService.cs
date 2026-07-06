@@ -100,14 +100,19 @@ public sealed class TrackingService(
         int libraryItemId, int episodeNumber, CancellationToken ct = default) =>
         MutateProgressAsync(libraryItemId, isManga: false, nameof(MarkUpToHereAsync), async db =>
         {
-            var existing = await db.EpisodeProgress
-                .Where(e => e.LibraryItemId == libraryItemId && e.EpisodeNumber <= episodeNumber)
+            // "Exactly up to here": everything at or below the target is watched
+            // (existing watch dates preserved), everything above it — including
+            // detached marks further up — is removed.
+            var all = await db.EpisodeProgress
+                .Where(e => e.LibraryItemId == libraryItemId)
                 .ToListAsync(ct).ConfigureAwait(false);
 
-            var existingSet = existing.Select(e => e.EpisodeNumber).ToHashSet();
+            db.EpisodeProgress.RemoveRange(all.Where(e => e.EpisodeNumber > episodeNumber));
 
-            foreach (var ep in existing)
+            var existingSet = new HashSet<int>();
+            foreach (var ep in all.Where(e => e.EpisodeNumber <= episodeNumber))
             {
+                existingSet.Add(ep.EpisodeNumber);
                 ep.IsWatched = true;
                 ep.WatchedAt ??= DateTime.UtcNow;
             }
@@ -155,14 +160,17 @@ public sealed class TrackingService(
         int libraryItemId, int chapterNumber, CancellationToken ct = default) =>
         MutateProgressAsync(libraryItemId, isManga: true, nameof(MarkChaptersUpToAsync), async db =>
         {
-            var existing = await db.ChapterProgress
-                .Where(c => c.LibraryItemId == libraryItemId && c.ChapterNumber <= chapterNumber)
+            // "Exactly up to here" — see MarkUpToHereAsync; chapter mirror.
+            var all = await db.ChapterProgress
+                .Where(c => c.LibraryItemId == libraryItemId)
                 .ToListAsync(ct).ConfigureAwait(false);
 
-            var existingSet = existing.Select(c => c.ChapterNumber).ToHashSet();
+            db.ChapterProgress.RemoveRange(all.Where(c => c.ChapterNumber > chapterNumber));
 
-            foreach (var ch in existing)
+            var existingSet = new HashSet<int>();
+            foreach (var ch in all.Where(c => c.ChapterNumber <= chapterNumber))
             {
+                existingSet.Add(ch.ChapterNumber);
                 ch.IsRead = true;
                 ch.ReadAt ??= DateTime.UtcNow;
             }
@@ -409,6 +417,12 @@ public sealed class TrackingService(
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             await mutate(db).ConfigureAwait(false);
+
+            // State already matches the target → true no-op: don't bump the item
+            // timestamp (library sort order) and don't re-trigger auto-complete.
+            if (!db.ChangeTracker.HasChanges())
+                return Result<TrackingResult>.Success(new TrackingResult(AutoCompleteNeeded: false));
+
             await UpdateItemTimestampAsync(db, libraryItemId, ct).ConfigureAwait(false);
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
             return await BuildResultAsync(db, libraryItemId, isManga, ct).ConfigureAwait(false);

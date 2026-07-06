@@ -24,6 +24,17 @@ public partial class EpisodeRowViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasNote;
 
+    /// <summary>UTC timestamp of when the episode was watched; null when unwatched.</summary>
+    [ObservableProperty]
+    private DateTime? _watchedAt;
+
+    /// <summary>Short, culture-aware local date shown next to watched episodes.</summary>
+    public string WatchedAtDisplay => WatchedAt is { } d
+        ? DateTime.SpecifyKind(d, DateTimeKind.Utc).ToLocalTime().ToString("d")
+        : string.Empty;
+
+    partial void OnWatchedAtChanged(DateTime? value) => OnPropertyChanged(nameof(WatchedAtDisplay));
+
     public event EventHandler<EpisodeRowViewModel>? WatchedToggled;
     public event EventHandler<EpisodeRowViewModel>? MarkUpToHereRequested;
     public event EventHandler<EpisodeRowViewModel>? NoteRequested;
@@ -33,12 +44,13 @@ public partial class EpisodeRowViewModel : ObservableObject
         _tracking = tracking;
     }
 
-    /// <summary>Sets the initial watched state without triggering persistence.</summary>
-    public void InitWatched(bool watched)
+    /// <summary>Sets the initial watched state and date without triggering persistence.</summary>
+    public void InitWatched(bool watched, DateTime? watchedAt)
     {
         _suppress = true;
         IsWatched = watched;
         _suppress = false;
+        WatchedAt = watched ? watchedAt : null;
     }
 
     // Driven by the CheckBox two-way binding. Persists the change, then notifies.
@@ -52,6 +64,7 @@ public partial class EpisodeRowViewModel : ObservableObject
             var result = await _tracking.SetEpisodeWatchedAsync(LibraryItemId, EpisodeNumber, value);
             if (result.IsSuccess)
             {
+                WatchedAt = value ? DateTime.UtcNow : null;
                 WatchedToggled?.Invoke(this, this);
                 return;
             }

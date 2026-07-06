@@ -115,6 +115,97 @@ public class TrackingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task MarkUpToHere_LowerThanCurrent_RemovesRowsAbove()
+    {
+        var svc = Create();
+        await svc.MarkUpToHereAsync(1, 8);
+
+        var result = await svc.MarkUpToHereAsync(1, 3);
+
+        result.IsSuccess.Should().BeTrue();
+        var rows = _db.EpisodeProgress.AsNoTracking().Where(e => e.LibraryItemId == 1).ToList();
+        rows.Should().HaveCount(3, "rows above the target must be deleted, not just unmarked");
+        rows.Should().OnlyContain(e => e.EpisodeNumber <= 3 && e.IsWatched);
+    }
+
+    [Fact]
+    public async Task MarkUpToHere_ClearsDetachedMarksAbove()
+    {
+        var svc = Create();
+        await svc.SetEpisodeWatchedAsync(1, 11, watched: true); // lone mark far above
+
+        await svc.MarkUpToHereAsync(1, 3);
+
+        _db.EpisodeProgress.AsNoTracking()
+            .Where(e => e.LibraryItemId == 1)
+            .Should().OnlyContain(e => e.EpisodeNumber <= 3, "detached marks above the target are cleared too");
+    }
+
+    [Fact]
+    public async Task MarkUpToHere_PreservesExistingWatchedAt()
+    {
+        var oldDate = DateTime.UtcNow.AddDays(-30);
+        _db.EpisodeProgress.Add(new EpisodeProgress
+        {
+            LibraryItemId = 1, EpisodeNumber = 2,
+            IsWatched = true, WatchedAt = oldDate
+        });
+        await _db.SaveChangesAsync();
+
+        var svc = Create();
+        await svc.MarkUpToHereAsync(1, 5);
+
+        var ep2 = _db.EpisodeProgress.AsNoTracking()
+            .Single(e => e.LibraryItemId == 1 && e.EpisodeNumber == 2);
+        ep2.WatchedAt.Should().BeCloseTo(oldDate, TimeSpan.FromSeconds(1),
+            "already-watched episodes keep their original watch date");
+    }
+
+    [Fact]
+    public async Task MarkUpToHere_SameTarget_IsNoOp()
+    {
+        var svc = Create();
+        await svc.MarkUpToHereAsync(1, 5);
+        var updatedAtBefore = _db.LibraryItems.AsNoTracking().Single(i => i.Id == 1).UpdatedAt;
+
+        var result = await svc.MarkUpToHereAsync(1, 5);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.AutoCompleteNeeded.Should().BeFalse();
+        _db.EpisodeProgress.AsNoTracking().Count(e => e.LibraryItemId == 1).Should().Be(5);
+        _db.LibraryItems.AsNoTracking().Single(i => i.Id == 1).UpdatedAt
+            .Should().Be(updatedAtBefore, "an exact repeat must not even bump the item timestamp");
+    }
+
+    [Fact]
+    public async Task MarkUpToHere_Rollback_KeepsNotesOfClearedEpisodes()
+    {
+        var svc = Create();
+        await svc.MarkUpToHereAsync(1, 8);
+        await svc.SaveNoteAsync(1, episodeNumber: 5, chapterNumber: null, "keep me");
+
+        await svc.MarkUpToHereAsync(1, 3); // clears episodes 4-8
+
+        _db.Notes.AsNoTracking()
+            .Single(n => n.LibraryItemId == 1 && n.EpisodeNumber == 5)
+            .Content.Should().Be("keep me", "notes are user data and survive progress rollback");
+    }
+
+    [Fact]
+    public async Task MarkChaptersUpTo_LowerThanCurrent_RemovesRowsAbove()
+    {
+        var svc = Create();
+        await svc.MarkChaptersUpToAsync(2, 7);
+
+        var result = await svc.MarkChaptersUpToAsync(2, 4);
+
+        result.IsSuccess.Should().BeTrue();
+        var rows = _db.ChapterProgress.AsNoTracking().Where(c => c.LibraryItemId == 2).ToList();
+        rows.Should().HaveCount(4);
+        rows.Should().OnlyContain(c => c.ChapterNumber <= 4 && c.IsRead);
+    }
+
+    [Fact]
     public async Task SaveNote_Create_ThenUpdate()
     {
         var svc = Create();
