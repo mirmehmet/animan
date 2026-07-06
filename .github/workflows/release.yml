@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# Lets the built-in GITHUB_TOKEN create a Release (some repos default this to read-only).
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, Test & Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # MinVer derives the version from git tags — a shallow checkout can't see
+          # them, so it would compute 0.0.0 instead of the pushed tag's version.
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore AniMan.slnx
+
+      - name: Build
+        run: dotnet build AniMan.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test AniMan.slnx --configuration Release --no-build --verbosity normal
+
+      - name: Publish self-contained exe
+        run: >
+          dotnet publish src/AniMan/AniMan.csproj
+          -c Release
+          -r win-x64
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:PublishReadyToRun=true
+          --self-contained true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          -o publish
+
+      - name: Rename artifact with version tag
+        run: Rename-Item -Path "publish/AniMan.exe" -NewName "AniMan-${{ github.ref_name }}.exe"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create ${{ github.ref_name }} "publish/AniMan-${{ github.ref_name }}.exe" --title "AniMan ${{ github.ref_name }}" --generate-notes

@@ -21,6 +21,7 @@ internal sealed class LibraryItemDto
     public string MediaType { get; set; } = string.Empty;
     public string StatusName { get; set; } = string.Empty;
     public int? Score { get; set; }
+    public decimal? UserRating { get; set; }
     public bool IsFavorite { get; set; }
     public int RewatchCount { get; set; }
     public DateOnly? LastRewatchDate { get; set; }
@@ -28,6 +29,7 @@ internal sealed class LibraryItemDto
     public DateOnly? CompletedAt { get; set; }
     public DateTime AddedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
     public SnapshotDto? Snapshot { get; set; }
     public List<EpisodeDto> Episodes { get; set; } = [];
     public List<ChapterDto> Chapters { get; set; } = [];

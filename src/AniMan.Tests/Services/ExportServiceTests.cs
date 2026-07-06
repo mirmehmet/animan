@@ -197,6 +197,34 @@ public class ExportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Export_ThenImport_PreservesUserRatingAndTrashState()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Rated");
+        SeedItem(200, MediaType.Anime, 1, null, "Trashed");
+        using (var db = CreateDb())
+        {
+            var rated = db.LibraryItems.Single(i => i.MalId == 100);
+            rated.UserRating = 7.5m;
+
+            var trashed = db.LibraryItems.Single(i => i.MalId == 200);
+            trashed.DeletedAt = DateTime.UtcNow;
+
+            db.SaveChanges();
+        }
+
+        var svc = Create();
+        await svc.ExportAsync(_tempFile);
+
+        var result = await svc.ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeTrue();
+        using var verify = CreateDb();
+        verify.LibraryItems.Single(i => i.MalId == 100).UserRating.Should().Be(7.5m);
+        verify.LibraryItems.Single(i => i.MalId == 200).DeletedAt.Should().NotBeNull(
+            "trashed items must stay trashed after a backup round-trip");
+    }
+
+    [Fact]
     public async Task Export_WritesLastBackupAtSetting()
     {
         SeedItem(100, MediaType.Anime, 1, 8, "Original");

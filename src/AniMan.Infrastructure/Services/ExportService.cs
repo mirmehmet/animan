@@ -213,6 +213,7 @@ public sealed class ExportService(
             MediaType = mediaType,
             Status = ResolveStatus(statusMap, dto.StatusName, mediaType),
             Score = dto.Score,
+            UserRating = dto.UserRating,
             IsFavorite = dto.IsFavorite,
             RewatchCount = dto.RewatchCount,
             LastRewatchDate = dto.LastRewatchDate,
@@ -220,6 +221,7 @@ public sealed class ExportService(
             CompletedAt = dto.CompletedAt,
             AddedAt = dto.AddedAt,
             UpdatedAt = dto.UpdatedAt,
+            DeletedAt = dto.DeletedAt,
             EpisodeProgress = dto.Episodes
                 .Select(e => new EpisodeProgress
                 {
@@ -266,6 +268,7 @@ public sealed class ExportService(
         MediaType = i.MediaType.ToString(),
         StatusName = i.Status?.Name ?? string.Empty,
         Score = i.Score,
+        UserRating = i.UserRating,
         IsFavorite = i.IsFavorite,
         RewatchCount = i.RewatchCount,
         LastRewatchDate = i.LastRewatchDate,
@@ -273,6 +276,7 @@ public sealed class ExportService(
         CompletedAt = i.CompletedAt,
         AddedAt = i.AddedAt,
         UpdatedAt = i.UpdatedAt,
+        DeletedAt = i.DeletedAt,
         Snapshot = i.Snapshot is null ? null : new SnapshotDto(
             i.Snapshot.Title, i.Snapshot.TitleJapanese, i.Snapshot.Synopsis, i.Snapshot.Type,
             i.Snapshot.Status, i.Snapshot.Studio,
