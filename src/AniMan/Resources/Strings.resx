@@ -201,7 +201,7 @@
 
   <data name="Settings_DarkMode" xml:space="preserve"><value>Dark Mode</value></data>
   <data name="Settings_About" xml:space="preserve"><value>About</value></data>
-  <data name="Settings_AppVersion" xml:space="preserve"><value>v0.2.0</value></data>
+  <data name="Settings_AppVersion" xml:space="preserve"><value>v0.2.1</value></data>
   <data name="Settings_DataSource" xml:space="preserve"><value>Data Source</value></data>
   <data name="Settings_StartupPage" xml:space="preserve"><value>Startup Page</value></data>
   <data name="Settings_Export" xml:space="preserve"><value>Export Data</value></data>

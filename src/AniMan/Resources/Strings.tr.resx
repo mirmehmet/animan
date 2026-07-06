@@ -201,7 +201,7 @@
 
   <data name="Settings_DarkMode" xml:space="preserve"><value>Karanlık Mod</value></data>
   <data name="Settings_About" xml:space="preserve"><value>Hakkında</value></data>
-  <data name="Settings_AppVersion" xml:space="preserve"><value>v0.2.0</value></data>
+  <data name="Settings_AppVersion" xml:space="preserve"><value>v0.2.1</value></data>
   <data name="Settings_DataSource" xml:space="preserve"><value>Veri Kaynağı</value></data>
   <data name="Settings_StartupPage" xml:space="preserve"><value>Başlangıç Sayfası</value></data>
   <data name="Settings_Export" xml:space="preserve"><value>Dışa Aktar</value></data>
