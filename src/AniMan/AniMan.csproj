@@ -32,10 +32,16 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
+  <!--
+    Embedded (not loose Content): MainWindow.xaml references this via a bare
+    relative path ("Assets/animan.ico"), which WPF resolves against the
+    assembly's own pack:// resources. As loose Content it depended on sitting
+    next to the exe on disk — Assembly.Location is empty in a single-file
+    publish, so that resolution threw ArgumentNullException in Path.Combine
+    the moment someone ran the standalone .exe outside its publish folder.
+  -->
   <ItemGroup>
-    <Content Include="Assets\animan.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Resource Include="Assets\animan.ico" />
   </ItemGroup>
 
   <!--
