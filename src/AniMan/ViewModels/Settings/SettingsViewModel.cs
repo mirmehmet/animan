@@ -88,13 +88,22 @@ public partial class SettingsViewModel(
         await settingsService.SetThemeAsync(AppThemeManager.ToStored(mode));
     }
 
+    // async void semantics below: a failed settings write must be logged, never
+    // allowed to escape to the dispatcher.
     async partial void OnSelectedLanguageChanged(LanguageOption? value)
     {
         if (!_initialized || value is null) return;
-        var current = await settingsService.GetLanguageAsync();
-        if (current == value.Code) return;
-        await settingsService.SetLanguageAsync(value.Code);
-        LanguageChangeRequiresRestart?.Invoke(this, EventArgs.Empty);
+        try
+        {
+            var current = await settingsService.GetLanguageAsync();
+            if (current == value.Code) return;
+            await settingsService.SetLanguageAsync(value.Code);
+            LanguageChangeRequiresRestart?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to save language setting");
+        }
     }
 
     // ── Startup page ──────────────────────────────────────────────────────────
@@ -102,14 +111,28 @@ public partial class SettingsViewModel(
     async partial void OnSelectedStartupPageChanged(string value)
     {
         if (!_initialized) return;
-        await settingsService.SetStartupPageAsync(value);
+        try
+        {
+            await settingsService.SetStartupPageAsync(value);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to save startup page setting");
+        }
     }
 
     async partial void OnSelectedFontChanged(string value)
     {
         if (!_initialized) return;
-        AppThemeManager.ApplyFont(value);
-        await settingsService.SetFontAsync(value);
+        try
+        {
+            AppThemeManager.ApplyFont(value);
+            await settingsService.SetFontAsync(value);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to save font setting");
+        }
     }
 
     // ── Backup / Restore ──────────────────────────────────────────────────────

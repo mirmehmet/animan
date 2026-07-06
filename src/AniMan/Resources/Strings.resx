@@ -249,4 +249,11 @@
   <data name="Common_Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Common_Restore" xml:space="preserve"><value>Restore</value></data>
   <data name="Common_Confirm" xml:space="preserve"><value>Confirm</value></data>
+
+  <data name="Common_Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Detail_FavoriteTooltip" xml:space="preserve"><value>Favorite</value></data>
+
+  <data name="App_UnexpectedErrorTitle" xml:space="preserve"><value>Unexpected Error</value></data>
+  <data name="App_UnexpectedError" xml:space="preserve"><value>An unexpected error occurred. Details were written to the log file.</value></data>
+  <data name="App_StartupFailed" xml:space="preserve"><value>AniMan failed to start. Details were written to the log file.</value></data>
 </root>

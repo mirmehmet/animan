@@ -2,17 +2,21 @@ using Microsoft.Extensions.Logging;
 
 namespace AniMan.Infrastructure.Jikan;
 
-public sealed class JikanRateLimiter(ILogger<JikanRateLimiter> logger)
+public sealed class JikanRateLimiter(
+    ILogger<JikanRateLimiter> logger,
+    TimeProvider? timeProvider = null) : IDisposable
 {
     private readonly SemaphoreSlim _perSecond = new(3, 3);
     private readonly SemaphoreSlim _perMinute = new(60, 60);
+    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+    private volatile bool _disposed;
 
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> request, CancellationToken ct = default)
     {
-        await _perMinute.WaitAsync(ct);
+        await _perMinute.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            await _perSecond.WaitAsync(ct);
+            await _perSecond.WaitAsync(ct).ConfigureAwait(false);
         }
         catch
         {
@@ -27,15 +31,33 @@ public sealed class JikanRateLimiter(ILogger<JikanRateLimiter> logger)
 
         try
         {
-            return await request();
+            return await request().ConfigureAwait(false);
         }
         finally
         {
-            _ = Task.Delay(TimeSpan.FromSeconds(1), CancellationToken.None)
-                .ContinueWith(_ => _perSecond.Release(), TaskScheduler.Default);
-
-            _ = Task.Delay(TimeSpan.FromSeconds(60), CancellationToken.None)
-                .ContinueWith(_ => _perMinute.Release(), TaskScheduler.Default);
+            _ = ReleaseAfterAsync(_perSecond, TimeSpan.FromSeconds(1));
+            _ = ReleaseAfterAsync(_perMinute, TimeSpan.FromSeconds(60));
         }
+    }
+
+    private async Task ReleaseAfterAsync(SemaphoreSlim semaphore, TimeSpan delay)
+    {
+        try
+        {
+            await Task.Delay(delay, _time).ConfigureAwait(false);
+            if (!_disposed)
+                semaphore.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Shutdown disposed the semaphore while a release was pending — benign.
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _perSecond.Dispose();
+        _perMinute.Dispose();
     }
 }

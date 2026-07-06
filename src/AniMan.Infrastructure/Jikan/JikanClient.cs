@@ -71,10 +71,6 @@ public sealed class JikanClient : IJikanClient
         CancellationToken ct = default) =>
         GetAsync<JikanPagedResult<JikanAnimeDto>>("seasons/now?limit=25", ct);
 
-    public Task<Result<JikanPagedResult<JikanAnimeDto>>> GetUpcomingSeasonAsync(
-        CancellationToken ct = default) =>
-        GetAsync<JikanPagedResult<JikanAnimeDto>>("seasons/upcoming?limit=25", ct);
-
     public Task<Result<JikanPagedResult<JikanAnimeDto>>> GetTopAnimeAsync(
         int page = 1, CancellationToken ct = default) =>
         GetAsync<JikanPagedResult<JikanAnimeDto>>($"top/anime?page={page}", ct);
@@ -91,18 +87,26 @@ public sealed class JikanClient : IJikanClient
             {
                 _logger.LogDebug("GET {Url}", relativeUrl);
 
-                var response = await _pipeline.ExecuteAsync(
-                    async token => await _http.GetAsync(relativeUrl, token), ct);
+                using var response = await _pipeline.ExecuteAsync(
+                    async token => await _http.GetAsync(relativeUrl, token).ConfigureAwait(false), ct).ConfigureAwait(false);
+
+                // A 404/400 is a real answer (unknown MAL id, bad query) — don't let it
+                // fall through to the generic "could not reach the API" handler below.
+                if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
+                {
+                    _logger.LogWarning("Jikan returned {Status} for {Url}", response.StatusCode, relativeUrl);
+                    return Result<T>.Failure("Not found on MyAnimeList.");
+                }
 
                 response.EnsureSuccessStatusCode();
 
-                var stream = await response.Content.ReadAsStreamAsync(ct);
-                var dto = await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, ct);
+                var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                var dto = await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, ct).ConfigureAwait(false);
 
                 return dto is null
                     ? Result<T>.Failure($"Null response from Jikan: {relativeUrl}")
                     : Result<T>.Success(dto);
-            }, ct);
+            }, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

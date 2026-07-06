@@ -1,7 +1,7 @@
-using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using AniMan.Core.Domain.Enums;
+using AniMan.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AniMan.ViewModels.Library;
@@ -72,19 +72,8 @@ public partial class LibraryCardViewModel : ObservableObject
 
     public void LoadCoverImage()
     {
-        if (CoverLocalPath is null || !File.Exists(CoverLocalPath)) return;
-        try
-        {
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.UriSource = new Uri(CoverLocalPath, UriKind.Absolute);
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.DecodePixelWidth = 360;
-            bmp.EndInit();
-            bmp.Freeze();
-            CoverImage = bmp;
-        }
-        catch { /* cover stays blank — non-critical */ }
+        var bmp = CoverImageLoader.FromFile(CoverLocalPath);
+        if (bmp is not null) CoverImage = bmp;
     }
 
     // ── Color helpers ─────────────────────────────────────────────────────────

@@ -111,8 +111,7 @@ public partial class SettingsPage : UserControl
 
         // Restart so every open page reloads from the imported library.
         System.Windows.Application.Current.Shutdown();
-        System.Diagnostics.Process.Start(
-            System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName!);
+        System.Diagnostics.Process.Start(Environment.ProcessPath!);
     }
 
     private async Task ShowMessageAsync(string title, string content)

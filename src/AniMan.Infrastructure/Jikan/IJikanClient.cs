@@ -12,7 +12,6 @@ public interface IJikanClient
     Task<Result<JikanPagedResult<JikanEpisodeDto>>> GetAnimeEpisodesAsync(int malId, int page = 1, CancellationToken ct = default);
     Task<Result<JikanSingleResult<IReadOnlyList<JikanStreamingDto>>>> GetAnimeStreamingAsync(int malId, CancellationToken ct = default);
     Task<Result<JikanPagedResult<JikanAnimeDto>>> GetCurrentSeasonAsync(CancellationToken ct = default);
-    Task<Result<JikanPagedResult<JikanAnimeDto>>> GetUpcomingSeasonAsync(CancellationToken ct = default);
     Task<Result<JikanPagedResult<JikanAnimeDto>>> GetTopAnimeAsync(int page = 1, CancellationToken ct = default);
     Task<Result<JikanPagedResult<JikanMangaDto>>> GetTopMangaAsync(int page = 1, CancellationToken ct = default);
 }

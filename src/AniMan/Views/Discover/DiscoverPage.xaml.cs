@@ -83,47 +83,10 @@ public partial class DiscoverPage : SWC.UserControl
     private async void OnAddToLibraryRequested(object? sender, AddToLibraryEventArgs e)
     {
         var card = e.Card;
-        bool isManga = card.MediaType == MediaType.Manga;
+        var statusId = await Dialogs.AddToLibraryDialog.ShowAsync(
+            _dialogService, card.Title, card.MediaType == MediaType.Manga);
+        if (statusId is null) return;
 
-        var statusItems = isManga
-            ? new[] { (Id: 7, Name: LocalizationManager.Get("Status_PlanToRead")), (Id: 2, Name: LocalizationManager.Get("Status_Reading")), (Id: 3, Name: LocalizationManager.Get("Status_Completed")), (Id: 4, Name: LocalizationManager.Get("Status_OnHold")), (Id: 5, Name: LocalizationManager.Get("Status_Dropped")) }
-            : new[] { (Id: 6, Name: LocalizationManager.Get("Status_PlanToWatch")), (Id: 1, Name: LocalizationManager.Get("Status_Watching")), (Id: 3, Name: LocalizationManager.Get("Status_Completed")), (Id: 4, Name: LocalizationManager.Get("Status_OnHold")), (Id: 5, Name: LocalizationManager.Get("Status_Dropped")) };
-
-        var comboBox = new SWC.ComboBox
-        {
-            Margin = new Thickness(0, 8, 0, 0),
-            MinWidth = 200
-        };
-        foreach (var (_, name) in statusItems)
-            comboBox.Items.Add(name);
-        comboBox.SelectedIndex = 0;
-
-        var panel = new SWC.StackPanel();
-        panel.Children.Add(new SWC.TextBlock
-        {
-            Text = card.Title,
-            FontWeight = FontWeights.SemiBold,
-            TextWrapping = TextWrapping.Wrap
-        });
-        panel.Children.Add(new SWC.TextBlock
-        {
-            Text = LocalizationManager.Get("Discover_SelectStatus"),
-            Margin = new Thickness(0, 12, 0, 0)
-        });
-        panel.Children.Add(comboBox);
-
-        var dialog = new ContentDialog
-        {
-            Title = LocalizationManager.Get("Discover_AddToLibrary"),
-            Content = panel,
-            PrimaryButtonText = LocalizationManager.Get("Common_Add"),
-            CloseButtonText = LocalizationManager.Get("Common_Cancel")
-        };
-
-        var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
-        if (result != ContentDialogResult.Primary) return;
-
-        int selectedStatusId = statusItems[comboBox.SelectedIndex].Id;
-        await _vm.AddToLibraryAsync(card.MalId, card.MediaType, selectedStatusId);
+        await _vm.AddToLibraryAsync(card.MalId, card.MediaType, statusId.Value);
     }
 }

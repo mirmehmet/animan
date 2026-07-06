@@ -30,16 +30,7 @@ public partial class DiscoverCardViewModel : ObservableObject
             // BitmapImage inherits DispatcherObject — must be created on the UI (STA) thread.
             // After GetByteArrayAsync we're on a ThreadPool MTA thread, so marshal back.
             await Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                var img = new BitmapImage();
-                img.BeginInit();
-                img.CacheOption = BitmapCacheOption.OnLoad;   // set before StreamSource
-                img.StreamSource = new MemoryStream(bytes);
-                img.DecodePixelWidth = 160;
-                img.EndInit();
-                img.Freeze();
-                CoverImage = img;
-            });
+                CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, 160));
         }
         catch (OperationCanceledException) { throw; }
         catch { /* leave cover blank on failure */ }

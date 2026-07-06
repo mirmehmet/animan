@@ -37,6 +37,7 @@ internal sealed class LibraryItemDto
 
 internal sealed record SnapshotDto(
     string Title, string? TitleJapanese, string? Synopsis, string? Type,
+    string? Status, string? Studio,
     int? TotalEpisodes, int? TotalChapters, int? TotalVolumes,
     string? AiringStart, string? AiringEnd, string? Season, int? Year,
     double? MalScore, string Genres, string? CoverLocalPath,

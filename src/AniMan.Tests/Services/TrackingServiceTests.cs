@@ -63,10 +63,10 @@ public class TrackingServiceTests : IDisposable
     private TrackingService Create() => new(_factory, NullLogger<TrackingService>.Instance);
 
     [Fact]
-    public async Task ToggleEpisode_UnwatchedToWatched_CreatesRow()
+    public async Task SetEpisodeWatched_Unwatched_CreatesWatchedRow()
     {
         var svc = Create();
-        var result = await svc.ToggleEpisodeAsync(1, 1);
+        var result = await svc.SetEpisodeWatchedAsync(1, 1, watched: true);
 
         result.IsSuccess.Should().BeTrue();
         var ep = _db.EpisodeProgress.Single(e => e.LibraryItemId == 1 && e.EpisodeNumber == 1);
@@ -74,7 +74,7 @@ public class TrackingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ToggleEpisode_WatchedToUnwatched_ClearsWatchedAt()
+    public async Task SetEpisodeWatched_False_ClearsWatchedAt()
     {
         _db.EpisodeProgress.Add(new EpisodeProgress
         {
@@ -84,7 +84,7 @@ public class TrackingServiceTests : IDisposable
         await _db.SaveChangesAsync();
 
         var svc = Create();
-        var result = await svc.ToggleEpisodeAsync(1, 2);
+        var result = await svc.SetEpisodeWatchedAsync(1, 2, watched: false);
 
         result.IsSuccess.Should().BeTrue();
         var ep = _db.EpisodeProgress.AsNoTracking().Single(e => e.LibraryItemId == 1 && e.EpisodeNumber == 2);

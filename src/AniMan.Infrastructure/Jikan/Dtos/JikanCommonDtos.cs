@@ -13,9 +13,6 @@ public record JikanImageVariantsDto
     [JsonPropertyName("image_url")]
     public string? ImageUrl { get; init; }
 
-    [JsonPropertyName("medium_image_url")]
-    public string? MediumImageUrl { get; init; }
-
     [JsonPropertyName("large_image_url")]
     public string? LargeImageUrl { get; init; }
 }
@@ -37,9 +34,6 @@ public record JikanNamedEntityDto
 
 public record JikanPaginationDto
 {
-    [JsonPropertyName("last_visible_page")]
-    public int LastVisiblePage { get; init; }
-
     [JsonPropertyName("has_next_page")]
     public bool HasNextPage { get; init; }
 }

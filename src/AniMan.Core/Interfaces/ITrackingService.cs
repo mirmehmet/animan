@@ -11,10 +11,8 @@ public interface ITrackingService
 {
     Task<Result<IReadOnlyList<LibraryItem>>> GetLibraryAsync(string mediaType, CancellationToken ct = default);
     Task<Result<LibraryItem>> GetItemAsync(int libraryItemId, CancellationToken ct = default);
-    Task<Result<TrackingResult>> ToggleEpisodeAsync(int libraryItemId, int episodeNumber, CancellationToken ct = default);
     Task<Result<TrackingResult>> SetEpisodeWatchedAsync(int libraryItemId, int episodeNumber, bool watched, CancellationToken ct = default);
     Task<Result<TrackingResult>> MarkUpToHereAsync(int libraryItemId, int episodeNumber, CancellationToken ct = default);
-    Task<Result<TrackingResult>> ToggleChapterAsync(int libraryItemId, int chapterNumber, CancellationToken ct = default);
     Task<Result<TrackingResult>> SetChapterReadAsync(int libraryItemId, int chapterNumber, bool read, CancellationToken ct = default);
     Task<Result<TrackingResult>> MarkChaptersUpToAsync(int libraryItemId, int chapterNumber, CancellationToken ct = default);
     Task<Result> UpdateScoreAsync(int libraryItemId, int? score, CancellationToken ct = default);
@@ -30,7 +28,6 @@ public interface ITrackingService
     // Trash
     Task<Result> SoftDeleteAsync(int libraryItemId, CancellationToken ct = default);
     Task<Result> RestoreFromTrashAsync(int libraryItemId, CancellationToken ct = default);
-    Task<Result> PermanentDeleteAsync(int libraryItemId, CancellationToken ct = default);
     Task<Result> EmptyTrashAsync(CancellationToken ct = default);
     Task<Result<IReadOnlyList<LibraryItem>>> GetTrashAsync(CancellationToken ct = default);
     Task PurgeExpiredTrashAsync(CancellationToken ct = default);

@@ -249,4 +249,11 @@
   <data name="Common_Delete" xml:space="preserve"><value>Sil</value></data>
   <data name="Common_Restore" xml:space="preserve"><value>Geri Al</value></data>
   <data name="Common_Confirm" xml:space="preserve"><value>Onayla</value></data>
+
+  <data name="Common_Refresh" xml:space="preserve"><value>Yenile</value></data>
+  <data name="Detail_FavoriteTooltip" xml:space="preserve"><value>Favori</value></data>
+
+  <data name="App_UnexpectedErrorTitle" xml:space="preserve"><value>Beklenmeyen Hata</value></data>
+  <data name="App_UnexpectedError" xml:space="preserve"><value>Beklenmeyen bir hata oluştu. Ayrıntılar log dosyasına yazıldı.</value></data>
+  <data name="App_StartupFailed" xml:space="preserve"><value>AniMan başlatılamadı. Ayrıntılar log dosyasına yazıldı.</value></data>
 </root>

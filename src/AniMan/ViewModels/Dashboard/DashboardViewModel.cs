@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -66,12 +67,14 @@ public partial class DashboardViewModel : ObservableObject
 
             TotalAnime = animeItems.Count;
             TotalManga = mangaItems.Count;
-            WatchingCount = animeItems.Count(i => i.StatusId == 1) + mangaItems.Count(i => i.StatusId == 2);
-            CompletedCount = animeItems.Count(i => i.StatusId == 3) + mangaItems.Count(i => i.StatusId == 3);
+            WatchingCount = animeItems.Count(i => i.StatusId == TrackingStatusIds.Watching)
+                + mangaItems.Count(i => i.StatusId == TrackingStatusIds.Reading);
+            CompletedCount = animeItems.Count(i => i.StatusId == TrackingStatusIds.Completed)
+                + mangaItems.Count(i => i.StatusId == TrackingStatusIds.Completed);
 
             var inProgress = animeItems
-                .Where(i => i.StatusId == 1)
-                .Concat(mangaItems.Where(i => i.StatusId == 2))
+                .Where(i => i.StatusId == TrackingStatusIds.Watching)
+                .Concat(mangaItems.Where(i => i.StatusId == TrackingStatusIds.Reading))
                 .Select(i => new LibraryItemSummary
                 {
                     Id = i.Id,
@@ -124,20 +127,6 @@ public class LibraryItemSummary
     public MediaType MediaType { get; init; }
     public System.Windows.Media.Imaging.BitmapImage? CoverImage { get; private set; }
 
-    public void LoadCoverImage()
-    {
-        if (CoverLocalPath is null || !System.IO.File.Exists(CoverLocalPath)) return;
-        try
-        {
-            var bmp = new System.Windows.Media.Imaging.BitmapImage();
-            bmp.BeginInit();
-            bmp.UriSource = new Uri(CoverLocalPath, UriKind.Absolute);
-            bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-            bmp.DecodePixelWidth = 360;
-            bmp.EndInit();
-            bmp.Freeze();
-            CoverImage = bmp;
-        }
-        catch { /* non-critical */ }
-    }
+    public void LoadCoverImage() =>
+        CoverImage = Imaging.CoverImageLoader.FromFile(CoverLocalPath);
 }

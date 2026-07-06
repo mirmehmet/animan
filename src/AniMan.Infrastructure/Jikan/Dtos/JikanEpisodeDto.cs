@@ -12,10 +12,4 @@ public record JikanEpisodeDto
 
     [JsonPropertyName("aired")]
     public string? Aired { get; init; }
-
-    [JsonPropertyName("filler")]
-    public bool Filler { get; init; }
-
-    [JsonPropertyName("recap")]
-    public bool Recap { get; init; }
 }

@@ -9,7 +9,7 @@ namespace AniMan.ViewModels.Discover;
 
 public enum DiscoverTab { Anime, Manga }
 
-public partial class DiscoverViewModel : ObservableObject
+public partial class DiscoverViewModel : ObservableObject, IDisposable
 {
     private readonly ICatalogService _catalog;
     private readonly ISnapshotService _snapshot;
@@ -280,7 +280,9 @@ public partial class DiscoverViewModel : ObservableObject
 
     private async Task LoadCoversAsync(IReadOnlyList<DiscoverCardViewModel> cards)
     {
-        _coverCts?.Cancel();
+        var previous = _coverCts;
+        previous?.Cancel();
+        previous?.Dispose();
         var cts = _coverCts = new CancellationTokenSource();
         var ct = cts.Token;
 
@@ -295,6 +297,14 @@ public partial class DiscoverViewModel : ObservableObject
 
         try { await Task.WhenAll(tasks); }
         catch (OperationCanceledException) { }
+    }
+
+    // Singleton VM: disposed with the service provider on shutdown.
+    public void Dispose()
+    {
+        _coverCts?.Cancel();
+        _coverCts?.Dispose();
+        _coverCts = null;
     }
 }
 

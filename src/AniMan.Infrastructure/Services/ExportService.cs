@@ -26,12 +26,12 @@ public sealed class ExportService(
     {
         try
         {
-            await using var db = await libraryFactory.CreateDbContextAsync(ct);
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
             var statuses = await db.TrackingStatuses.AsNoTracking()
                 .OrderBy(s => s.Id)
                 .Select(s => new StatusDto(s.Name, s.IsDefault, s.DisplayOrder, s.Color))
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             var items = await db.LibraryItems.AsNoTracking()
                 .Include(i => i.Status)
@@ -40,7 +40,7 @@ public sealed class ExportService(
                 .Include(i => i.ChapterProgress)
                 .Include(i => i.Notes)
                 .Include(i => i.StreamingOverrides)
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
             var backup = new LibraryBackup
             {
@@ -55,18 +55,19 @@ public sealed class ExportService(
                 Directory.CreateDirectory(dir);
 
             await using (var stream = File.Create(filePath))
-                await JsonSerializer.SerializeAsync(stream, backup, JsonOptions, ct);
+                await JsonSerializer.SerializeAsync(stream, backup, JsonOptions, ct).ConfigureAwait(false);
 
-            await UpsertSettingAsync(db, "LastBackupAt", backup.ExportedAt.ToString("O"), ct);
-            await db.SaveChangesAsync(ct);
+            await UpsertSettingAsync(db, "LastBackupAt", backup.ExportedAt.ToString("O"), ct).ConfigureAwait(false);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
             logger.LogInformation("Exported {Count} library items to {Path}", backup.Items.Count, filePath);
             return Result.Success();
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Export to {Path} failed", filePath);
-            return Result.Failure($"Export failed: {ex.Message}");
+            return Result.Failure("Export failed. Check the log file for details.");
         }
     }
 
@@ -79,7 +80,7 @@ public sealed class ExportService(
 
             LibraryBackup? backup;
             await using (var stream = File.OpenRead(filePath))
-                backup = await JsonSerializer.DeserializeAsync<LibraryBackup>(stream, JsonOptions, ct);
+                backup = await JsonSerializer.DeserializeAsync<LibraryBackup>(stream, JsonOptions, ct).ConfigureAwait(false);
 
             if (backup is null)
                 return Result.Failure("Backup file is empty or invalid.");
@@ -87,29 +88,45 @@ public sealed class ExportService(
                 return Result.Failure(
                     $"Backup schema version {backup.SchemaVersion} is newer than supported ({CurrentSchemaVersion}).");
 
-            await using var db = await libraryFactory.CreateDbContextAsync(ct);
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+            // Overwrite deletes everything before inserting; a single transaction keeps
+            // the user's library intact if the insert phase fails. The InMemory test
+            // provider doesn't support transactions, so it takes the null path.
+            await using var transaction = db.Database.IsRelational()
+                ? await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false)
+                : null;
 
             if (mode == ImportMode.Overwrite)
             {
                 // Cascade delete removes snapshots/progress/notes/overrides with their item.
-                db.LibraryItems.RemoveRange(await db.LibraryItems.ToListAsync(ct));
-                await db.SaveChangesAsync(ct);
+                db.LibraryItems.RemoveRange(await db.LibraryItems.ToListAsync(ct).ConfigureAwait(false));
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
 
-            var statusMap = await EnsureStatusesAsync(db, backup.Statuses, ct);
+            var statusMap = await EnsureStatusesAsync(db, backup.Statuses, ct).ConfigureAwait(false);
 
             var existingKeys = mode == ImportMode.Merge
                 ? (await db.LibraryItems.AsNoTracking()
                         .Select(i => new { i.MalId, i.MediaType })
-                        .ToListAsync(ct))
+                        .ToListAsync(ct).ConfigureAwait(false))
                     .Select(k => (k.MalId, k.MediaType))
                     .ToHashSet()
                 : [];
 
             var imported = 0;
+            var skipped = 0;
             foreach (var dto in backup.Items)
             {
-                var mediaType = Enum.Parse<MediaType>(dto.MediaType);
+                if (!Enum.TryParse<MediaType>(dto.MediaType, ignoreCase: true, out var mediaType))
+                {
+                    skipped++;
+                    logger.LogWarning(
+                        "Skipping backup item {MalId}: unknown media type '{MediaType}'",
+                        dto.MalId, dto.MediaType);
+                    continue;
+                }
+
                 if (mode == ImportMode.Merge && existingKeys.Contains((dto.MalId, mediaType)))
                     continue;
 
@@ -120,20 +137,27 @@ public sealed class ExportService(
                 // re-downloading from CoverOriginalUrl when the file is gone.
                 if (entity.Snapshot is { } snap)
                     snap.CoverLocalPath = await coverStore.EnsureAsync(
-                        dto.MalId, mediaType, snap.CoverOriginalUrl, ct);
+                        dto.MalId, mediaType, snap.CoverOriginalUrl, ct).ConfigureAwait(false);
 
                 db.LibraryItems.Add(entity);
                 imported++;
             }
 
-            await db.SaveChangesAsync(ct);
-            logger.LogInformation("Imported {Count} items ({Mode}) from {Path}", imported, mode, filePath);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            if (transaction is not null)
+                await transaction.CommitAsync(ct).ConfigureAwait(false);
+
+            logger.LogInformation(
+                "Imported {Count} items ({Mode}) from {Path}; {Skipped} skipped",
+                imported, mode, filePath, skipped);
             return Result.Success();
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Import from {Path} failed", filePath);
-            return Result.Failure($"Import failed: {ex.Message}");
+            return Result.Failure("Import failed. The backup file may be invalid or unreadable.");
         }
     }
 
@@ -146,7 +170,7 @@ public sealed class ExportService(
     private static async Task<Dictionary<string, TrackingStatus>> EnsureStatusesAsync(
         LibraryDbContext db, List<StatusDto> backupStatuses, CancellationToken ct)
     {
-        var existing = await db.TrackingStatuses.ToListAsync(ct);
+        var existing = await db.TrackingStatuses.ToListAsync(ct).ConfigureAwait(false);
         var map = existing.ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
 
         foreach (var dto in backupStatuses)
@@ -224,6 +248,7 @@ public sealed class ExportService(
             item.Snapshot = new MediaSnapshot
             {
                 Title = s.Title, TitleJapanese = s.TitleJapanese, Synopsis = s.Synopsis, Type = s.Type,
+                Status = s.Status, Studio = s.Studio,
                 TotalEpisodes = s.TotalEpisodes, TotalChapters = s.TotalChapters, TotalVolumes = s.TotalVolumes,
                 AiringStart = s.AiringStart, AiringEnd = s.AiringEnd, Season = s.Season, Year = s.Year,
                 MalScore = s.MalScore, Genres = s.Genres, CoverLocalPath = s.CoverLocalPath,
@@ -250,6 +275,7 @@ public sealed class ExportService(
         UpdatedAt = i.UpdatedAt,
         Snapshot = i.Snapshot is null ? null : new SnapshotDto(
             i.Snapshot.Title, i.Snapshot.TitleJapanese, i.Snapshot.Synopsis, i.Snapshot.Type,
+            i.Snapshot.Status, i.Snapshot.Studio,
             i.Snapshot.TotalEpisodes, i.Snapshot.TotalChapters, i.Snapshot.TotalVolumes,
             i.Snapshot.AiringStart, i.Snapshot.AiringEnd, i.Snapshot.Season, i.Snapshot.Year,
             i.Snapshot.MalScore, i.Snapshot.Genres, i.Snapshot.CoverLocalPath,
@@ -267,7 +293,7 @@ public sealed class ExportService(
     private static async Task UpsertSettingAsync(
         LibraryDbContext db, string key, string value, CancellationToken ct)
     {
-        var existing = await db.Settings.FindAsync([key], ct);
+        var existing = await db.Settings.FindAsync([key], ct).ConfigureAwait(false);
         if (existing is null)
             db.Settings.Add(new AppSetting { Key = key, Value = value });
         else

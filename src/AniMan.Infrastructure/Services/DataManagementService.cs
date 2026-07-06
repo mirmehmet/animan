@@ -16,19 +16,19 @@ public sealed class DataManagementService(
     {
         try
         {
-            await using var lib = await libraryFactory.CreateDbContextAsync(ct);
+            await using var lib = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             lib.LibraryItems.RemoveRange(lib.LibraryItems);
             lib.Settings.RemoveRange(lib.Settings);
-            await lib.SaveChangesAsync(ct);
+            await lib.SaveChangesAsync(ct).ConfigureAwait(false);
 
-            await using var cat = await catalogFactory.CreateDbContextAsync(ct);
+            await using var cat = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             cat.AnimeStreaming.RemoveRange(cat.AnimeStreaming);
             cat.Episodes.RemoveRange(cat.Episodes);
             cat.MediaGenres.RemoveRange(cat.MediaGenres);
             cat.Genres.RemoveRange(cat.Genres);
             cat.Anime.RemoveRange(cat.Anime);
             cat.Manga.RemoveRange(cat.Manga);
-            await cat.SaveChangesAsync(ct);
+            await cat.SaveChangesAsync(ct).ConfigureAwait(false);
 
             if (Directory.Exists(storagePaths.CoversPath))
                 foreach (var f in Directory.GetFiles(storagePaths.CoversPath))
@@ -37,10 +37,11 @@ public sealed class DataManagementService(
             logger.LogInformation("Full data reset completed");
             return Result.Success();
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Full data reset failed");
-            return Result.Failure(ex.Message);
+            return Result.Failure("Failed to reset data. Check the log file for details.");
         }
     }
 }

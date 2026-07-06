@@ -112,7 +112,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                             <ui:Button Command="{Binding ToggleFavoriteCommand}"
                                        Appearance="Transparent" Margin="0,0,8,0"
-                                       ToolTip="Favorite">
+                                       ToolTip="{loc:Loc Detail_FavoriteTooltip}">
                                 <ui:SymbolIcon Symbol="Heart24">
                                     <ui:SymbolIcon.Style>
                                         <Style TargetType="ui:SymbolIcon">
@@ -128,8 +128,9 @@
                             <ui:Button Command="{Binding ReSnapshotCommand}"
                                        Appearance="Secondary" Margin="0,0,8,0"
                                        Content="{loc:Loc Detail_RefreshData}"/>
-                            <ui:Button Command="{Binding SoftDeleteCommand}"
-                                       Appearance="Transparent" Margin="0,0,0,0"
+                            <!-- Delete goes through the confirmation dialog in code-behind;
+                                 wiring the command here too would delete before confirming. -->
+                            <ui:Button Appearance="Transparent" Margin="0,0,0,0"
                                        ToolTip="{loc:Loc Detail_Delete}"
                                        Click="OnDeleteClicked">
                                 <ui:SymbolIcon Symbol="Delete24"/>
@@ -207,7 +208,7 @@
                     <ui:Button Margin="0,16,0,0"
                                Content="{loc:Loc Discover_AddToLibrary}"
                                Appearance="Primary"
-                               Click="OnAddToLibraryClicked"
+                               Command="{Binding RequestAddFromPreviewCommand}"
                                Visibility="{Binding IsPreviewMode,
                                    Converter={StaticResource BoolToVisibility}}"/>
 

@@ -35,33 +35,74 @@ public partial class App : Application
         Directory.CreateDirectory(Path.Combine(AppDataPath, "logs"));
 
         ConfigureSerilog();
-        Services = BuildServiceProvider();
+        RegisterGlobalExceptionHandlers();
 
-        await RunMigrationsAsync();
+        try
+        {
+            Services = BuildServiceProvider();
 
-        var settings = Services.GetRequiredService<ISettingsService>();
+            await RunMigrationsAsync();
 
-        var theme = await settings.GetThemeAsync();
-        var themeMode = Theming.AppThemeManager.Parse(theme);
-        ApplyTheme(themeMode);
+            var settings = Services.GetRequiredService<ISettingsService>();
 
-        var font = await settings.GetFontAsync();
-        Theming.AppThemeManager.ApplyFont(font);
+            var theme = await settings.GetThemeAsync();
+            var themeMode = Theming.AppThemeManager.Parse(theme);
+            ApplyTheme(themeMode);
 
-        var language = await settings.GetLanguageAsync();
-        LocalizationManager.SetCulture(language);
+            var font = await settings.GetFontAsync();
+            Theming.AppThemeManager.ApplyFont(font);
 
-        // Purge soft-deleted items older than 30 days on every startup
-        var tracking = Services.GetRequiredService<ITrackingService>();
-        await tracking.PurgeExpiredTrashAsync();
+            var language = await settings.GetLanguageAsync();
+            LocalizationManager.SetCulture(language);
 
-        var mainWindow = Services.GetRequiredService<MainWindow>();
-        mainWindow.Show();
+            // Purge soft-deleted items older than 30 days on every startup
+            var tracking = Services.GetRequiredService<ITrackingService>();
+            await tracking.PurgeExpiredTrashAsync();
 
-        // SystemThemeWatcher needs a window handle — attach AFTER Show(), without
-        // re-applying the theme (which would briefly reset DynamicResource values).
-        if (themeMode == ViewModels.Settings.ThemeMode.System)
-            Theming.AppThemeManager.AttachSystemWatcher(mainWindow);
+            var mainWindow = Services.GetRequiredService<MainWindow>();
+            mainWindow.Show();
+
+            // SystemThemeWatcher needs a window handle — attach AFTER Show(), without
+            // re-applying the theme (which would briefly reset DynamicResource values).
+            if (themeMode == ViewModels.Settings.ThemeMode.System)
+                Theming.AppThemeManager.AttachSystemWatcher(mainWindow);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Startup failed");
+            System.Windows.MessageBox.Show(
+                LocalizationManager.Get("App_StartupFailed"),
+                "AniMan", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            Shutdown(1);
+        }
+    }
+
+    private void RegisterGlobalExceptionHandlers()
+    {
+        // Last-resort net: individual operations report failures via Result;
+        // anything reaching these handlers is a bug, not an expected error path.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            Log.Fatal(args.Exception, "Unhandled dispatcher exception");
+            System.Windows.MessageBox.Show(
+                LocalizationManager.Get("App_UnexpectedError"),
+                LocalizationManager.Get("App_UnexpectedErrorTitle"),
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            args.Handled = true;
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Log.Error(args.Exception, "Unobserved task exception");
+            args.SetObserved();
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            Log.Fatal(args.ExceptionObject as Exception,
+                "Unhandled AppDomain exception (terminating: {IsTerminating})", args.IsTerminating);
+            Log.CloseAndFlush();
+        };
     }
 
     private static IServiceProvider BuildServiceProvider()

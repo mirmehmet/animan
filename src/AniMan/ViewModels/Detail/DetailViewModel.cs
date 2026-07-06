@@ -142,7 +142,6 @@ public partial class DetailViewModel : ObservableObject
         var result = await _snapshot.SnapshotAsync(malId, mediaType, statusId);
         if (!result.IsSuccess) return;
 
-        BackLabel = BackLabel; // preserve
         await InitializeAsync(result.Value!.Id);
     }
 
@@ -162,14 +161,6 @@ public partial class DetailViewModel : ObservableObject
             if (IsFavorite)
                 NavigateToFavoritesRequested?.Invoke(this, Item.MediaType);
         }
-    }
-
-    [RelayCommand]
-    private async Task UpdateScoreAsync(int? score)
-    {
-        var result = await _tracking.UpdateScoreAsync(LibraryItemId, score);
-        if (!result.IsSuccess)
-            _logger.LogWarning("Score update failed for item {Id}: {Error}", LibraryItemId, result.Error);
     }
 
     [RelayCommand]
@@ -205,17 +196,6 @@ public partial class DetailViewModel : ObservableObject
         var result = await _tracking.SoftDeleteAsync(LibraryItemId);
         if (result.IsSuccess)
             SoftDeleteCompleted?.Invoke(this, EventArgs.Empty);
-    }
-
-    [RelayCommand]
-    private async Task IncrementRewatchAsync()
-    {
-        await _tracking.IncrementRewatchAsync(LibraryItemId, DateOnly.FromDateTime(DateTime.Today));
-        if (Item is not null)
-        {
-            Item.RewatchCount++;
-            OnPropertyChanged(nameof(Item));
-        }
     }
 
     [RelayCommand]
@@ -337,23 +317,8 @@ public partial class DetailViewModel : ObservableObject
 
     private void LoadCoverImage()
     {
-        var path = MediaSnapshot?.CoverLocalPath;
-        if (path is null || !File.Exists(path)) return;
-        try
-        {
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.UriSource = new Uri(path, UriKind.Absolute);
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.DecodePixelWidth = 360;
-            bmp.EndInit();
-            bmp.Freeze();
-            CoverImage = bmp;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Local cover load failed for item {Id}", LibraryItemId);
-        }
+        var bmp = Imaging.CoverImageLoader.FromFile(MediaSnapshot?.CoverLocalPath);
+        if (bmp is not null) CoverImage = bmp;
     }
 
     private async Task LoadCoverFromUrlAsync(string? url)
@@ -364,16 +329,7 @@ public partial class DetailViewModel : ObservableObject
             var http = _httpClientFactory.CreateClient("covers");
             var bytes = await http.GetByteArrayAsync(url);
             await Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                var img = new BitmapImage();
-                img.BeginInit();
-                img.StreamSource = new MemoryStream(bytes);
-                img.DecodePixelWidth = 200;
-                img.CacheOption = BitmapCacheOption.OnLoad;
-                img.EndInit();
-                img.Freeze();
-                CoverImage = img;
-            });
+                CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, 200));
         }
         catch (Exception ex)
         {
@@ -471,27 +427,42 @@ public partial class DetailViewModel : ObservableObject
 
     // ── Episode handlers ──────────────────────────────────────────────────────
 
+    // async void: event handlers must never let an exception escape to the dispatcher.
     private async void OnEpisodeWatchedToggled(object? sender, EpisodeRowViewModel row)
     {
-        await LoadProgressAsync();
+        try
+        {
+            await LoadProgressAsync();
 
-        if (WatchedCount == TotalCount && TotalCount > 0)
-            AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: false));
+            if (WatchedCount == TotalCount && TotalCount > 0)
+                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: false));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Episode toggle handling failed for item {Id}", LibraryItemId);
+        }
     }
 
     private async void OnEpisodeMarkUpToHere(object? sender, EpisodeRowViewModel row)
     {
-        var result = await _tracking.MarkUpToHereAsync(LibraryItemId, row.EpisodeNumber);
-        if (!result.IsSuccess) return;
+        try
+        {
+            var result = await _tracking.MarkUpToHereAsync(LibraryItemId, row.EpisodeNumber);
+            if (!result.IsSuccess) return;
 
-        // Already persisted by the service — update UI without re-triggering writes.
-        foreach (var ep in Episodes.Where(e => e.EpisodeNumber <= row.EpisodeNumber))
-            ep.InitWatched(true);
+            // Already persisted by the service — update UI without re-triggering writes.
+            foreach (var ep in Episodes.Where(e => e.EpisodeNumber <= row.EpisodeNumber))
+                ep.InitWatched(true);
 
-        await LoadProgressAsync();
+            await LoadProgressAsync();
 
-        if (result.Value!.AutoCompleteNeeded)
-            AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: false));
+            if (result.Value!.AutoCompleteNeeded)
+                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: false));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Mark-up-to-here failed for item {Id}", LibraryItemId);
+        }
     }
 
     private void OnEpisodeNoteRequested(object? sender, EpisodeRowViewModel row)
@@ -506,24 +477,38 @@ public partial class DetailViewModel : ObservableObject
 
     private async void OnChapterReadToggled(object? sender, ChapterRowViewModel row)
     {
-        await LoadProgressAsync();
+        try
+        {
+            await LoadProgressAsync();
 
-        if (WatchedCount == TotalCount && TotalCount > 0)
-            AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: true));
+            if (WatchedCount == TotalCount && TotalCount > 0)
+                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: true));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chapter toggle handling failed for item {Id}", LibraryItemId);
+        }
     }
 
     private async void OnChapterMarkUpToHere(object? sender, ChapterRowViewModel row)
     {
-        var result = await _tracking.MarkChaptersUpToAsync(LibraryItemId, row.ChapterNumber);
-        if (!result.IsSuccess) return;
+        try
+        {
+            var result = await _tracking.MarkChaptersUpToAsync(LibraryItemId, row.ChapterNumber);
+            if (!result.IsSuccess) return;
 
-        foreach (var ch in Chapters.Where(c => c.ChapterNumber <= row.ChapterNumber))
-            ch.InitRead(true);
+            foreach (var ch in Chapters.Where(c => c.ChapterNumber <= row.ChapterNumber))
+                ch.InitRead(true);
 
-        await LoadProgressAsync();
+            await LoadProgressAsync();
 
-        if (result.Value!.AutoCompleteNeeded)
-            AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: true));
+            if (result.Value!.AutoCompleteNeeded)
+                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: true));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Mark-chapters-up-to failed for item {Id}", LibraryItemId);
+        }
     }
 
     private void OnChapterNoteRequested(object? sender, ChapterRowViewModel row)

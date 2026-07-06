@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -20,12 +21,12 @@ public sealed class CatalogService(
     {
         try
         {
-            var apiResult = await jikanClient.SearchAnimeAsync(query, ct: ct);
+            var apiResult = await jikanClient.SearchAnimeAsync(query, ct: ct).ConfigureAwait(false);
             if (!apiResult.IsSuccess)
                 return Result<IReadOnlyList<CachedAnime>>.Failure(apiResult.Error!);
 
             var items = apiResult.Value!.Data ?? [];
-            var anime = await UpsertAnimeListAsync(items, ct);
+            var anime = await UpsertAnimeListAsync(items, ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedAnime>>.Success(anime);
         }
         catch (OperationCanceledException) { throw; }
@@ -41,12 +42,12 @@ public sealed class CatalogService(
     {
         try
         {
-            var apiResult = await jikanClient.SearchMangaAsync(query, ct: ct);
+            var apiResult = await jikanClient.SearchMangaAsync(query, ct: ct).ConfigureAwait(false);
             if (!apiResult.IsSuccess)
                 return Result<IReadOnlyList<CachedManga>>.Failure(apiResult.Error!);
 
             var items = apiResult.Value!.Data ?? [];
-            var manga = await UpsertMangaListAsync(items, ct);
+            var manga = await UpsertMangaListAsync(items, ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedManga>>.Success(manga);
         }
         catch (OperationCanceledException) { throw; }
@@ -61,20 +62,21 @@ public sealed class CatalogService(
     {
         try
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var cached = await db.Anime.AsNoTracking()
-                .FirstOrDefaultAsync(a => a.Id == malId, ct);
+                .FirstOrDefaultAsync(a => a.Id == malId, ct).ConfigureAwait(false);
 
             if (cached is not null)
             {
-                if (!await IsStaleAsync(cached.FetchedAt))
+                if (!await IsStaleAsync(cached.FetchedAt, ct).ConfigureAwait(false))
                     return Result<CachedAnime>.Success(cached);
 
-                _ = Task.Run(() => RefreshAnimeAsync(malId), CancellationToken.None);
+                QueueBackgroundRefresh("anime", malId,
+                    () => FetchAndCacheAnimeAsync(malId, CancellationToken.None));
                 return Result<CachedAnime>.Success(cached);
             }
 
-            return await FetchAndCacheAnimeAsync(malId, ct);
+            return await FetchAndCacheAnimeAsync(malId, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -88,20 +90,21 @@ public sealed class CatalogService(
     {
         try
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var cached = await db.Manga.AsNoTracking()
-                .FirstOrDefaultAsync(m => m.Id == malId, ct);
+                .FirstOrDefaultAsync(m => m.Id == malId, ct).ConfigureAwait(false);
 
             if (cached is not null)
             {
-                if (!await IsStaleAsync(cached.FetchedAt))
+                if (!await IsStaleAsync(cached.FetchedAt, ct).ConfigureAwait(false))
                     return Result<CachedManga>.Success(cached);
 
-                _ = Task.Run(() => RefreshMangaAsync(malId), CancellationToken.None);
+                QueueBackgroundRefresh("manga", malId,
+                    () => FetchAndCacheMangaAsync(malId, CancellationToken.None));
                 return Result<CachedManga>.Success(cached);
             }
 
-            return await FetchAndCacheMangaAsync(malId, ct);
+            return await FetchAndCacheMangaAsync(malId, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -116,20 +119,20 @@ public sealed class CatalogService(
     {
         try
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct);
-            var anime = await db.Anime.AsNoTracking().FirstOrDefaultAsync(a => a.Id == malId, ct);
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var anime = await db.Anime.AsNoTracking().FirstOrDefaultAsync(a => a.Id == malId, ct).ConfigureAwait(false);
             if (anime is null)
                 return Result<IReadOnlyList<CachedEpisode>>.Failure($"Anime {malId} not in catalog");
 
             var cached = await db.Episodes.AsNoTracking()
                 .Where(e => e.AnimeId == malId)
                 .OrderBy(e => e.EpisodeNumber)
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
 
-            if (cached.Count > 0 && !await IsStaleAsync(anime.FetchedAt))
+            if (cached.Count > 0 && !await IsStaleAsync(anime.FetchedAt, ct).ConfigureAwait(false))
                 return Result<IReadOnlyList<CachedEpisode>>.Success(cached);
 
-            return await FetchAndCacheEpisodesAsync(malId, anime.TotalEpisodes, ct);
+            return await FetchAndCacheEpisodesAsync(malId, anime.TotalEpisodes, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -144,11 +147,11 @@ public sealed class CatalogService(
     {
         try
         {
-            var result = await jikanClient.GetCurrentSeasonAsync(ct);
+            var result = await jikanClient.GetCurrentSeasonAsync(ct).ConfigureAwait(false);
             if (!result.IsSuccess)
                 return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
 
-            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct);
+            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedAnime>>.Success(anime);
         }
         catch (OperationCanceledException) { throw; }
@@ -159,36 +162,16 @@ public sealed class CatalogService(
         }
     }
 
-    public async Task<Result<IReadOnlyList<CachedAnime>>> GetUpcomingSeasonAsync(
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var result = await jikanClient.GetUpcomingSeasonAsync(ct);
-            if (!result.IsSuccess)
-                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
-
-            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct);
-            return Result<IReadOnlyList<CachedAnime>>.Success(anime);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "GetUpcomingSeason failed");
-            return Result<IReadOnlyList<CachedAnime>>.Failure("Failed to load upcoming season.");
-        }
-    }
-
     public async Task<Result<IReadOnlyList<CachedAnime>>> GetTopAnimeAsync(
         int page = 1, CancellationToken ct = default)
     {
         try
         {
-            var result = await jikanClient.GetTopAnimeAsync(page, ct);
+            var result = await jikanClient.GetTopAnimeAsync(page, ct).ConfigureAwait(false);
             if (!result.IsSuccess)
                 return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
 
-            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct);
+            var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedAnime>>.Success(anime);
         }
         catch (OperationCanceledException) { throw; }
@@ -204,11 +187,11 @@ public sealed class CatalogService(
     {
         try
         {
-            var result = await jikanClient.GetTopMangaAsync(page, ct);
+            var result = await jikanClient.GetTopMangaAsync(page, ct).ConfigureAwait(false);
             if (!result.IsSuccess)
                 return Result<IReadOnlyList<CachedManga>>.Failure(result.Error!);
 
-            var manga = await UpsertMangaListAsync(result.Value!.Data ?? [], ct);
+            var manga = await UpsertMangaListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedManga>>.Success(manga);
         }
         catch (OperationCanceledException) { throw; }
@@ -224,9 +207,9 @@ public sealed class CatalogService(
     {
         try
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var rows = await db.AnimeStreaming.AsNoTracking()
-                .Where(s => s.AnimeId == malId).ToListAsync(ct);
+                .Where(s => s.AnimeId == malId).ToListAsync(ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedAnimeStreaming>>.Success(rows);
         }
         catch (OperationCanceledException) { throw; }
@@ -242,11 +225,11 @@ public sealed class CatalogService(
     {
         try
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct);
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var names = await db.MediaGenres
                 .Where(mg => mg.MediaId == malId && mg.MediaType == mediaType)
                 .Join(db.Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name)
-                .ToListAsync(ct);
+                .ToListAsync(ct).ConfigureAwait(false);
             return Result<IReadOnlyList<string>>.Success(names);
         }
         catch (OperationCanceledException) { throw; }
@@ -261,33 +244,63 @@ public sealed class CatalogService(
 
     private int? _cacheRefreshDays;
 
-    private async Task<bool> IsStaleAsync(DateTime fetchedAt)
+    // The service is registered transient — the in-flight set must be static to
+    // deduplicate refreshes across instances (e.g. rapid re-navigation).
+    private static readonly ConcurrentDictionary<(string Kind, int MalId), byte> InFlightRefreshes = new();
+
+    /// <summary>
+    /// Runs a fire-and-forget cache refresh at most once per (kind, id) at a time,
+    /// observing (and logging) any failure so nothing reaches the unobserved-task pool.
+    /// </summary>
+    private void QueueBackgroundRefresh(string kind, int malId, Func<Task> refresh)
     {
-        _cacheRefreshDays ??= await settingsService.GetCacheRefreshDaysAsync();
+        if (!InFlightRefreshes.TryAdd((kind, malId), 0))
+            return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await refresh().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Background {Kind} refresh failed for {Id}", kind, malId);
+            }
+            finally
+            {
+                InFlightRefreshes.TryRemove((kind, malId), out _);
+            }
+        });
+    }
+
+    private async Task<bool> IsStaleAsync(DateTime fetchedAt, CancellationToken ct)
+    {
+        _cacheRefreshDays ??= await settingsService.GetCacheRefreshDaysAsync(ct).ConfigureAwait(false);
         return fetchedAt.AddDays(_cacheRefreshDays.Value) < DateTime.UtcNow;
     }
 
     private async Task<Result<CachedAnime>> FetchAndCacheAnimeAsync(
         int malId, CancellationToken ct)
     {
-        var apiResult = await jikanClient.GetAnimeFullAsync(malId, ct);
+        var apiResult = await jikanClient.GetAnimeFullAsync(malId, ct).ConfigureAwait(false);
         if (!apiResult.IsSuccess || apiResult.Value?.Data is null)
             return Result<CachedAnime>.Failure(apiResult.Error ?? "No data from Jikan");
 
         var anime = JikanMapper.ToAnime(apiResult.Value.Data);
-        await UpsertAnimeAsync(anime, apiResult.Value.Data, ct);
+        await UpsertAnimeAsync(anime, apiResult.Value.Data, ct).ConfigureAwait(false);
         return Result<CachedAnime>.Success(anime);
     }
 
     private async Task<Result<CachedManga>> FetchAndCacheMangaAsync(
         int malId, CancellationToken ct)
     {
-        var apiResult = await jikanClient.GetMangaFullAsync(malId, ct);
+        var apiResult = await jikanClient.GetMangaFullAsync(malId, ct).ConfigureAwait(false);
         if (!apiResult.IsSuccess || apiResult.Value?.Data is null)
             return Result<CachedManga>.Failure(apiResult.Error ?? "No data from Jikan");
 
         var manga = JikanMapper.ToManga(apiResult.Value.Data);
-        await UpsertMangaAsync(manga, apiResult.Value.Data, ct);
+        await UpsertMangaAsync(manga, apiResult.Value.Data, ct).ConfigureAwait(false);
         return Result<CachedManga>.Success(manga);
     }
 
@@ -299,7 +312,7 @@ public sealed class CatalogService(
 
         while (true)
         {
-            var result = await jikanClient.GetAnimeEpisodesAsync(malId, page, ct);
+            var result = await jikanClient.GetAnimeEpisodesAsync(malId, page, ct).ConfigureAwait(false);
             if (!result.IsSuccess || result.Value?.Data is null) break;
 
             var episodes = result.Value.Data.Select(e => JikanMapper.ToEpisode(e, malId));
@@ -316,11 +329,11 @@ public sealed class CatalogService(
                 allEpisodes.Add(JikanMapper.ToPlaceholderEpisode(malId, i));
         }
 
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
+        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
         var existing = db.Episodes.Where(e => e.AnimeId == malId);
         db.Episodes.RemoveRange(existing);
         db.Episodes.AddRange(allEpisodes);
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         logger.LogInformation("Cached {Count} episodes for anime {Id}", allEpisodes.Count, malId);
         return Result<IReadOnlyList<CachedEpisode>>.Success(allEpisodes);
@@ -328,86 +341,97 @@ public sealed class CatalogService(
 
     private async Task UpsertAnimeAsync(CachedAnime anime, JikanAnimeDto dto, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
+        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-        var existing = await db.Anime.FindAsync([anime.Id], ct);
+        var existing = await db.Anime.FindAsync([anime.Id], ct).ConfigureAwait(false);
         if (existing is null)
             db.Anime.Add(anime);
         else
             db.Entry(existing).CurrentValues.SetValues(anime);
 
-        await UpsertGenresAsync(db, JikanMapper.ExtractAnimeGenres(dto), anime.Id, "anime", ct);
+        await UpsertGenresAsync(db, [(anime.Id, JikanMapper.ExtractAnimeGenres(dto))], "anime", ct).ConfigureAwait(false);
 
         // Refresh streaming
         var existingStreaming = db.AnimeStreaming.Where(s => s.AnimeId == anime.Id);
         db.AnimeStreaming.RemoveRange(existingStreaming);
 
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         // Fetch streaming info
-        _ = Task.Run(() => FetchAndCacheStreamingAsync(anime.Id), CancellationToken.None);
+        QueueBackgroundRefresh("streaming", anime.Id,
+            () => FetchAndCacheStreamingAsync(anime.Id, CancellationToken.None));
     }
 
     private async Task UpsertMangaAsync(CachedManga manga, JikanMangaDto dto, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
+        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-        var existing = await db.Manga.FindAsync([manga.Id], ct);
+        var existing = await db.Manga.FindAsync([manga.Id], ct).ConfigureAwait(false);
         if (existing is null)
             db.Manga.Add(manga);
         else
             db.Entry(existing).CurrentValues.SetValues(manga);
 
-        await UpsertGenresAsync(db, JikanMapper.ExtractMangaGenres(dto), manga.Id, "manga", ct);
-        await db.SaveChangesAsync(ct);
+        await UpsertGenresAsync(db, [(manga.Id, JikanMapper.ExtractMangaGenres(dto))], "manga", ct).ConfigureAwait(false);
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Batched genre upsert for one or more media items: one query for existing
+    /// genres and one for stale links, instead of two round-trips per item.
+    /// </summary>
     private static async Task UpsertGenresAsync(
         CatalogDbContext db,
-        IReadOnlyList<CachedGenre> genres,
-        int mediaId,
+        IReadOnlyList<(int MediaId, IReadOnlyList<CachedGenre> Genres)> items,
         string mediaType,
         CancellationToken ct)
     {
-        var distinct = genres.DistinctBy(g => g.Id).ToList();
-        if (distinct.Count == 0) return;
+        // Items with no genres keep their existing links (same as the old per-item
+        // early return).
+        var withGenres = items
+            .Select(i => (i.MediaId, Genres: i.Genres.DistinctBy(g => g.Id).ToList()))
+            .Where(i => i.Genres.Count > 0)
+            .ToList();
+        if (withGenres.Count == 0) return;
 
-        var genreIds = distinct.Select(g => g.Id).ToList();
+        var genreIds = withGenres.SelectMany(i => i.Genres.Select(g => g.Id)).Distinct().ToList();
         var existingGenreIds = (await db.Genres
             .Where(g => genreIds.Contains(g.Id))
             .Select(g => g.Id)
-            .ToListAsync(ct))
+            .ToListAsync(ct).ConfigureAwait(false))
             .ToHashSet();
 
         // Include genres already staged in this unit of work but not yet saved to DB.
         // Without this, a genre shared by multiple anime in the same batch (e.g. "Action")
         // would be Add()ed twice → EF "already tracked" InvalidOperationException.
         foreach (var entry in db.ChangeTracker.Entries<CachedGenre>()
-            .Where(e => e.State == Microsoft.EntityFrameworkCore.EntityState.Added))
+            .Where(e => e.State == EntityState.Added))
             existingGenreIds.Add(entry.Entity.Id);
 
-        foreach (var genre in distinct)
-            if (!existingGenreIds.Contains(genre.Id))
+        foreach (var genre in withGenres.SelectMany(i => i.Genres))
+            if (existingGenreIds.Add(genre.Id))
                 db.Genres.Add(genre);
 
+        var mediaIds = withGenres.Select(i => i.MediaId).ToList();
         var toDelete = await db.MediaGenres
-            .Where(mg => mg.MediaId == mediaId && mg.MediaType == mediaType)
-            .ToListAsync(ct);
+            .Where(mg => mediaIds.Contains(mg.MediaId) && mg.MediaType == mediaType)
+            .ToListAsync(ct).ConfigureAwait(false);
         db.MediaGenres.RemoveRange(toDelete);
 
-        foreach (var genre in distinct)
-            db.MediaGenres.Add(new CachedMediaGenre
-            {
-                MediaId = mediaId,
-                MediaType = mediaType,
-                GenreId = genre.Id
-            });
+        foreach (var (mediaId, genres) in withGenres)
+            foreach (var genre in genres)
+                db.MediaGenres.Add(new CachedMediaGenre
+                {
+                    MediaId = mediaId,
+                    MediaType = mediaType,
+                    GenreId = genre.Id
+                });
     }
 
     private async Task<List<CachedAnime>> UpsertAnimeListAsync(
         IReadOnlyList<JikanAnimeDto> dtos, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
+        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
         // Jikan seasons/now can return duplicate MAL IDs — deduplicate before tracking.
         var uniqueDtos = dtos.GroupBy(d => d.MalId).Select(g => g.First()).ToList();
@@ -416,25 +440,28 @@ public sealed class CatalogService(
         var ids = mapped.Select(a => a.Id).ToList();
         var existingMap = await db.Anime
             .Where(a => ids.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id, ct);
+            .ToDictionaryAsync(a => a.Id, ct).ConfigureAwait(false);
 
-        foreach (var (anime, dto) in mapped.Zip(uniqueDtos))
+        foreach (var anime in mapped)
         {
             if (existingMap.TryGetValue(anime.Id, out var existing))
                 db.Entry(existing).CurrentValues.SetValues(anime);
             else
                 db.Anime.Add(anime);
-
-            await UpsertGenresAsync(db, JikanMapper.ExtractAnimeGenres(dto), anime.Id, "anime", ct);
         }
-        await db.SaveChangesAsync(ct);
+
+        await UpsertGenresAsync(db,
+            mapped.Zip(uniqueDtos, (a, d) => (a.Id, JikanMapper.ExtractAnimeGenres(d))).ToList(),
+            "anime", ct).ConfigureAwait(false);
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
         return mapped;
     }
 
     private async Task<List<CachedManga>> UpsertMangaListAsync(
         IReadOnlyList<JikanMangaDto> dtos, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct);
+        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
         var uniqueDtos = dtos.GroupBy(d => d.MalId).Select(g => g.First()).ToList();
         var mapped = uniqueDtos.Select(JikanMapper.ToManga).ToList();
@@ -442,60 +469,32 @@ public sealed class CatalogService(
         var ids = mapped.Select(m => m.Id).ToList();
         var existingMap = await db.Manga
             .Where(m => ids.Contains(m.Id))
-            .ToDictionaryAsync(m => m.Id, ct);
+            .ToDictionaryAsync(m => m.Id, ct).ConfigureAwait(false);
 
-        foreach (var (manga, dto) in mapped.Zip(uniqueDtos))
+        foreach (var manga in mapped)
         {
             if (existingMap.TryGetValue(manga.Id, out var existing))
                 db.Entry(existing).CurrentValues.SetValues(manga);
             else
                 db.Manga.Add(manga);
-
-            await UpsertGenresAsync(db, JikanMapper.ExtractMangaGenres(dto), manga.Id, "manga", ct);
         }
-        await db.SaveChangesAsync(ct);
+
+        await UpsertGenresAsync(db,
+            mapped.Zip(uniqueDtos, (m, d) => (m.Id, JikanMapper.ExtractMangaGenres(d))).ToList(),
+            "manga", ct).ConfigureAwait(false);
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
         return mapped;
     }
 
-    private async Task FetchAndCacheStreamingAsync(int malId)
+    private async Task FetchAndCacheStreamingAsync(int malId, CancellationToken ct)
     {
-        try
-        {
-            var result = await jikanClient.GetAnimeStreamingAsync(malId);
-            if (!result.IsSuccess || result.Value?.Data is null) return;
+        var result = await jikanClient.GetAnimeStreamingAsync(malId, ct).ConfigureAwait(false);
+        if (!result.IsSuccess || result.Value?.Data is null) return;
 
-            await using var db = await catalogFactory.CreateDbContextAsync();
-            var streaming = result.Value.Data.Select(s => JikanMapper.ToStreaming(s, malId)).ToList();
-            db.AnimeStreaming.AddRange(streaming);
-            await db.SaveChangesAsync();
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Background streaming fetch failed for anime {Id}", malId);
-        }
-    }
-
-    private async Task RefreshAnimeAsync(int malId)
-    {
-        try
-        {
-            await FetchAndCacheAnimeAsync(malId, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Background refresh failed for anime {Id}", malId);
-        }
-    }
-
-    private async Task RefreshMangaAsync(int malId)
-    {
-        try
-        {
-            await FetchAndCacheMangaAsync(malId, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Background refresh failed for manga {Id}", malId);
-        }
+        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+        var streaming = result.Value.Data.Select(s => JikanMapper.ToStreaming(s, malId)).ToList();
+        db.AnimeStreaming.AddRange(streaming);
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 }

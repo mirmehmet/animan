@@ -13,3 +13,61 @@ indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+# ── C# style conventions (match the existing codebase) ──────────────────────
+[*.cs]
+# File-scoped namespaces, as used everywhere in the solution
+csharp_style_namespace_declarations = file_scoped:warning
+
+# 'var' is the house style
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+
+# Private fields are _camelCase
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel_case
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_fields.required_modifiers =
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+
+# Constants and static readonly fields are PascalCase
+dotnet_naming_rule.const_fields_pascal.symbols = const_fields
+dotnet_naming_rule.const_fields_pascal.style = pascal_case_style
+dotnet_naming_rule.const_fields_pascal.severity = warning
+dotnet_naming_symbols.const_fields.applicable_kinds = field
+dotnet_naming_symbols.const_fields.required_modifiers = const
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# Rules intentionally relaxed for this desktop app:
+# CA1848/CA1873 — LoggerMessage-delegate perf logging is overkill here
+# CA1000 — Result<T>.Success/Failure static factories are the house pattern
+# CA1716 — Result.Error clashes with a VB keyword; irrelevant to this solution
+# CA1305 — numbers/dates deliberately render in the user's culture (set at startup)
+# CA1863/CA1859 — micro-perf noise at this app's scale
+# CA1711 — *EventArgs record names are intentional; renaming adds no value
+# CA1822 — many VM members exist only as WPF binding targets and must stay instance
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+dotnet_diagnostic.CA1000.severity = none
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1305.severity = none
+dotnet_diagnostic.CA1863.severity = none
+dotnet_diagnostic.CA1859.severity = suggestion
+dotnet_diagnostic.CA1711.severity = suggestion
+dotnet_diagnostic.CA1822.severity = suggestion
+# CA1816 — no type in the solution has a finalizer; SuppressFinalize adds nothing
+dotnet_diagnostic.CA1816.severity = none
+
+# ── Library layer: never capture the caller's context ───────────────────────
+# suggestion (not warning): the remaining hits are `await using` disposal awaits,
+# where the one-line form cannot take ConfigureAwait without hiding the variable.
+[src/AniMan.Infrastructure/**.cs]
+dotnet_diagnostic.CA2007.severity = suggestion
+
+# ── Tests: Method_Scenario_Expectation naming is the xUnit convention ────────
+[src/AniMan.Tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none

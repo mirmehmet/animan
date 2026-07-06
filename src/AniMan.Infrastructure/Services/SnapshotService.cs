@@ -19,105 +19,123 @@ public sealed class SnapshotService(
     public async Task<Result<LibraryItem>> SnapshotAsync(
         int malId, MediaType mediaType, int statusId, CancellationToken ct = default)
     {
-        // Guard: duplicate check
-        await using var db = await libraryFactory.CreateDbContextAsync(ct);
-        var existing = await db.LibraryItems.AsNoTracking()
-            .FirstOrDefaultAsync(i => i.MalId == malId && i.MediaType == mediaType, ct);
-        if (existing is not null)
-            return Result<LibraryItem>.Failure($"{mediaType} {malId} is already in your library");
-
-        // Fetch metadata
-        MediaSnapshot snapshot;
-        string? coverUrl;
-
-        if (mediaType == MediaType.Anime)
+        try
         {
-            var result = await catalogService.GetAnimeAsync(malId, ct);
-            if (!result.IsSuccess)
-                return Result<LibraryItem>.Failure(result.Error!);
-            snapshot = MapAnimeSnapshot(result.Value!);
-            coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            // Guard: duplicate check
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var existing = await db.LibraryItems.AsNoTracking()
+                .FirstOrDefaultAsync(i => i.MalId == malId && i.MediaType == mediaType, ct).ConfigureAwait(false);
+            if (existing is not null)
+                return Result<LibraryItem>.Failure($"{mediaType} {malId} is already in your library");
+
+            // Fetch metadata
+            MediaSnapshot snapshot;
+            string? coverUrl;
+
+            if (mediaType == MediaType.Anime)
+            {
+                var result = await catalogService.GetAnimeAsync(malId, ct).ConfigureAwait(false);
+                if (!result.IsSuccess)
+                    return Result<LibraryItem>.Failure(result.Error!);
+                snapshot = MapAnimeSnapshot(result.Value!);
+                coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            }
+            else
+            {
+                var result = await catalogService.GetMangaAsync(malId, ct).ConfigureAwait(false);
+                if (!result.IsSuccess)
+                    return Result<LibraryItem>.Failure(result.Error!);
+                snapshot = MapMangaSnapshot(result.Value!);
+                coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            }
+
+            // Load genres from catalog
+            snapshot.Genres = await LoadGenresJsonAsync(malId, mediaType == MediaType.Anime ? "anime" : "manga", ct).ConfigureAwait(false);
+
+            // Download cover
+            snapshot.CoverLocalPath = await coverStore.DownloadAsync(malId, mediaType, coverUrl, ct).ConfigureAwait(false);
+            snapshot.CoverOriginalUrl = coverUrl;
+
+            snapshot.SnapshotAt = DateTime.UtcNow;
+
+            var item = new LibraryItem
+            {
+                MalId = malId,
+                MediaType = mediaType,
+                StatusId = statusId,
+                AddedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Snapshot = snapshot
+            };
+
+            // Single SaveChangesAsync → EF wraps both inserts in an implicit transaction.
+            // No orphaned LibraryItem if the snapshot fails to save.
+            db.LibraryItems.Add(item);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            logger.LogInformation("Snapshot created for {Type} {MalId} → LibraryItem {Id}", mediaType, malId, item.Id);
+            return Result<LibraryItem>.Success(item);
         }
-        else
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
         {
-            var result = await catalogService.GetMangaAsync(malId, ct);
-            if (!result.IsSuccess)
-                return Result<LibraryItem>.Failure(result.Error!);
-            snapshot = MapMangaSnapshot(result.Value!);
-            coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            logger.LogError(ex, "Snapshot failed for {Type} {MalId}", mediaType, malId);
+            return Result<LibraryItem>.Failure("Failed to add the item to your library.");
         }
-
-        // Load genres from catalog
-        snapshot.Genres = await LoadGenresJsonAsync(malId, mediaType == MediaType.Anime ? "anime" : "manga");
-
-        // Download cover
-        snapshot.CoverLocalPath = await coverStore.DownloadAsync(malId, mediaType, coverUrl, ct);
-        snapshot.CoverOriginalUrl = coverUrl;
-
-        snapshot.SnapshotAt = DateTime.UtcNow;
-
-        var item = new LibraryItem
-        {
-            MalId = malId,
-            MediaType = mediaType,
-            StatusId = statusId,
-            AddedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            Snapshot = snapshot
-        };
-
-        // Single SaveChangesAsync → EF wraps both inserts in an implicit transaction.
-        // No orphaned LibraryItem if the snapshot fails to save.
-        db.LibraryItems.Add(item);
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Snapshot created for {Type} {MalId} → LibraryItem {Id}", mediaType, malId, item.Id);
-        return Result<LibraryItem>.Success(item);
     }
 
     public async Task<Result<MediaSnapshot>> ReSnapshotAsync(
         int libraryItemId, CancellationToken ct = default)
     {
-        await using var db = await libraryFactory.CreateDbContextAsync(ct);
-        var item = await db.LibraryItems.AsNoTracking()
-            .Include(i => i.Snapshot)
-            .FirstOrDefaultAsync(i => i.Id == libraryItemId, ct);
-
-        if (item is null)
-            return Result<MediaSnapshot>.Failure($"LibraryItem {libraryItemId} not found");
-
-        MediaSnapshot fresh;
-        string? coverUrl;
-
-        if (item.MediaType == MediaType.Anime)
+        try
         {
-            var result = await catalogService.GetAnimeAsync(item.MalId, ct);
-            if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!);
-            fresh = MapAnimeSnapshot(result.Value!);
-            coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var item = await db.LibraryItems.AsNoTracking()
+                .Include(i => i.Snapshot)
+                .FirstOrDefaultAsync(i => i.Id == libraryItemId, ct).ConfigureAwait(false);
+
+            if (item is null)
+                return Result<MediaSnapshot>.Failure($"LibraryItem {libraryItemId} not found");
+
+            MediaSnapshot fresh;
+            string? coverUrl;
+
+            if (item.MediaType == MediaType.Anime)
+            {
+                var result = await catalogService.GetAnimeAsync(item.MalId, ct).ConfigureAwait(false);
+                if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!);
+                fresh = MapAnimeSnapshot(result.Value!);
+                coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            }
+            else
+            {
+                var result = await catalogService.GetMangaAsync(item.MalId, ct).ConfigureAwait(false);
+                if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!);
+                fresh = MapMangaSnapshot(result.Value!);
+                coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            }
+
+            fresh.Genres = await LoadGenresJsonAsync(item.MalId, item.MediaType == MediaType.Anime ? "anime" : "manga", ct).ConfigureAwait(false);
+            fresh.CoverLocalPath = await coverStore.DownloadAsync(item.MalId, item.MediaType, coverUrl, ct).ConfigureAwait(false);
+            fresh.CoverOriginalUrl = coverUrl;
+            fresh.LibraryItemId = libraryItemId;
+            fresh.SnapshotAt = DateTime.UtcNow;
+
+            var existing = await db.Snapshots.FindAsync([libraryItemId], ct).ConfigureAwait(false);
+            if (existing is null)
+                db.Snapshots.Add(fresh);
+            else
+                db.Entry(existing).CurrentValues.SetValues(fresh);
+
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            logger.LogInformation("Re-snapshot complete for LibraryItem {Id}", libraryItemId);
+            return Result<MediaSnapshot>.Success(fresh);
         }
-        else
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
         {
-            var result = await catalogService.GetMangaAsync(item.MalId, ct);
-            if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!);
-            fresh = MapMangaSnapshot(result.Value!);
-            coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
+            logger.LogError(ex, "ReSnapshot failed for LibraryItem {Id}", libraryItemId);
+            return Result<MediaSnapshot>.Failure("Failed to refresh item data.");
         }
-
-        fresh.Genres = await LoadGenresJsonAsync(item.MalId, item.MediaType == MediaType.Anime ? "anime" : "manga");
-        fresh.CoverLocalPath = await coverStore.DownloadAsync(item.MalId, item.MediaType, coverUrl, ct);
-        fresh.CoverOriginalUrl = coverUrl;
-        fresh.LibraryItemId = libraryItemId;
-        fresh.SnapshotAt = DateTime.UtcNow;
-
-        var existing = await db.Snapshots.FindAsync([libraryItemId], ct);
-        if (existing is null)
-            db.Snapshots.Add(fresh);
-        else
-            db.Entry(existing).CurrentValues.SetValues(fresh);
-
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Re-snapshot complete for LibraryItem {Id}", libraryItemId);
-        return Result<MediaSnapshot>.Success(fresh);
     }
 
     // ── Mapping ───────────────────────────────────────────────────────────────
@@ -157,17 +175,18 @@ public sealed class SnapshotService(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private async Task<string> LoadGenresJsonAsync(int malId, string mediaType)
+    private async Task<string> LoadGenresJsonAsync(int malId, string mediaType, CancellationToken ct)
     {
         try
         {
-            await using var catalogDb = await catalogFactory.CreateDbContextAsync();
+            await using var catalogDb = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var genres = await catalogDb.MediaGenres
                 .Where(mg => mg.MediaId == malId && mg.MediaType == mediaType)
                 .Join(catalogDb.Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name)
-                .ToListAsync();
+                .ToListAsync(ct).ConfigureAwait(false);
             return JsonSerializer.Serialize(genres);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Genre load failed for {MalId}", malId);

@@ -23,12 +23,21 @@ public sealed class CoverStore(
     {
         if (url is null) return null;
 
+        // The URL can come from an imported backup file — accept only absolute
+        // http/https, never file:// or other schemes.
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            logger.LogWarning("Rejected cover URL with unsupported scheme for {MalId}", malId);
+            return null;
+        }
+
         var filePath = GetLocalPath(malId, mediaType);
         try
         {
-            using var http = httpClientFactory.CreateClient("covers");
-            var bytes = await http.GetByteArrayAsync(url, ct);
-            await File.WriteAllBytesAsync(filePath, bytes, ct);
+            var http = httpClientFactory.CreateClient("covers");
+            var bytes = await http.GetByteArrayAsync(uri, ct).ConfigureAwait(false);
+            await File.WriteAllBytesAsync(filePath, bytes, ct).ConfigureAwait(false);
             return filePath;
         }
         catch (Exception ex)
@@ -44,6 +53,6 @@ public sealed class CoverStore(
     {
         var filePath = GetLocalPath(malId, mediaType);
         if (File.Exists(filePath)) return filePath;
-        return await DownloadAsync(malId, mediaType, url, ct);
+        return await DownloadAsync(malId, mediaType, url, ct).ConfigureAwait(false);
     }
 }

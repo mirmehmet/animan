@@ -173,6 +173,30 @@ public class ExportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Export_ThenImport_PreservesSnapshotStatusAndStudio()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Original");
+        using (var db = CreateDb())
+        {
+            var snap = db.Snapshots.Single();
+            snap.Status = "Finished Airing";
+            snap.Studio = "MAPPA";
+            db.SaveChanges();
+        }
+
+        var svc = Create();
+        await svc.ExportAsync(_tempFile);
+
+        var result = await svc.ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeTrue();
+        using var verify = CreateDb();
+        var imported = verify.LibraryItems.Include(i => i.Snapshot).Single().Snapshot!;
+        imported.Status.Should().Be("Finished Airing");
+        imported.Studio.Should().Be("MAPPA");
+    }
+
+    [Fact]
     public async Task Export_WritesLastBackupAtSetting()
     {
         SeedItem(100, MediaType.Anime, 1, 8, "Original");

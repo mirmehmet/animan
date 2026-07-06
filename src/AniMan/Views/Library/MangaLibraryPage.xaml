@@ -34,7 +34,7 @@
                         Icon="{ui:SymbolIcon Symbol=Search24}"/>
 
             <ui:Button Grid.Column="2" Command="{Binding LoadCommand}" Appearance="Secondary"
-                       ToolTip="Refresh">
+                       ToolTip="{loc:Loc Common_Refresh}">
                 <ui:SymbolIcon Symbol="ArrowSync24"/>
             </ui:Button>
         </Grid>

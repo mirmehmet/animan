@@ -1,3 +1,4 @@
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using Microsoft.EntityFrameworkCore;
@@ -62,13 +63,13 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
     private static void SeedDefaultStatuses(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TrackingStatus>().HasData(
-            new TrackingStatus { Id = 1, Name = "Watching", IsDefault = true, DisplayOrder = 1 },
-            new TrackingStatus { Id = 2, Name = "Reading", IsDefault = true, DisplayOrder = 1 },
-            new TrackingStatus { Id = 3, Name = "Completed", IsDefault = true, DisplayOrder = 2 },
-            new TrackingStatus { Id = 4, Name = "On-hold", IsDefault = true, DisplayOrder = 3 },
-            new TrackingStatus { Id = 5, Name = "Dropped", IsDefault = true, DisplayOrder = 4 },
-            new TrackingStatus { Id = 6, Name = "Plan to watch", IsDefault = true, DisplayOrder = 5 },
-            new TrackingStatus { Id = 7, Name = "Plan to read", IsDefault = true, DisplayOrder = 5 }
+            new TrackingStatus { Id = TrackingStatusIds.Watching, Name = "Watching", IsDefault = true, DisplayOrder = 1 },
+            new TrackingStatus { Id = TrackingStatusIds.Reading, Name = "Reading", IsDefault = true, DisplayOrder = 1 },
+            new TrackingStatus { Id = TrackingStatusIds.Completed, Name = "Completed", IsDefault = true, DisplayOrder = 2 },
+            new TrackingStatus { Id = TrackingStatusIds.OnHold, Name = "On-hold", IsDefault = true, DisplayOrder = 3 },
+            new TrackingStatus { Id = TrackingStatusIds.Dropped, Name = "Dropped", IsDefault = true, DisplayOrder = 4 },
+            new TrackingStatus { Id = TrackingStatusIds.PlanToWatch, Name = "Plan to watch", IsDefault = true, DisplayOrder = 5 },
+            new TrackingStatus { Id = TrackingStatusIds.PlanToRead, Name = "Plan to read", IsDefault = true, DisplayOrder = 5 }
         );
     }
 }

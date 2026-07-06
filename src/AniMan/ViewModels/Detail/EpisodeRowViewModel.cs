@@ -42,22 +42,30 @@ public partial class EpisodeRowViewModel : ObservableObject
     }
 
     // Driven by the CheckBox two-way binding. Persists the change, then notifies.
+    // async void semantics: an escaping exception would crash the dispatcher.
     async partial void OnIsWatchedChanged(bool value)
     {
         if (_suppress) return;
 
-        var result = await _tracking.SetEpisodeWatchedAsync(LibraryItemId, EpisodeNumber, value);
-        if (result.IsSuccess)
+        try
         {
-            WatchedToggled?.Invoke(this, this);
+            var result = await _tracking.SetEpisodeWatchedAsync(LibraryItemId, EpisodeNumber, value);
+            if (result.IsSuccess)
+            {
+                WatchedToggled?.Invoke(this, this);
+                return;
+            }
         }
-        else
+        catch (Exception ex)
         {
-            // Revert UI to stay consistent with the database.
-            _suppress = true;
-            IsWatched = !value;
-            _suppress = false;
+            Serilog.Log.Error(ex, "Episode watched toggle failed for item {Id} ep {Ep}",
+                LibraryItemId, EpisodeNumber);
         }
+
+        // Revert UI to stay consistent with the database.
+        _suppress = true;
+        IsWatched = !value;
+        _suppress = false;
     }
 
     [RelayCommand]

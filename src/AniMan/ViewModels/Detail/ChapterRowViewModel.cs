@@ -41,21 +41,29 @@ public partial class ChapterRowViewModel : ObservableObject
     }
 
     // Driven by the CheckBox two-way binding. Persists the change, then notifies.
+    // async void semantics: an escaping exception would crash the dispatcher.
     async partial void OnIsReadChanged(bool value)
     {
         if (_suppress) return;
 
-        var result = await _tracking.SetChapterReadAsync(LibraryItemId, ChapterNumber, value);
-        if (result.IsSuccess)
+        try
         {
-            ReadToggled?.Invoke(this, this);
+            var result = await _tracking.SetChapterReadAsync(LibraryItemId, ChapterNumber, value);
+            if (result.IsSuccess)
+            {
+                ReadToggled?.Invoke(this, this);
+                return;
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _suppress = true;
-            IsRead = !value;
-            _suppress = false;
+            Serilog.Log.Error(ex, "Chapter read toggle failed for item {Id} ch {Ch}",
+                LibraryItemId, ChapterNumber);
         }
+
+        _suppress = true;
+        IsRead = !value;
+        _suppress = false;
     }
 
     [RelayCommand]
