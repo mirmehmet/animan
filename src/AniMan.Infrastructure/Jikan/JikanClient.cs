@@ -98,6 +98,20 @@ public sealed class JikanClient : IJikanClient
                     return Result<T>.Failure("Not found on MyAnimeList.");
                 }
 
+                // Retries are exhausted at this point — turn the final status into a
+                // message that tells the user whose side the problem is on.
+                if ((int)response.StatusCode >= 500)
+                {
+                    _logger.LogWarning("Jikan returned {Status} for {Url}", response.StatusCode, relativeUrl);
+                    return Result<T>.Failure("The MyAnimeList server (Jikan) is not responding right now. Please try again later.");
+                }
+
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    _logger.LogWarning("Jikan returned {Status} for {Url}", response.StatusCode, relativeUrl);
+                    return Result<T>.Failure("Too many requests — please wait a moment and try again.");
+                }
+
                 response.EnsureSuccessStatusCode();
 
                 var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);

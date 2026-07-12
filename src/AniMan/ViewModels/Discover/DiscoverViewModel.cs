@@ -49,7 +49,20 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
-    partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
+    /// <summary>Empty state shown only for a completed search with zero hits —
+    /// browse tabs that come back empty are an error case, not "no results".</summary>
+    public bool HasNoResults => _isSearchMode && !IsLoading && !HasError && Cards.Count == 0;
+
+    partial void OnErrorMessageChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasError));
+        OnPropertyChanged(nameof(HasNoResults));
+    }
+
+    partial void OnCardsChanged(ObservableCollection<DiscoverCardViewModel> value) =>
+        OnPropertyChanged(nameof(HasNoResults));
+
+    partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(HasNoResults));
 
     public event EventHandler<AddToLibraryEventArgs>? AddToLibraryRequested;
 

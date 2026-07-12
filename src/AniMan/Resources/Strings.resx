@@ -190,6 +190,8 @@
   <data name="Discover_MangaTab" xml:space="preserve"><value>Manga</value></data>
   <data name="Discover_SearchAnime" xml:space="preserve"><value>Search anime…</value></data>
   <data name="Discover_SearchMangaPlaceholder" xml:space="preserve"><value>Search manga…</value></data>
+  <data name="Discover_NoResultsTitle" xml:space="preserve"><value>No results found</value></data>
+  <data name="Discover_NoResultsMessage" xml:space="preserve"><value>Try a different search term.</value></data>
   <data name="Discover_ErrorTitle" xml:space="preserve"><value>Could not load content</value></data>
   <data name="Discover_ErrorRetry" xml:space="preserve"><value>Try Again</value></data>
   <data name="Discover_LoadMore" xml:space="preserve"><value>Loading more…</value></data>

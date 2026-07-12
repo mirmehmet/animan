@@ -90,6 +90,21 @@
                            Margin="0,12,0,0" HorizontalAlignment="Center"/>
             </StackPanel>
 
+            <!-- Empty state: search completed with zero results -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{Binding HasNoResults, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <ui:SymbolIcon Symbol="Search24" FontSize="48"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="{loc:Loc Discover_NoResultsTitle}"
+                           FontSize="16" FontWeight="SemiBold"
+                           Margin="0,12,0,4" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="{loc:Loc Discover_NoResultsMessage}"
+                           FontSize="12" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+            </StackPanel>
+
             <!-- Cards grid with infinite scroll -->
             <ScrollViewer x:Name="CardsScrollViewer"
                           VerticalScrollBarVisibility="Auto"
