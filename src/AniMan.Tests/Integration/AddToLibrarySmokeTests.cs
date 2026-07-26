@@ -3,8 +3,8 @@ using AniMan.Core.Domain.Enums;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Jikan;
-using AniMan.Infrastructure.Jikan.Dtos;
+using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +15,7 @@ namespace AniMan.Tests.Integration;
 
 /// <summary>
 /// End-to-end "add to library" flow against real (in-memory) SQLite for both
-/// databases, with only the Jikan HTTP client mocked. Exercises
+/// databases, with only the media-source client mocked. Exercises
 /// CatalogService → catalog cache → SnapshotService → library write.
 /// </summary>
 public class AddToLibrarySmokeTests : IDisposable
@@ -24,28 +24,28 @@ public class AddToLibrarySmokeTests : IDisposable
     private readonly SqliteContextFactory<CatalogDbContext> _catalogFactory = new(o => new CatalogDbContext(o));
 
     [Fact]
-    public async Task AddAnime_FetchesFromJikan_CachesCatalog_AndWritesLibraryItem()
+    public async Task AddAnime_FetchesFromSource_CachesCatalog_AndWritesLibraryItem()
     {
-        var jikan = new Mock<IJikanClient>();
-        jikan.Setup(j => j.GetAnimeFullAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanSingleResult<JikanAnimeDto>>.Success(new JikanSingleResult<JikanAnimeDto>
+        var source = new Mock<IMediaSourceClient>();
+        source.Setup(j => j.GetAnimeFullAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(new SingleResult<AnimeDto>
             {
-                Data = new JikanAnimeDto
+                Data = new AnimeDto
                 {
                     MalId = 1, Title = "Cowboy Bebop", Episodes = 26,
                     Type = "TV", Score = 8.75, Genres = []
                 }
             }));
         // Streaming fetch is fire-and-forget; return no data so it exits before touching the DB.
-        jikan.Setup(j => j.GetAnimeStreamingAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanSingleResult<IReadOnlyList<JikanStreamingDto>>>.Success(
-                new JikanSingleResult<IReadOnlyList<JikanStreamingDto>> { Data = null }));
+        source.Setup(j => j.GetAnimeStreamingAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = null }));
 
         var settings = new Mock<ISettingsService>();
         settings.Setup(s => s.GetCacheRefreshDaysAsync()).ReturnsAsync(7);
 
         var catalogService = new CatalogService(
-            _catalogFactory, jikan.Object, settings.Object, NullLogger<CatalogService>.Instance);
+            _catalogFactory, source.Object, settings.Object, NullLogger<CatalogService>.Instance);
 
         // Cover URL is null in the mocked DTO, so the HTTP factory is never used.
         var httpFactory = new Mock<IHttpClientFactory>();
@@ -76,7 +76,7 @@ public class AddToLibrarySmokeTests : IDisposable
         await using (var cat = _catalogFactory.CreateDbContext())
             (await cat.Anime.SingleAsync()).Title.Should().Be("Cowboy Bebop");
 
-        jikan.Verify(j => j.GetAnimeFullAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        source.Verify(j => j.GetAnimeFullAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -92,10 +92,10 @@ public class AddToLibrarySmokeTests : IDisposable
             await lib.SaveChangesAsync();
         }
 
-        var jikan = new Mock<IJikanClient>();
+        var source = new Mock<IMediaSourceClient>();
         var settings = new Mock<ISettingsService>();
         var catalogService = new CatalogService(
-            _catalogFactory, jikan.Object, settings.Object, NullLogger<CatalogService>.Instance);
+            _catalogFactory, source.Object, settings.Object, NullLogger<CatalogService>.Instance);
         var snapshotService = new SnapshotService(
             _libraryFactory, _catalogFactory, catalogService,
             new CoverStore(
@@ -108,7 +108,7 @@ public class AddToLibrarySmokeTests : IDisposable
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Contain("already in your library");
-        jikan.Verify(j => j.GetAnimeFullAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        source.Verify(j => j.GetAnimeFullAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     public void Dispose()

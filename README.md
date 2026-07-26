@@ -3,14 +3,14 @@
 [![CI](https://github.com/mirmehmet/animan/actions/workflows/ci.yml/badge.svg)](https://github.com/mirmehmet/animan/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](LICENSE)
 
-A WPF desktop app for tracking anime and manga, powered by the [Jikan](https://jikan.moe/) (MyAnimeList) API with [AniList](https://anilist.co/) as an automatic fallback.
+A WPF desktop app for tracking anime and manga, powered by the [Tenrai](https://tenrai.org/) (MyAnimeList) API with [AniList](https://anilist.co/) as an automatic fallback.
 
 ---
 
 ## Features
 
 - Search and discover anime & manga from the MyAnimeList catalogue
-- Keeps working when Jikan is down — requests fall back to AniList and return on their own
+- Keeps working when the primary API is down — requests fall back to AniList and return on their own
 - Personal library with status tracking (Watching, Completed, On-hold, Dropped, Plan to watch)
 - Episode and chapter progress tracking
 - Cover art downloaded and cached locally
@@ -25,7 +25,7 @@ A WPF desktop app for tracking anime and manga, powered by the [Jikan](https://j
 
 - **WPF + WPF UI 3** — UI framework and Fluent controls
 - **CommunityToolkit.Mvvm** — MVVM source generators
-- **Jikan + AniList** — MyAnimeList metadata over REST, with AniList's GraphQL API standing in when Jikan cannot answer
+- **Tenrai + AniList** — MyAnimeList metadata over REST, with AniList's GraphQL API standing in when the primary cannot answer
 - **EF Core 9 + SQLite** — Two separate databases: `catalog.db` (disposable API cache) and `library.db` (user data)
 - **Polly** — Retry and resilience for API calls
 - **Serilog** — Structured daily rolling logs

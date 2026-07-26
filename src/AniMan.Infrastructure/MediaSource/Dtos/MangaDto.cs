@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 
-namespace AniMan.Infrastructure.Jikan.Dtos;
+namespace AniMan.Infrastructure.MediaSource.Dtos;
 
-public record JikanAnimeDto
+public record MangaDto
 {
     [JsonPropertyName("mal_id")]
     public int MalId { get; init; }
@@ -22,17 +22,14 @@ public record JikanAnimeDto
     [JsonPropertyName("status")]
     public string? Status { get; init; }
 
-    [JsonPropertyName("episodes")]
-    public int? Episodes { get; init; }
+    [JsonPropertyName("chapters")]
+    public int? Chapters { get; init; }
 
-    [JsonPropertyName("aired")]
-    public JikanDateRangeDto? Aired { get; init; }
+    [JsonPropertyName("volumes")]
+    public int? Volumes { get; init; }
 
-    [JsonPropertyName("season")]
-    public string? Season { get; init; }
-
-    [JsonPropertyName("year")]
-    public int? Year { get; init; }
+    [JsonPropertyName("published")]
+    public DateRangeDto? Published { get; init; }
 
     [JsonPropertyName("score")]
     public double? Score { get; init; }
@@ -44,20 +41,11 @@ public record JikanAnimeDto
     public int? Popularity { get; init; }
 
     [JsonPropertyName("images")]
-    public JikanImagesDto? Images { get; init; }
+    public ImagesDto? Images { get; init; }
 
     [JsonPropertyName("genres")]
-    public IReadOnlyList<JikanGenreDto>? Genres { get; init; }
+    public IReadOnlyList<GenreDto>? Genres { get; init; }
 
-    [JsonPropertyName("studios")]
-    public IReadOnlyList<JikanNamedEntityDto>? Studios { get; init; }
-}
-
-public record JikanDateRangeDto
-{
-    [JsonPropertyName("from")]
-    public string? From { get; init; }
-
-    [JsonPropertyName("to")]
-    public string? To { get; init; }
+    [JsonPropertyName("serializations")]
+    public IReadOnlyList<NamedEntityDto>? Serializations { get; init; }
 }

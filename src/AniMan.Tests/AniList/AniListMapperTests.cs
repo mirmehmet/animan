@@ -86,7 +86,7 @@ public class AniListMapperTests
         AniListMapper.ToMangaDto(Manga(status: aniListStatus)).Status.Should().Be(expected);
 
     [Fact]
-    public void ToAnimeDto_FullDate_MatchesJikanIsoShape()
+    public void ToAnimeDto_FullDate_MatchesSourceIsoShape()
     {
         var dto = AniListMapper.ToAnimeDto(
             Anime(start: new AniListFuzzyDate { Year = 2016, Month = 1, Day = 14 }));
@@ -133,7 +133,7 @@ public class AniListMapperTests
     }
 
     [Fact]
-    public void ToAnimeDto_Title_PrefersRomajiLikeJikan()
+    public void ToAnimeDto_Title_PrefersRomajiLikeSource()
     {
         var dto = AniListMapper.ToAnimeDto(Anime() with
         {

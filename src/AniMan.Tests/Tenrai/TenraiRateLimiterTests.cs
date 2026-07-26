@@ -1,16 +1,16 @@
-using AniMan.Infrastructure.Jikan;
+using AniMan.Infrastructure.Tenrai;
 using AniMan.Tests.TestDoubles;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace AniMan.Tests.Jikan;
+namespace AniMan.Tests.Tenrai;
 
-public class JikanRateLimiterTests
+public class TenraiRateLimiterTests
 {
     private static readonly TimeSpan RealTimeGuard = TimeSpan.FromSeconds(5);
 
-    private static JikanRateLimiter Create(TimeProvider time) =>
-        new(NullLogger<JikanRateLimiter>.Instance, time);
+    private static TenraiRateLimiter Create(TimeProvider time) =>
+        new(NullLogger<TenraiRateLimiter>.Instance, time);
 
     [Fact]
     public async Task ThreeConcurrentCalls_CompleteImmediately()

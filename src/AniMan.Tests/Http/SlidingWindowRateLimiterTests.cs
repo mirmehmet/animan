@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AniMan.Tests.Http;
 
 /// <summary>
-/// The multi-window case is covered by <c>JikanRateLimiterTests</c>; these pin the
+/// The multi-window case is covered by <c>TenraiRateLimiterTests</c>; these pin the
 /// single-window configuration AniList uses (30 requests per minute).
 /// </summary>
 public class SlidingWindowRateLimiterTests

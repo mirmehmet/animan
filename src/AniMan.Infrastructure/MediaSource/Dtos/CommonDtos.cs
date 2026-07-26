@@ -1,14 +1,14 @@
 using System.Text.Json.Serialization;
 
-namespace AniMan.Infrastructure.Jikan.Dtos;
+namespace AniMan.Infrastructure.MediaSource.Dtos;
 
-public record JikanImagesDto
+public record ImagesDto
 {
     [JsonPropertyName("jpg")]
-    public JikanImageVariantsDto? Jpg { get; init; }
+    public ImageVariantsDto? Jpg { get; init; }
 }
 
-public record JikanImageVariantsDto
+public record ImageVariantsDto
 {
     [JsonPropertyName("image_url")]
     public string? ImageUrl { get; init; }
@@ -17,7 +17,7 @@ public record JikanImageVariantsDto
     public string? LargeImageUrl { get; init; }
 }
 
-public record JikanGenreDto
+public record GenreDto
 {
     [JsonPropertyName("mal_id")]
     public int MalId { get; init; }
@@ -26,29 +26,29 @@ public record JikanGenreDto
     public string Name { get; init; } = string.Empty;
 }
 
-public record JikanNamedEntityDto
+public record NamedEntityDto
 {
     [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
 }
 
-public record JikanPaginationDto
+public record PaginationDto
 {
     [JsonPropertyName("has_next_page")]
     public bool HasNextPage { get; init; }
 }
 
-public record JikanSingleResult<T>
+public record SingleResult<T>
 {
     [JsonPropertyName("data")]
     public T? Data { get; init; }
 }
 
-public record JikanPagedResult<T>
+public record PagedResult<T>
 {
     [JsonPropertyName("data")]
     public IReadOnlyList<T>? Data { get; init; }
 
     [JsonPropertyName("pagination")]
-    public JikanPaginationDto? Pagination { get; init; }
+    public PaginationDto? Pagination { get; init; }
 }

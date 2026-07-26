@@ -2,8 +2,8 @@ using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Jikan;
-using AniMan.Infrastructure.Jikan.Dtos;
+using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +23,7 @@ public class CatalogServiceGenreTests : IDisposable
 
     private readonly CatalogDbContext _db;
     private readonly IDbContextFactory<CatalogDbContext> _factory;
-    private readonly Mock<IJikanClient> _jikanMock = new(MockBehavior.Strict);
+    private readonly Mock<IMediaSourceClient> _sourceMock = new(MockBehavior.Strict);
     private readonly Mock<ISettingsService> _settingsMock = new();
 
     public CatalogServiceGenreTests()
@@ -44,7 +44,7 @@ public class CatalogServiceGenreTests : IDisposable
     }
 
     private CatalogService CreateService() => new(
-        _factory, _jikanMock.Object, _settingsMock.Object,
+        _factory, _sourceMock.Object, _settingsMock.Object,
         NullLogger<CatalogService>.Instance);
 
     [Fact]
@@ -116,12 +116,12 @@ public class CatalogServiceGenreTests : IDisposable
     [Fact]
     public async Task GenreWithRealMalId_IsStoredUnchanged()
     {
-        // Jikan-sourced genres already carry MyAnimeList's id and must not be renumbered.
-        var dto = new JikanAnimeDto
+        // Tenrai-sourced genres already carry MyAnimeList's id and must not be renumbered.
+        var dto = new AnimeDto
         {
             MalId = 100,
             Title = "Test",
-            Genres = [new JikanGenreDto { MalId = 4, Name = "Comedy" }]
+            Genres = [new GenreDto { MalId = 4, Name = "Comedy" }]
         };
 
         await SearchReturning(dto);
@@ -132,23 +132,23 @@ public class CatalogServiceGenreTests : IDisposable
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private async Task SearchReturning(params JikanAnimeDto[] dtos)
+    private async Task SearchReturning(params AnimeDto[] dtos)
     {
         var query = Guid.NewGuid().ToString();
-        _jikanMock.Setup(j => j.SearchAnimeAsync(query, 25, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanPagedResult<JikanAnimeDto>>.Success(
-                new JikanPagedResult<JikanAnimeDto> { Data = dtos }));
+        _sourceMock.Setup(j => j.SearchAnimeAsync(query, 25, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Success(
+                new PagedResult<AnimeDto> { Data = dtos }));
 
         var result = await CreateService().SearchAnimeAsync(query);
         result.IsSuccess.Should().BeTrue();
     }
 
-    private static JikanAnimeDto AnimeWithGenres(int malId, params string[] genreNames) => new()
+    private static AnimeDto AnimeWithGenres(int malId, params string[] genreNames) => new()
     {
         MalId = malId,
         Title = $"Anime {malId}",
         // MalId 0 is how a source without MyAnimeList genre ids reports them.
-        Genres = [.. genreNames.Select(n => new JikanGenreDto { MalId = 0, Name = n })]
+        Genres = [.. genreNames.Select(n => new GenreDto { MalId = 0, Name = n })]
     };
 
     public void Dispose()

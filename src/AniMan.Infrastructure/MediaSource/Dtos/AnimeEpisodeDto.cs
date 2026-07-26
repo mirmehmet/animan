@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 
-namespace AniMan.Infrastructure.Jikan.Dtos;
+namespace AniMan.Infrastructure.MediaSource.Dtos;
 
-public record JikanEpisodeDto
+public record AnimeEpisodeDto
 {
     [JsonPropertyName("mal_id")]
     public int MalId { get; init; }

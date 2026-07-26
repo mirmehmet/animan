@@ -1,11 +1,11 @@
 using AniMan.Core.Domain.Models;
-using AniMan.Infrastructure.Jikan.Dtos;
+using AniMan.Infrastructure.MediaSource.Dtos;
 
-namespace AniMan.Infrastructure.Jikan;
+namespace AniMan.Infrastructure.Tenrai;
 
-internal static class JikanMapper
+internal static class MediaMapper
 {
-    public static CachedAnime ToAnime(JikanAnimeDto dto) => new()
+    public static CachedAnime ToAnime(AnimeDto dto) => new()
     {
         Id = dto.MalId,
         Title = dto.Title,
@@ -27,7 +27,7 @@ internal static class JikanMapper
         FetchedAt = DateTime.UtcNow
     };
 
-    public static CachedManga ToManga(JikanMangaDto dto) => new()
+    public static CachedManga ToManga(MangaDto dto) => new()
     {
         Id = dto.MalId,
         Title = dto.Title,
@@ -48,7 +48,7 @@ internal static class JikanMapper
         FetchedAt = DateTime.UtcNow
     };
 
-    public static CachedEpisode ToEpisode(JikanEpisodeDto dto, int animeId) => new()
+    public static CachedEpisode ToEpisode(AnimeEpisodeDto dto, int animeId) => new()
     {
         AnimeId = animeId,
         EpisodeNumber = dto.MalId,
@@ -64,14 +64,14 @@ internal static class JikanMapper
         FetchedAt = DateTime.UtcNow
     };
 
-    public static CachedAnimeStreaming ToStreaming(JikanStreamingDto dto, int animeId) => new()
+    public static CachedAnimeStreaming ToStreaming(StreamingDto dto, int animeId) => new()
     {
         AnimeId = animeId,
         PlatformName = dto.Name,
         Url = dto.Url
     };
 
-    public static IReadOnlyList<CachedGenre> ExtractAnimeGenres(JikanAnimeDto dto) =>
+    public static IReadOnlyList<CachedGenre> ExtractAnimeGenres(AnimeDto dto) =>
         dto.Genres?.Select(g => new CachedGenre
         {
             Id = g.MalId,
@@ -79,7 +79,7 @@ internal static class JikanMapper
             Name = g.Name
         }).ToList() ?? [];
 
-    public static IReadOnlyList<CachedGenre> ExtractMangaGenres(JikanMangaDto dto) =>
+    public static IReadOnlyList<CachedGenre> ExtractMangaGenres(MangaDto dto) =>
         dto.Genres?.Select(g => new CachedGenre
         {
             Id = g.MalId,

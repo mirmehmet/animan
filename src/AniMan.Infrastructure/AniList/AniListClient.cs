@@ -2,21 +2,21 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AniMan.Core.Common;
 using AniMan.Infrastructure.AniList.Dtos;
-using AniMan.Infrastructure.Jikan;
-using AniMan.Infrastructure.Jikan.Dtos;
+using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource.Dtos;
 using Microsoft.Extensions.Logging;
 
 namespace AniMan.Infrastructure.AniList;
 
 /// <summary>
 /// AniList GraphQL implementation of the media-source contract, used as a stand-in when
-/// Jikan cannot answer. Results are shaped into the Jikan DTOs by <see cref="AniListMapper"/>,
+/// the primary cannot answer. Results are shaped into the shared DTOs by <see cref="AniListMapper"/>,
 /// so callers cannot tell which service replied.
 /// </summary>
 public sealed class AniListClient(
     HttpClient http,
     AniListRateLimiter rateLimiter,
-    ILogger<AniListClient> logger) : IJikanClient
+    ILogger<AniListClient> logger) : IMediaSourceClient
 {
     private const string MediaFields = """
         idMal
@@ -43,7 +43,7 @@ public sealed class AniListClient(
 
     // ── Search ────────────────────────────────────────────────────────────────
 
-    public async Task<Result<JikanPagedResult<JikanAnimeDto>>> SearchAnimeAsync(
+    public async Task<Result<PagedResult<AnimeDto>>> SearchAnimeAsync(
         string query, int limit = 25, CancellationToken ct = default)
     {
         var result = await QueryPageAsync(
@@ -63,7 +63,7 @@ public sealed class AniListClient(
         return ToAnimePage(result);
     }
 
-    public async Task<Result<JikanPagedResult<JikanMangaDto>>> SearchMangaAsync(
+    public async Task<Result<PagedResult<MangaDto>>> SearchMangaAsync(
         string query, int limit = 25, CancellationToken ct = default)
     {
         var result = await QueryPageAsync(
@@ -84,7 +84,7 @@ public sealed class AniListClient(
 
     // ── Detail ────────────────────────────────────────────────────────────────
 
-    public async Task<Result<JikanSingleResult<JikanAnimeDto>>> GetAnimeFullAsync(
+    public async Task<Result<SingleResult<AnimeDto>>> GetAnimeFullAsync(
         int malId, CancellationToken ct = default)
     {
         var result = await QueryMediaAsync(
@@ -99,17 +99,17 @@ public sealed class AniListClient(
             new { idMal = malId }, ct).ConfigureAwait(false);
 
         if (!result.IsSuccess)
-            return Result<JikanSingleResult<JikanAnimeDto>>.Failure(result.Error!);
+            return Result<SingleResult<AnimeDto>>.Failure(result.Error!);
 
         var media = result.Value!.Media;
         if (media is null || !AniListMapper.HasMalId(media))
-            return Result<JikanSingleResult<JikanAnimeDto>>.Failure($"Anime {malId} not found on AniList");
+            return Result<SingleResult<AnimeDto>>.Failure($"Anime {malId} not found on AniList");
 
-        return Result<JikanSingleResult<JikanAnimeDto>>.Success(
-            new JikanSingleResult<JikanAnimeDto> { Data = AniListMapper.ToAnimeDto(media) });
+        return Result<SingleResult<AnimeDto>>.Success(
+            new SingleResult<AnimeDto> { Data = AniListMapper.ToAnimeDto(media) });
     }
 
-    public async Task<Result<JikanSingleResult<JikanMangaDto>>> GetMangaFullAsync(
+    public async Task<Result<SingleResult<MangaDto>>> GetMangaFullAsync(
         int malId, CancellationToken ct = default)
     {
         var result = await QueryMediaAsync(
@@ -123,14 +123,14 @@ public sealed class AniListClient(
             new { idMal = malId }, ct).ConfigureAwait(false);
 
         if (!result.IsSuccess)
-            return Result<JikanSingleResult<JikanMangaDto>>.Failure(result.Error!);
+            return Result<SingleResult<MangaDto>>.Failure(result.Error!);
 
         var media = result.Value!.Media;
         if (media is null || !AniListMapper.HasMalId(media))
-            return Result<JikanSingleResult<JikanMangaDto>>.Failure($"Manga {malId} not found on AniList");
+            return Result<SingleResult<MangaDto>>.Failure($"Manga {malId} not found on AniList");
 
-        return Result<JikanSingleResult<JikanMangaDto>>.Success(
-            new JikanSingleResult<JikanMangaDto> { Data = AniListMapper.ToMangaDto(media) });
+        return Result<SingleResult<MangaDto>>.Success(
+            new SingleResult<MangaDto> { Data = AniListMapper.ToMangaDto(media) });
     }
 
     // ── Episodes ──────────────────────────────────────────────────────────────
@@ -141,22 +141,22 @@ public sealed class AniListClient(
     /// is returned instead of wrong titles: CatalogService then generates placeholder
     /// episodes 1..N from the known total, which is the correct outcome.
     /// </summary>
-    public Task<Result<JikanPagedResult<JikanEpisodeDto>>> GetAnimeEpisodesAsync(
+    public Task<Result<PagedResult<AnimeEpisodeDto>>> GetAnimeEpisodesAsync(
         int malId, int page = 1, CancellationToken ct = default)
     {
         logger.LogDebug("AniList has no episode list for {MalId} — returning empty so placeholders are used", malId);
 
-        return Task.FromResult(Result<JikanPagedResult<JikanEpisodeDto>>.Success(
-            new JikanPagedResult<JikanEpisodeDto>
+        return Task.FromResult(Result<PagedResult<AnimeEpisodeDto>>.Success(
+            new PagedResult<AnimeEpisodeDto>
             {
                 Data = [],
-                Pagination = new JikanPaginationDto { HasNextPage = false }
+                Pagination = new PaginationDto { HasNextPage = false }
             }));
     }
 
     // ── Streaming ─────────────────────────────────────────────────────────────
 
-    public async Task<Result<JikanSingleResult<IReadOnlyList<JikanStreamingDto>>>> GetAnimeStreamingAsync(
+    public async Task<Result<SingleResult<IReadOnlyList<StreamingDto>>>> GetAnimeStreamingAsync(
         int malId, CancellationToken ct = default)
     {
         var result = await QueryMediaAsync(
@@ -170,16 +170,16 @@ public sealed class AniListClient(
             new { idMal = malId }, ct).ConfigureAwait(false);
 
         if (!result.IsSuccess)
-            return Result<JikanSingleResult<IReadOnlyList<JikanStreamingDto>>>.Failure(result.Error!);
+            return Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure(result.Error!);
 
         var links = AniListMapper.ToStreamingDtos(result.Value!.Media?.ExternalLinks);
-        return Result<JikanSingleResult<IReadOnlyList<JikanStreamingDto>>>.Success(
-            new JikanSingleResult<IReadOnlyList<JikanStreamingDto>> { Data = links });
+        return Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+            new SingleResult<IReadOnlyList<StreamingDto>> { Data = links });
     }
 
     // ── Browse ────────────────────────────────────────────────────────────────
 
-    public async Task<Result<JikanPagedResult<JikanAnimeDto>>> GetCurrentSeasonAsync(
+    public async Task<Result<PagedResult<AnimeDto>>> GetCurrentSeasonAsync(
         CancellationToken ct = default)
     {
         var (season, year) = CurrentSeason(DateTime.UtcNow);
@@ -202,7 +202,7 @@ public sealed class AniListClient(
         return ToAnimePage(result);
     }
 
-    public async Task<Result<JikanPagedResult<JikanAnimeDto>>> GetTopAnimeAsync(
+    public async Task<Result<PagedResult<AnimeDto>>> GetTopAnimeAsync(
         int page = 1, CancellationToken ct = default)
     {
         var result = await QueryPageAsync(
@@ -222,7 +222,7 @@ public sealed class AniListClient(
         return ToAnimePage(result);
     }
 
-    public async Task<Result<JikanPagedResult<JikanMangaDto>>> GetTopMangaAsync(
+    public async Task<Result<PagedResult<MangaDto>>> GetTopMangaAsync(
         int page = 1, CancellationToken ct = default)
     {
         var result = await QueryPageAsync(
@@ -253,29 +253,29 @@ public sealed class AniListClient(
 
     // ── Transport ─────────────────────────────────────────────────────────────
 
-    private static Result<JikanPagedResult<JikanAnimeDto>> ToAnimePage(Result<AniListPageData> result) =>
+    private static Result<PagedResult<AnimeDto>> ToAnimePage(Result<AniListPageData> result) =>
         result.IsSuccess
-            ? Result<JikanPagedResult<JikanAnimeDto>>.Success(new JikanPagedResult<JikanAnimeDto>
+            ? Result<PagedResult<AnimeDto>>.Success(new PagedResult<AnimeDto>
             {
                 Data = AniListMapper.ToAnimeDtos(result.Value!.Page?.Media),
-                Pagination = new JikanPaginationDto
+                Pagination = new PaginationDto
                 {
                     HasNextPage = result.Value.Page?.PageInfo?.HasNextPage ?? false
                 }
             })
-            : Result<JikanPagedResult<JikanAnimeDto>>.Failure(result.Error!);
+            : Result<PagedResult<AnimeDto>>.Failure(result.Error!);
 
-    private static Result<JikanPagedResult<JikanMangaDto>> ToMangaPage(Result<AniListPageData> result) =>
+    private static Result<PagedResult<MangaDto>> ToMangaPage(Result<AniListPageData> result) =>
         result.IsSuccess
-            ? Result<JikanPagedResult<JikanMangaDto>>.Success(new JikanPagedResult<JikanMangaDto>
+            ? Result<PagedResult<MangaDto>>.Success(new PagedResult<MangaDto>
             {
                 Data = AniListMapper.ToMangaDtos(result.Value!.Page?.Media),
-                Pagination = new JikanPaginationDto
+                Pagination = new PaginationDto
                 {
                     HasNextPage = result.Value.Page?.PageInfo?.HasNextPage ?? false
                 }
             })
-            : Result<JikanPagedResult<JikanMangaDto>>.Failure(result.Error!);
+            : Result<PagedResult<MangaDto>>.Failure(result.Error!);
 
     private Task<Result<AniListPageData>> QueryPageAsync(
         string query, object variables, CancellationToken ct) =>

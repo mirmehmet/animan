@@ -2,13 +2,13 @@ using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 using AniMan.Infrastructure.AniList.Dtos;
-using AniMan.Infrastructure.Jikan.Dtos;
+using AniMan.Infrastructure.MediaSource.Dtos;
 
 namespace AniMan.Infrastructure.AniList;
 
 /// <summary>
-/// Translates AniList's GraphQL model into the Jikan DTOs the rest of the app already
-/// consumes, so AniList can stand in for Jikan without touching CatalogService.
+/// Translates AniList's GraphQL model into the shared media-source DTOs the rest of the app
+/// consumes, so AniList can stand in for the primary source without touching CatalogService.
 /// <para>
 /// Two differences between the services matter and are handled here rather than
 /// downstream: AniList scores on 0–100 where MyAnimeList uses 0–10, and AniList's
@@ -22,15 +22,15 @@ internal static partial class AniListMapper
     /// primary key, so those are dropped — mapping them would collide every one of them at
     /// id 0. They are a real share of results: 12 of the 50 most recently added anime.
     /// </summary>
-    public static IReadOnlyList<JikanAnimeDto> ToAnimeDtos(IEnumerable<AniListMedia>? media) =>
+    public static IReadOnlyList<AnimeDto> ToAnimeDtos(IEnumerable<AniListMedia>? media) =>
         media is null ? [] : [.. media.Where(HasMalId).Select(ToAnimeDto)];
 
-    public static IReadOnlyList<JikanMangaDto> ToMangaDtos(IEnumerable<AniListMedia>? media) =>
+    public static IReadOnlyList<MangaDto> ToMangaDtos(IEnumerable<AniListMedia>? media) =>
         media is null ? [] : [.. media.Where(HasMalId).Select(ToMangaDto)];
 
     public static bool HasMalId(AniListMedia media) => media.IdMal is > 0;
 
-    public static JikanAnimeDto ToAnimeDto(AniListMedia media) => new()
+    public static AnimeDto ToAnimeDto(AniListMedia media) => new()
     {
         MalId = media.IdMal!.Value,
         Title = PreferredTitle(media.Title),
@@ -39,7 +39,7 @@ internal static partial class AniListMapper
         Type = AnimeFormat(media.Format),
         Status = AnimeStatus(media.Status),
         Episodes = media.Episodes,
-        Aired = new JikanDateRangeDto
+        Aired = new DateRangeDto
         {
             From = ToIsoDate(media.StartDate),
             To = ToIsoDate(media.EndDate)
@@ -54,7 +54,7 @@ internal static partial class AniListMapper
         Studios = ToNamedEntities(media.Studios?.Nodes)
     };
 
-    public static JikanMangaDto ToMangaDto(AniListMedia media) => new()
+    public static MangaDto ToMangaDto(AniListMedia media) => new()
     {
         MalId = media.IdMal!.Value,
         Title = PreferredTitle(media.Title),
@@ -64,7 +64,7 @@ internal static partial class AniListMapper
         Status = MangaStatus(media.Status),
         Chapters = media.Chapters,
         Volumes = media.Volumes,
-        Published = new JikanDateRangeDto
+        Published = new DateRangeDto
         {
             From = ToIsoDate(media.StartDate),
             To = ToIsoDate(media.EndDate)
@@ -76,14 +76,14 @@ internal static partial class AniListMapper
     };
 
     /// <summary>Keeps only the links AniList marks as streaming services.</summary>
-    public static IReadOnlyList<JikanStreamingDto> ToStreamingDtos(
+    public static IReadOnlyList<StreamingDto> ToStreamingDtos(
         IReadOnlyList<AniListExternalLink>? links) =>
         links is null
             ? []
             : [.. links
                 .Where(l => string.Equals(l.Type, "STREAMING", StringComparison.OrdinalIgnoreCase)
                             && !string.IsNullOrWhiteSpace(l.Site))
-                .Select(l => new JikanStreamingDto { Name = l.Site!, Url = l.Url })];
+                .Select(l => new StreamingDto { Name = l.Site!, Url = l.Url })];
 
     // ── Field translation ─────────────────────────────────────────────────────
 
@@ -155,10 +155,10 @@ internal static partial class AniListMapper
         }
     }
 
-    private static JikanImagesDto? ToImages(AniListCoverImage? cover) =>
-        cover is null ? null : new JikanImagesDto
+    private static ImagesDto? ToImages(AniListCoverImage? cover) =>
+        cover is null ? null : new ImagesDto
         {
-            Jpg = new JikanImageVariantsDto
+            Jpg = new ImageVariantsDto
             {
                 ImageUrl = cover.Medium ?? cover.Large,
                 LargeImageUrl = cover.Large ?? cover.Medium
@@ -167,21 +167,21 @@ internal static partial class AniListMapper
 
     /// <summary>
     /// AniList genres are bare strings with no id. They are emitted with
-    /// <see cref="JikanGenreDto.MalId"/> 0, which signals CatalogService to resolve the id
+    /// <see cref="GenreDto.MalId"/> 0, which signals CatalogService to resolve the id
     /// by name so a genre stays a single row whichever source supplied it.
     /// </summary>
-    private static IReadOnlyList<JikanGenreDto>? ToGenres(IReadOnlyList<string>? genres) =>
+    private static IReadOnlyList<GenreDto>? ToGenres(IReadOnlyList<string>? genres) =>
         genres is null or { Count: 0 }
             ? null
             : [.. genres.Where(g => !string.IsNullOrWhiteSpace(g))
-                        .Select(g => new JikanGenreDto { MalId = 0, Name = g })];
+                        .Select(g => new GenreDto { MalId = 0, Name = g })];
 
-    private static IReadOnlyList<JikanNamedEntityDto>? ToNamedEntities(
+    private static IReadOnlyList<NamedEntityDto>? ToNamedEntities(
         IReadOnlyList<AniListNamedNode>? nodes) =>
         nodes is null or { Count: 0 }
             ? null
             : [.. nodes.Where(n => !string.IsNullOrWhiteSpace(n.Name))
-                       .Select(n => new JikanNamedEntityDto { Name = n.Name! })];
+                       .Select(n => new NamedEntityDto { Name = n.Name! })];
 
     /// <summary>
     /// Descriptions carry markup even when requested as plain text (<c>asHtml: false</c>

@@ -1,7 +1,7 @@
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.AniList;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Jikan;
+using AniMan.Infrastructure.Tenrai;
 using AniMan.Infrastructure.MediaSource;
 using AniMan.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -28,11 +28,11 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(new StoragePaths(appDataPath, coversPath));
         services.AddSingleton<ISettingsService, SettingsService>();
-        services.AddSingleton<JikanRateLimiter>();
+        services.AddSingleton<TenraiRateLimiter>();
 
-        services.AddHttpClient<JikanClient>(client =>
+        services.AddHttpClient<TenraiClient>(client =>
         {
-            client.BaseAddress = new Uri("https://api.jikan.moe/v4/");
+            client.BaseAddress = new Uri("https://api.tenrai.org/v1/");
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
@@ -47,8 +47,8 @@ public static class ServiceCollectionExtensions
 
         // Only the fallback pair is injectable: the concrete clients are registered above
         // as themselves, so nothing can accidentally bind straight to a single source.
-        services.AddTransient<IJikanClient>(sp => new FallbackMediaClient(
-            sp.GetRequiredService<JikanClient>(),
+        services.AddTransient<IMediaSourceClient>(sp => new FallbackMediaClient(
+            sp.GetRequiredService<TenraiClient>(),
             sp.GetRequiredService<AniListClient>(),
             sp.GetRequiredService<ILogger<FallbackMediaClient>>()));
 

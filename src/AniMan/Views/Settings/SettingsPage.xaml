@@ -174,7 +174,7 @@
             <ui:CardControl Style="{StaticResource SettingCard}"
                             Icon="{ui:SymbolIcon Symbol=Globe24}"
                             Header="{loc:Loc Settings_DataSource}">
-                <TextBlock Text="Jikan API + AniList"
+                <TextBlock Text="Tenrai API + AniList"
                            FontSize="12" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
             </ui:CardControl>

@@ -2,8 +2,8 @@ using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Jikan;
-using AniMan.Infrastructure.Jikan.Dtos;
+using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +16,7 @@ public class CatalogServiceTests : IDisposable
 {
     private readonly CatalogDbContext _db;
     private readonly IDbContextFactory<CatalogDbContext> _factory;
-    private readonly Mock<IJikanClient> _jikanMock;
+    private readonly Mock<IMediaSourceClient> _sourceMock;
     private readonly Mock<ISettingsService> _settingsMock;
 
     public CatalogServiceTests()
@@ -32,18 +32,18 @@ public class CatalogServiceTests : IDisposable
             .ReturnsAsync(() => new CatalogDbContext(options));
         _factory = factoryMock.Object;
 
-        _jikanMock = new Mock<IJikanClient>(MockBehavior.Strict);
+        _sourceMock = new Mock<IMediaSourceClient>(MockBehavior.Strict);
 
         _settingsMock = new Mock<ISettingsService>();
         _settingsMock.Setup(s => s.GetCacheRefreshDaysAsync()).ReturnsAsync(7);
     }
 
     private CatalogService CreateService() => new(
-        _factory, _jikanMock.Object, _settingsMock.Object,
+        _factory, _sourceMock.Object, _settingsMock.Object,
         NullLogger<CatalogService>.Instance);
 
     [Fact]
-    public async Task GetAnimeAsync_CacheHit_DoesNotCallJikan()
+    public async Task GetAnimeAsync_CacheHit_DoesNotCallTheSource()
     {
         var anime = MakeCachedAnime(1, daysOld: 0);
         _db.Anime.Add(anime);
@@ -54,17 +54,17 @@ public class CatalogServiceTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Id.Should().Be(1);
-        _jikanMock.VerifyNoOtherCalls();
+        _sourceMock.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task GetAnimeAsync_CacheMiss_CallsJikanAndStores()
+    public async Task GetAnimeAsync_CacheMiss_CallsTheSourceAndStores()
     {
         var dto = MakeAnimeDto(42);
-        var apiResponse = new JikanSingleResult<JikanAnimeDto> { Data = dto };
-        _jikanMock
+        var apiResponse = new SingleResult<AnimeDto> { Data = dto };
+        _sourceMock
             .Setup(j => j.GetAnimeFullAsync(42, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanSingleResult<JikanAnimeDto>>.Success(apiResponse));
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(apiResponse));
 
         var svc = CreateService();
         var result = await svc.GetAnimeAsync(42);
@@ -86,10 +86,10 @@ public class CatalogServiceTests : IDisposable
 
         // Allow background refresh call
         var dto = MakeAnimeDto(5);
-        _jikanMock
+        _sourceMock
             .Setup(j => j.GetAnimeFullAsync(5, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanSingleResult<JikanAnimeDto>>.Success(
-                new JikanSingleResult<JikanAnimeDto> { Data = dto }));
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(
+                new SingleResult<AnimeDto> { Data = dto }));
 
         var svc = CreateService();
         var result = await svc.GetAnimeAsync(5);
@@ -100,20 +100,20 @@ public class CatalogServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAnimeEpisodesAsync_EmptyJikanAndKnownTotal_CreatesPlaceholders()
+    public async Task GetAnimeEpisodesAsync_EmptySourceAndKnownTotal_CreatesPlaceholders()
     {
         var anime = MakeCachedAnime(10, daysOld: 10, totalEpisodes: 12);
         _db.Anime.Add(anime);
         await _db.SaveChangesAsync();
 
-        var emptyPage = new JikanPagedResult<JikanEpisodeDto>
+        var emptyPage = new PagedResult<AnimeEpisodeDto>
         {
             Data = [],
-            Pagination = new JikanPaginationDto { HasNextPage = false }
+            Pagination = new PaginationDto { HasNextPage = false }
         };
-        _jikanMock
+        _sourceMock
             .Setup(j => j.GetAnimeEpisodesAsync(10, 1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanPagedResult<JikanEpisodeDto>>.Success(emptyPage));
+            .ReturnsAsync(Result<PagedResult<AnimeEpisodeDto>>.Success(emptyPage));
 
         var svc = CreateService();
         var result = await svc.GetAnimeEpisodesAsync(10);
@@ -133,7 +133,7 @@ public class CatalogServiceTests : IDisposable
         TotalEpisodes = totalEpisodes
     };
 
-    private static JikanAnimeDto MakeAnimeDto(int id) => new()
+    private static AnimeDto MakeAnimeDto(int id) => new()
     {
         MalId = id,
         Title = $"Test Anime {id}"

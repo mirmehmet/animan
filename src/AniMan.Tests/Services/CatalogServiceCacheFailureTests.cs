@@ -1,8 +1,8 @@
 using AniMan.Core.Common;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Jikan;
-using AniMan.Infrastructure.Jikan.Dtos;
+using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -14,7 +14,7 @@ using Moq;
 namespace AniMan.Tests.Services;
 
 /// <summary>
-/// The catalog is an optimisation, not the product: when Jikan answers successfully
+/// The catalog is an optimisation, not the product: when the source answers successfully
 /// but the row cannot be cached, the fetched data must still reach the caller. Getting
 /// this wrong is what turned the missing-migrations bug into a blank Discover page —
 /// the API returned 200 and the result was discarded because the write threw.
@@ -26,7 +26,7 @@ public class CatalogServiceCacheFailureTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly IDbContextFactory<CatalogDbContext> _factory;
-    private readonly Mock<IJikanClient> _jikanMock = new(MockBehavior.Strict);
+    private readonly Mock<IMediaSourceClient> _sourceMock = new(MockBehavior.Strict);
     private readonly Mock<ISettingsService> _settingsMock = new();
 
     public CatalogServiceCacheFailureTests()
@@ -48,15 +48,15 @@ public class CatalogServiceCacheFailureTests : IDisposable
     }
 
     private CatalogService CreateService(ILogger<CatalogService>? logger = null) => new(
-        _factory, _jikanMock.Object, _settingsMock.Object,
+        _factory, _sourceMock.Object, _settingsMock.Object,
         logger ?? NullLogger<CatalogService>.Instance);
 
     [Fact]
     public async Task GetTopAnimeAsync_CacheWriteFails_StillReturnsFetchedData()
     {
-        _jikanMock.Setup(j => j.GetTopAnimeAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanPagedResult<JikanAnimeDto>>.Success(
-                new JikanPagedResult<JikanAnimeDto>
+        _sourceMock.Setup(j => j.GetTopAnimeAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Success(
+                new PagedResult<AnimeDto>
                 {
                     Data = [MakeAnimeDto(1), MakeAnimeDto(2)]
                 }));
@@ -76,9 +76,9 @@ public class CatalogServiceCacheFailureTests : IDisposable
     [Fact]
     public async Task GetTopMangaAsync_CacheWriteFails_StillReturnsFetchedData()
     {
-        _jikanMock.Setup(j => j.GetTopMangaAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanPagedResult<JikanMangaDto>>.Success(
-                new JikanPagedResult<JikanMangaDto> { Data = [MakeMangaDto(7)] }));
+        _sourceMock.Setup(j => j.GetTopMangaAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<MangaDto>>.Success(
+                new PagedResult<MangaDto> { Data = [MakeMangaDto(7)] }));
 
         var result = await CreateService().GetTopMangaAsync();
 
@@ -89,9 +89,9 @@ public class CatalogServiceCacheFailureTests : IDisposable
     [Fact]
     public async Task SearchAnimeAsync_CacheWriteFails_StillReturnsFetchedData()
     {
-        _jikanMock.Setup(j => j.SearchAnimeAsync("konosuba", 25, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanPagedResult<JikanAnimeDto>>.Success(
-                new JikanPagedResult<JikanAnimeDto> { Data = [MakeAnimeDto(30831)] }));
+        _sourceMock.Setup(j => j.SearchAnimeAsync("konosuba", 25, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Success(
+                new PagedResult<AnimeDto> { Data = [MakeAnimeDto(30831)] }));
 
         var result = await CreateService().SearchAnimeAsync("konosuba");
 
@@ -102,9 +102,9 @@ public class CatalogServiceCacheFailureTests : IDisposable
     [Fact]
     public async Task GetCurrentSeasonAsync_CacheWriteFails_StillReturnsFetchedData()
     {
-        _jikanMock.Setup(j => j.GetCurrentSeasonAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanPagedResult<JikanAnimeDto>>.Success(
-                new JikanPagedResult<JikanAnimeDto> { Data = [MakeAnimeDto(99)] }));
+        _sourceMock.Setup(j => j.GetCurrentSeasonAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Success(
+                new PagedResult<AnimeDto> { Data = [MakeAnimeDto(99)] }));
 
         var result = await CreateService().GetCurrentSeasonAsync();
 
@@ -116,21 +116,21 @@ public class CatalogServiceCacheFailureTests : IDisposable
     public async Task GetTopAnimeAsync_ApiFails_ReportsFailure()
     {
         // The guard above must not turn a genuine API failure into a false success.
-        _jikanMock.Setup(j => j.GetTopAnimeAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<JikanPagedResult<JikanAnimeDto>>.Failure("504 Gateway Time-out"));
+        _sourceMock.Setup(j => j.GetTopAnimeAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Failure("504 Gateway Time-out"));
 
         var result = await CreateService().GetTopAnimeAsync();
 
         result.IsSuccess.Should().BeFalse();
     }
 
-    private static JikanAnimeDto MakeAnimeDto(int id) => new()
+    private static AnimeDto MakeAnimeDto(int id) => new()
     {
         MalId = id,
         Title = $"Anime {id}"
     };
 
-    private static JikanMangaDto MakeMangaDto(int id) => new()
+    private static MangaDto MakeMangaDto(int id) => new()
     {
         MalId = id,
         Title = $"Manga {id}"
