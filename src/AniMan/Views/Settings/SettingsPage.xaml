@@ -166,7 +166,7 @@
             <ui:CardControl Style="{StaticResource SettingCard}"
                             Icon="{ui:SymbolIcon Symbol=Info24}"
                             Header="AniMan">
-                <TextBlock Text="{loc:Loc Settings_AppVersion}"
+                <TextBlock Text="{Binding AppVersion}"
                            FontSize="12" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
             </ui:CardControl>

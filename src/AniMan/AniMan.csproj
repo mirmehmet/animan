@@ -21,6 +21,13 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <!--
+      Releases are tagged "v0.2.2", but MinVer defaults to a prefix-less tag name
+      and so matched none of them — every build before v0.2.2 stamped
+      0.0.0-alpha.0.{height} as its informational version. Settings now displays
+      that value, so the prefix has to be declared.
+    -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>

@@ -41,15 +41,55 @@ public sealed class JikanClient : IJikanClient
             .Build();
     }
 
-    public Task<Result<JikanPagedResult<JikanAnimeDto>>> SearchAnimeAsync(
-        string query, int limit = 25, CancellationToken ct = default) =>
-        GetAsync<JikanPagedResult<JikanAnimeDto>>(
-            $"anime?q={Uri.EscapeDataString(query)}&limit={limit}&sfw=true", ct);
+    // Genres Jikan's own `sfw=true` filter excludes; we apply it client-side instead.
+    private static readonly string[] ExplicitGenres = ["Hentai", "Erotica"];
 
-    public Task<Result<JikanPagedResult<JikanMangaDto>>> SearchMangaAsync(
-        string query, int limit = 25, CancellationToken ct = default) =>
-        GetAsync<JikanPagedResult<JikanMangaDto>>(
-            $"manga?q={Uri.EscapeDataString(query)}&limit={limit}&sfw=true", ct);
+    /*
+      Search deliberately sends a bare `?q=` with no `limit` or `sfw` parameter.
+      Every distinct query string is a separate cache key on Jikan's side, and
+      since 2026-07 a cache miss fails outright with 504 ("Jikan failed to
+      connect to MyAnimeList") — verified: `?q=naruto` returns 200 while
+      `?q=naruto&limit=25` returns 504 for the same title. The bare form is the
+      one most likely to be already cached, so limiting and SFW filtering move
+      here, where they cost us nothing.
+      REVISIT once jikan-rest#610 is resolved and cache misses succeed again.
+    */
+    public async Task<Result<JikanPagedResult<JikanAnimeDto>>> SearchAnimeAsync(
+        string query, int limit = 25, CancellationToken ct = default)
+    {
+        var result = await GetAsync<JikanPagedResult<JikanAnimeDto>>(
+            $"anime?q={Uri.EscapeDataString(query)}", ct).ConfigureAwait(false);
+        return FilterAndLimit(result, limit, a => a.Genres);
+    }
+
+    public async Task<Result<JikanPagedResult<JikanMangaDto>>> SearchMangaAsync(
+        string query, int limit = 25, CancellationToken ct = default)
+    {
+        var result = await GetAsync<JikanPagedResult<JikanMangaDto>>(
+            $"manga?q={Uri.EscapeDataString(query)}", ct).ConfigureAwait(false);
+        return FilterAndLimit(result, limit, m => m.Genres);
+    }
+
+    /// <summary>Drops explicit entries and caps the result count, replacing the API's own filters.</summary>
+    private static Result<JikanPagedResult<T>> FilterAndLimit<T>(
+        Result<JikanPagedResult<T>> result,
+        int limit,
+        Func<T, IReadOnlyList<JikanGenreDto>?> genresOf)
+    {
+        if (!result.IsSuccess || result.Value?.Data is null)
+            return result;
+
+        var filtered = result.Value.Data
+            .Where(item => !IsExplicit(genresOf(item)))
+            .Take(limit)
+            .ToList();
+
+        return Result<JikanPagedResult<T>>.Success(result.Value with { Data = filtered });
+    }
+
+    private static bool IsExplicit(IReadOnlyList<JikanGenreDto>? genres) =>
+        genres is not null &&
+        genres.Any(g => ExplicitGenres.Contains(g.Name, StringComparer.OrdinalIgnoreCase));
 
     public Task<Result<JikanSingleResult<JikanAnimeDto>>> GetAnimeFullAsync(
         int malId, CancellationToken ct = default) =>

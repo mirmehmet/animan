@@ -7,9 +7,6 @@ obj/
 *.swp
 *.lock.json
 
-## EF Core
-**/Migrations/
-
 ## Build output
 publish/
 dist/
@@ -35,6 +32,5 @@ Thumbs.db
 desktop.ini
 
 blueprint.md
-CLAUDE.md
 animan_ui_prototype.html
 wiki/

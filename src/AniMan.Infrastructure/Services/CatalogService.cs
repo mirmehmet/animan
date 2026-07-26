@@ -274,6 +274,25 @@ public sealed class CatalogService(
         });
     }
 
+    /// <summary>
+    /// Runs a cache write that must never sink an already-successful API response.
+    /// The fetched data is the product; the cache is only an optimisation, so a
+    /// write failure is logged and swallowed. Cancellation still propagates — that
+    /// is the caller giving up, not the cache failing.
+    /// </summary>
+    private async Task TryCacheAsync(string what, Func<Task> write)
+    {
+        try
+        {
+            await write().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Caching {What} failed — serving fetched data uncached", what);
+        }
+    }
+
     private async Task<bool> IsStaleAsync(DateTime fetchedAt, CancellationToken ct)
     {
         _cacheRefreshDays ??= await settingsService.GetCacheRefreshDaysAsync(ct).ConfigureAwait(false);
@@ -288,7 +307,8 @@ public sealed class CatalogService(
             return Result<CachedAnime>.Failure(apiResult.Error ?? "No data from Jikan");
 
         var anime = JikanMapper.ToAnime(apiResult.Value.Data);
-        await UpsertAnimeAsync(anime, apiResult.Value.Data, ct).ConfigureAwait(false);
+        await TryCacheAsync($"anime {malId}",
+            () => UpsertAnimeAsync(anime, apiResult.Value.Data, ct)).ConfigureAwait(false);
         return Result<CachedAnime>.Success(anime);
     }
 
@@ -300,7 +320,8 @@ public sealed class CatalogService(
             return Result<CachedManga>.Failure(apiResult.Error ?? "No data from Jikan");
 
         var manga = JikanMapper.ToManga(apiResult.Value.Data);
-        await UpsertMangaAsync(manga, apiResult.Value.Data, ct).ConfigureAwait(false);
+        await TryCacheAsync($"manga {malId}",
+            () => UpsertMangaAsync(manga, apiResult.Value.Data, ct)).ConfigureAwait(false);
         return Result<CachedManga>.Success(manga);
     }
 
@@ -329,13 +350,17 @@ public sealed class CatalogService(
                 allEpisodes.Add(JikanMapper.ToPlaceholderEpisode(malId, i));
         }
 
-        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-        var existing = db.Episodes.Where(e => e.AnimeId == malId);
-        db.Episodes.RemoveRange(existing);
-        db.Episodes.AddRange(allEpisodes);
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await TryCacheAsync($"episodes for anime {malId}", async () =>
+        {
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var existing = db.Episodes.Where(e => e.AnimeId == malId);
+            db.Episodes.RemoveRange(existing);
+            db.Episodes.AddRange(allEpisodes);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        logger.LogInformation("Cached {Count} episodes for anime {Id}", allEpisodes.Count, malId);
+            logger.LogInformation("Cached {Count} episodes for anime {Id}", allEpisodes.Count, malId);
+        }).ConfigureAwait(false);
+
         return Result<IReadOnlyList<CachedEpisode>>.Success(allEpisodes);
     }
 
@@ -431,59 +456,69 @@ public sealed class CatalogService(
     private async Task<List<CachedAnime>> UpsertAnimeListAsync(
         IReadOnlyList<JikanAnimeDto> dtos, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-
         // Jikan seasons/now can return duplicate MAL IDs — deduplicate before tracking.
         var uniqueDtos = dtos.GroupBy(d => d.MalId).Select(g => g.First()).ToList();
         var mapped = uniqueDtos.Select(JikanMapper.ToAnime).ToList();
 
-        var ids = mapped.Select(a => a.Id).ToList();
-        var existingMap = await db.Anime
-            .Where(a => ids.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id, ct).ConfigureAwait(false);
-
-        foreach (var anime in mapped)
+        // Mapping is complete above; caching below is best-effort so a database
+        // failure cannot discard results the API already returned successfully.
+        await TryCacheAsync("anime list", async () =>
         {
-            if (existingMap.TryGetValue(anime.Id, out var existing))
-                db.Entry(existing).CurrentValues.SetValues(anime);
-            else
-                db.Anime.Add(anime);
-        }
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-        await UpsertGenresAsync(db,
-            mapped.Zip(uniqueDtos, (a, d) => (a.Id, JikanMapper.ExtractAnimeGenres(d))).ToList(),
-            "anime", ct).ConfigureAwait(false);
+            var ids = mapped.Select(a => a.Id).ToList();
+            var existingMap = await db.Anime
+                .Where(a => ids.Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id, ct).ConfigureAwait(false);
 
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            foreach (var anime in mapped)
+            {
+                if (existingMap.TryGetValue(anime.Id, out var existing))
+                    db.Entry(existing).CurrentValues.SetValues(anime);
+                else
+                    db.Anime.Add(anime);
+            }
+
+            await UpsertGenresAsync(db,
+                mapped.Zip(uniqueDtos, (a, d) => (a.Id, JikanMapper.ExtractAnimeGenres(d))).ToList(),
+                "anime", ct).ConfigureAwait(false);
+
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
         return mapped;
     }
 
     private async Task<List<CachedManga>> UpsertMangaListAsync(
         IReadOnlyList<JikanMangaDto> dtos, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-
         var uniqueDtos = dtos.GroupBy(d => d.MalId).Select(g => g.First()).ToList();
         var mapped = uniqueDtos.Select(JikanMapper.ToManga).ToList();
 
-        var ids = mapped.Select(m => m.Id).ToList();
-        var existingMap = await db.Manga
-            .Where(m => ids.Contains(m.Id))
-            .ToDictionaryAsync(m => m.Id, ct).ConfigureAwait(false);
-
-        foreach (var manga in mapped)
+        await TryCacheAsync("manga list", async () =>
         {
-            if (existingMap.TryGetValue(manga.Id, out var existing))
-                db.Entry(existing).CurrentValues.SetValues(manga);
-            else
-                db.Manga.Add(manga);
-        }
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-        await UpsertGenresAsync(db,
-            mapped.Zip(uniqueDtos, (m, d) => (m.Id, JikanMapper.ExtractMangaGenres(d))).ToList(),
-            "manga", ct).ConfigureAwait(false);
+            var ids = mapped.Select(m => m.Id).ToList();
+            var existingMap = await db.Manga
+                .Where(m => ids.Contains(m.Id))
+                .ToDictionaryAsync(m => m.Id, ct).ConfigureAwait(false);
 
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            foreach (var manga in mapped)
+            {
+                if (existingMap.TryGetValue(manga.Id, out var existing))
+                    db.Entry(existing).CurrentValues.SetValues(manga);
+                else
+                    db.Manga.Add(manga);
+            }
+
+            await UpsertGenresAsync(db,
+                mapped.Zip(uniqueDtos, (m, d) => (m.Id, JikanMapper.ExtractMangaGenres(d))).ToList(),
+                "manga", ct).ConfigureAwait(false);
+
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
         return mapped;
     }
 

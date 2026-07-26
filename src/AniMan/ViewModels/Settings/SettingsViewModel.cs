@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Reflection;
 using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -50,6 +51,29 @@ public partial class SettingsViewModel(
         ["Dashboard", "Anime", "Manga", "Discover"];
 
     [ObservableProperty] private string _selectedStartupPage = "Dashboard";
+
+    // ── About ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Version shown in Settings, read from the MinVer-generated informational
+    /// version so tagging a release is enough to update the UI. Untagged builds
+    /// therefore show a pre-release suffix (e.g. "v0.2.3-alpha.0.4"), which is
+    /// accurate — they are not the tagged release.
+    /// </summary>
+    public string AppVersion { get; } = ResolveAppVersion();
+
+    private static string ResolveAppVersion()
+    {
+        var informational = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+        if (string.IsNullOrWhiteSpace(informational))
+            return "v0.0.0";
+
+        // .NET appends "+{commit sha}" to the attribute; that is build metadata, not version.
+        var metadata = informational.IndexOf('+', StringComparison.Ordinal);
+        return "v" + (metadata >= 0 ? informational[..metadata] : informational);
+    }
 
     // ── Trash ─────────────────────────────────────────────────────────────────
 
