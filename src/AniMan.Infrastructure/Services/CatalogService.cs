@@ -411,6 +411,8 @@ public sealed class CatalogService(
         string mediaType,
         CancellationToken ct)
     {
+        await ResolveGenreIdsByNameAsync(db, items, ct).ConfigureAwait(false);
+
         // Items with no genres keep their existing links (same as the old per-item
         // early return).
         var withGenres = items
@@ -451,6 +453,77 @@ public sealed class CatalogService(
                     MediaType = mediaType,
                     GenreId = genre.Id
                 });
+    }
+
+    /// <summary>
+    /// First id handed out to a genre that arrived without one. MyAnimeList's genre ids are
+    /// small two- and three-digit numbers, so this range can never collide with them.
+    /// </summary>
+    private const int GeneratedGenreIdBase = 10000;
+
+    /// <summary>
+    /// Gives an id to genres that arrived with <c>Id == 0</c>, which is how a source without
+    /// MyAnimeList genre ids (AniList) reports them. An existing genre of the same name keeps
+    /// its id so "Action" stays a single row whichever source supplied it — otherwise the
+    /// Stats page would show the same genre twice.
+    /// </summary>
+    /// <remarks>
+    /// Matching is by name only, not by media type: the table's key is the id alone, so a
+    /// genre row is already shared between anime and manga.
+    /// </remarks>
+    private static async Task ResolveGenreIdsByNameAsync(
+        CatalogDbContext db,
+        IReadOnlyList<(int MediaId, IReadOnlyList<CachedGenre> Genres)> items,
+        CancellationToken ct)
+    {
+        var unresolved = items
+            .SelectMany(i => i.Genres)
+            .Where(g => g.Id == 0 && !string.IsNullOrWhiteSpace(g.Name))
+            .ToList();
+        if (unresolved.Count == 0) return;
+
+        var names = unresolved.Select(g => g.Name).Distinct().ToList();
+
+        var byName = (await db.Genres
+            .Where(g => names.Contains(g.Name))
+            .Select(g => new { g.Id, g.Name })
+            .ToListAsync(ct).ConfigureAwait(false))
+            .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+
+        // Genres added earlier in this same unit of work are not queryable yet.
+        var staged = db.ChangeTracker.Entries<CachedGenre>()
+            .Where(e => e.State == EntityState.Added && e.Entity.Id != 0)
+            .Select(e => e.Entity)
+            .ToList();
+        foreach (var genre in staged)
+            byName.TryAdd(genre.Name, genre.Id);
+
+        // Continue after the highest generated id, counting both saved and staged rows.
+        var maxStored = await db.Genres
+            .Where(g => g.Id >= GeneratedGenreIdBase)
+            .Select(g => (int?)g.Id)
+            .MaxAsync(ct).ConfigureAwait(false);
+
+        var maxStaged = staged
+            .Where(g => g.Id >= GeneratedGenreIdBase)
+            .Select(g => g.Id)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        var nextId = Math.Max(GeneratedGenreIdBase, Math.Max(maxStored ?? 0, maxStaged) + 1);
+
+        foreach (var genre in unresolved)
+        {
+            if (byName.TryGetValue(genre.Name, out var existingId))
+            {
+                genre.Id = existingId;
+                continue;
+            }
+
+            genre.Id = nextId++;
+            byName[genre.Name] = genre.Id;
+        }
     }
 
     private async Task<List<CachedAnime>> UpsertAnimeListAsync(

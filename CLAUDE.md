@@ -69,11 +69,26 @@ Both contexts are consumed through `IDbContextFactory<T>` and short-lived `await
 
 Services return `Result` / `Result<T>` and never throw for expected failures: catch `OperationCanceledException` and rethrow, log everything else, return `Result.Failure(message)`. View models check `IsSuccess`. The global handlers in `App.RegisterGlobalExceptionHandlers` are a last-resort net — anything reaching them is a bug.
 
-### Jikan access
+### Media sources
 
-`JikanClient` composes two layers: `JikanRateLimiter` (3 req/sec, 60 req/min via semaphores released on a delay, `TimeProvider`-injectable for tests) wrapping a Polly retry pipeline (3 attempts, exponential, on 5xx/429/`HttpRequestException`). `CatalogService` serves cached rows immediately and, when older than the `CacheRefreshDays` setting, queues a fire-and-forget background refresh rather than blocking the UI. All API calls must go through `IJikanClient` so both layers apply.
+**`IJikanClient` is the media-source contract, not "the Jikan API".** Two clients implement it and a decorator picks between them:
 
-**Jikan is degraded since 2026-07-10** (upstream jikan-rest#610): it cannot reach MyAnimeList, so a cache hit returns 200 while any cache miss returns 504. Every distinct query string is its own cache key on Jikan's side — which is why search sends a bare `?q=` and applies `limit` and SFW filtering client-side in `JikanClient.FilterAndLimit`. Do not re-add query parameters to search without checking whether the outage is over.
+```
+CatalogService ──> IJikanClient ──> FallbackMediaClient
+                                      ╱              ╲
+                              JikanClient        AniListClient
+                          (always tried first)   (only on failure)
+```
+
+Only `FallbackMediaClient` is registered as `IJikanClient`; the concrete clients are registered as themselves, so nothing can bind straight to a single source. The switch is per request with no circuit breaker, so the app returns to Jikan the moment it starts answering — no state to reset, no timer to wait out. When both sources fail, the **primary's** error is surfaced, because that is the message the UI already words for the user.
+
+`JikanClient` composes `JikanRateLimiter` (3/sec + 60/min) over a Polly retry pipeline; `AniListClient` composes `AniListRateLimiter` (30/min — the degraded budget AniList reports in `X-RateLimit-Limit`) over GraphQL POSTs. Both configure the shared `SlidingWindowRateLimiter`, which is `TimeProvider`-injectable so windows drain in virtual time under test. `CatalogService` serves cached rows immediately and, when older than the `CacheRefreshDays` setting, queues a fire-and-forget background refresh rather than blocking the UI.
+
+**Jikan is degraded since 2026-07-10** (upstream jikan-rest#610): it cannot reach MyAnimeList, so a cache hit returns 200 while any cache miss returns 504. Every distinct query string is its own cache key on Jikan's side — which is why search sends a bare `?q=` and applies the caller's `limit` client-side in `JikanClient.CapToLimit`. **504 is deliberately excluded from the retry predicate** (`JikanClient.IsTransient`): it is a settled "MAL unreachable" answer, and retrying it burned ~7s of backoff before the fallback could even start. Do not re-add query parameters to search, or 504 to the retry set, without first checking whether the outage is over.
+
+**No content filtering, by decision.** Neither source filters by genre, rating or adult flag on any path — Jikan search sends no `sfw` parameter and the AniList queries carry no `isAdult` argument. AniMan lists catalogue metadata rather than serving the works, so the user decides what belongs in their own library. The absence is deliberate; do not "restore" it.
+
+`AniListMapper` translates AniList's GraphQL model into the Jikan DTOs, so `CatalogService` never learns which source replied. Three of its rules are load-bearing: entries whose `idMal` is null are **dropped** (MAL id is the primary key — 12 of the 50 newest anime have none, and unfiltered they would all collide at id 0); `averageScore` is divided by 10 (AniList scores 0–100); and `Rank`/`Popularity` stay null because AniList's `popularity` is a member count, not MyAnimeList's rank. AniList genres arrive as bare strings and are emitted with `MalId = 0`, which tells `CatalogService.ResolveGenreIdsByNameAsync` to match them by name and allocate unknown ones from a reserved range at 10000+, so a genre stays one row whichever source supplied it.
 
 **A cache write must never sink a successful API response.** `CatalogService` maps DTOs first, then persists inside `TryCacheAsync`, which logs and swallows write failures. This is what made the missing-migrations bug fatal instead of merely slow: a 200 response was discarded because the row could not be cached. Keep new fetch paths on the same shape.
 

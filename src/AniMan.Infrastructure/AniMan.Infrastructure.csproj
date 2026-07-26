@@ -27,4 +27,9 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
+  <!-- AniListMapper is internal but carries the source-translation rules worth testing directly. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AniMan.Tests" />
+  </ItemGroup>
+
 </Project>

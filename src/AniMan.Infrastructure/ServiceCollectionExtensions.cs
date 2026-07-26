@@ -1,9 +1,12 @@
 using AniMan.Core.Interfaces;
+using AniMan.Infrastructure.AniList;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Jikan;
+using AniMan.Infrastructure.MediaSource;
 using AniMan.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AniMan.Infrastructure;
 
@@ -33,7 +36,21 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
-        services.AddTransient<IJikanClient>(sp => sp.GetRequiredService<JikanClient>());
+
+        services.AddSingleton<AniListRateLimiter>();
+        services.AddHttpClient<AniListClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://graphql.anilist.co");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        // Only the fallback pair is injectable: the concrete clients are registered above
+        // as themselves, so nothing can accidentally bind straight to a single source.
+        services.AddTransient<IJikanClient>(sp => new FallbackMediaClient(
+            sp.GetRequiredService<JikanClient>(),
+            sp.GetRequiredService<AniListClient>(),
+            sp.GetRequiredService<ILogger<FallbackMediaClient>>()));
 
         services.AddHttpClient("covers", client =>
         {

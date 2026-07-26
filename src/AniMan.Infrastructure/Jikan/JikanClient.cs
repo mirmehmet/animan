@@ -32,26 +32,34 @@ public sealed class JikanClient : IJikanClient
                 MaxRetryAttempts = 3,
                 Delay = TimeSpan.FromSeconds(1),
                 BackoffType = DelayBackoffType.Exponential,
-                ShouldHandle = args => ValueTask.FromResult(
-                    args.Outcome.Exception is HttpRequestException ||
-                    (args.Outcome.Result is not null &&
-                     ((int)args.Outcome.Result.StatusCode >= 500 ||
-                      args.Outcome.Result.StatusCode == HttpStatusCode.TooManyRequests)))
+                ShouldHandle = args => ValueTask.FromResult(IsTransient(args.Outcome))
             })
             .Build();
     }
 
-    // Genres Jikan's own `sfw=true` filter excludes; we apply it client-side instead.
-    private static readonly string[] ExplicitGenres = ["Hentai", "Erotica"];
+    /// <summary>
+    /// Which failures are worth retrying. <b>504 is deliberately excluded:</b> Jikan uses it
+    /// to say it could not reach MyAnimeList, which during the outage that began 2026-07-10
+    /// is a settled answer rather than a blip. Retrying it burned ~7s of exponential backoff
+    /// before the caller could fall back to another source, so it now fails immediately.
+    /// </summary>
+    private static bool IsTransient(Outcome<HttpResponseMessage> outcome)
+    {
+        if (outcome.Exception is HttpRequestException) return true;
+        if (outcome.Result is not { } response) return false;
+
+        return response.StatusCode != HttpStatusCode.GatewayTimeout &&
+               ((int)response.StatusCode >= 500 ||
+                response.StatusCode == HttpStatusCode.TooManyRequests);
+    }
 
     /*
-      Search deliberately sends a bare `?q=` with no `limit` or `sfw` parameter.
-      Every distinct query string is a separate cache key on Jikan's side, and
-      since 2026-07 a cache miss fails outright with 504 ("Jikan failed to
-      connect to MyAnimeList") — verified: `?q=naruto` returns 200 while
-      `?q=naruto&limit=25` returns 504 for the same title. The bare form is the
-      one most likely to be already cached, so limiting and SFW filtering move
-      here, where they cost us nothing.
+      Search deliberately sends a bare `?q=` with no `limit` parameter. Every distinct
+      query string is a separate cache key on Jikan's side, and since 2026-07 a cache
+      miss fails outright with 504 ("Jikan failed to connect to MyAnimeList") —
+      verified: `?q=naruto` returns 200 while `?q=naruto&limit=25` returns 504 for the
+      same title. The bare form is the one most likely to be already cached, so the
+      result count is capped here instead.
       REVISIT once jikan-rest#610 is resolved and cache misses succeed again.
     */
     public async Task<Result<JikanPagedResult<JikanAnimeDto>>> SearchAnimeAsync(
@@ -59,7 +67,7 @@ public sealed class JikanClient : IJikanClient
     {
         var result = await GetAsync<JikanPagedResult<JikanAnimeDto>>(
             $"anime?q={Uri.EscapeDataString(query)}", ct).ConfigureAwait(false);
-        return FilterAndLimit(result, limit, a => a.Genres);
+        return CapToLimit(result, limit);
     }
 
     public async Task<Result<JikanPagedResult<JikanMangaDto>>> SearchMangaAsync(
@@ -67,29 +75,26 @@ public sealed class JikanClient : IJikanClient
     {
         var result = await GetAsync<JikanPagedResult<JikanMangaDto>>(
             $"manga?q={Uri.EscapeDataString(query)}", ct).ConfigureAwait(false);
-        return FilterAndLimit(result, limit, m => m.Genres);
+        return CapToLimit(result, limit);
     }
 
-    /// <summary>Drops explicit entries and caps the result count, replacing the API's own filters.</summary>
-    private static Result<JikanPagedResult<T>> FilterAndLimit<T>(
-        Result<JikanPagedResult<T>> result,
-        int limit,
-        Func<T, IReadOnlyList<JikanGenreDto>?> genresOf)
+    /// <summary>
+    /// Honours the caller's <paramref name="limit"/>, which the request URL cannot carry.
+    /// Nothing else is removed: results are not filtered by genre or rating, so the user
+    /// can track anything the catalogue contains.
+    /// </summary>
+    private static Result<JikanPagedResult<T>> CapToLimit<T>(
+        Result<JikanPagedResult<T>> result, int limit)
     {
         if (!result.IsSuccess || result.Value?.Data is null)
             return result;
 
-        var filtered = result.Value.Data
-            .Where(item => !IsExplicit(genresOf(item)))
-            .Take(limit)
-            .ToList();
+        if (result.Value.Data.Count <= limit)
+            return result;
 
-        return Result<JikanPagedResult<T>>.Success(result.Value with { Data = filtered });
+        return Result<JikanPagedResult<T>>.Success(
+            result.Value with { Data = [.. result.Value.Data.Take(limit)] });
     }
-
-    private static bool IsExplicit(IReadOnlyList<JikanGenreDto>? genres) =>
-        genres is not null &&
-        genres.Any(g => ExplicitGenres.Contains(g.Name, StringComparer.OrdinalIgnoreCase));
 
     public Task<Result<JikanSingleResult<JikanAnimeDto>>> GetAnimeFullAsync(
         int malId, CancellationToken ct = default) =>
