@@ -112,6 +112,32 @@ public class SnapshotServiceTests : IDisposable
         second.Error.Should().Contain("already in your library");
     }
 
+    [Fact]
+    public async Task SnapshotAsync_SoftDeletedItem_ReplacesTrashedAndSucceeds()
+    {
+        SetupAnime(25, "Cowboy Bebop");
+        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
+            .Returns(new System.Net.Http.HttpClient());
+
+        var svc = CreateService();
+        var first = await svc.SnapshotAsync(25, MediaType.Anime, 1);
+        first.IsSuccess.Should().BeTrue();
+
+        // Soft-delete the item (move to Trash)
+        using (var db = await _libraryFactory.CreateDbContextAsync())
+        {
+            var item = await db.LibraryItems.SingleAsync(i => i.MalId == 25);
+            item.DeletedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        // Re-adding the soft-deleted item should succeed and leave an active item
+        var reAdded = await svc.SnapshotAsync(25, MediaType.Anime, 6);
+        reAdded.IsSuccess.Should().BeTrue();
+        reAdded.Value!.DeletedAt.Should().BeNull();
+        reAdded.Value.StatusId.Should().Be(6);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void SetupAnime(int malId, string title)

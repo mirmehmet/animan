@@ -12,6 +12,7 @@ public partial class StatsViewModel : ObservableObject
     [ObservableProperty] private int _totalEpisodes;
     [ObservableProperty] private string _watchTimeText = "—";
     [ObservableProperty] private int _totalChapters;
+    [ObservableProperty] private int _completedCount;
     [ObservableProperty] private string _meanScoreText = "—";
     [ObservableProperty] private bool _isLoading;
 
@@ -82,6 +83,10 @@ public partial class StatsViewModel : ObservableObject
         if (!result.IsSuccess) return;
 
         var items = result.Value!;
+        CompletedCount = items
+            .Where(s => string.Equals(s.StatusName, "Completed", StringComparison.OrdinalIgnoreCase))
+            .Sum(s => s.Count);
+
         int total = items.Sum(s => s.Count);
         if (total == 0) return;
 

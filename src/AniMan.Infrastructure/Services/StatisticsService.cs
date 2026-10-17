@@ -19,7 +19,9 @@ public sealed class StatisticsService(
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var count = await db.EpisodeProgress.CountAsync(e => e.IsWatched, ct).ConfigureAwait(false);
+            var count = await db.EpisodeProgress
+                .CountAsync(e => e.IsWatched && e.LibraryItem != null && e.LibraryItem.DeletedAt == null, ct)
+                .ConfigureAwait(false);
             return Result<int>.Success(count);
         }
         catch (OperationCanceledException) { throw; }
@@ -35,7 +37,9 @@ public sealed class StatisticsService(
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var count = await db.EpisodeProgress.CountAsync(e => e.IsWatched, ct).ConfigureAwait(false);
+            var count = await db.EpisodeProgress
+                .CountAsync(e => e.IsWatched && e.LibraryItem != null && e.LibraryItem.DeletedAt == null, ct)
+                .ConfigureAwait(false);
             return Result<TimeSpan>.Success(TimeSpan.FromMinutes(count * MinutesPerEpisode));
         }
         catch (OperationCanceledException) { throw; }
@@ -51,7 +55,9 @@ public sealed class StatisticsService(
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var count = await db.ChapterProgress.CountAsync(c => c.IsRead, ct).ConfigureAwait(false);
+            var count = await db.ChapterProgress
+                .CountAsync(c => c.IsRead && c.LibraryItem != null && c.LibraryItem.DeletedAt == null, ct)
+                .ConfigureAwait(false);
             return Result<int>.Success(count);
         }
         catch (OperationCanceledException) { throw; }
@@ -68,8 +74,8 @@ public sealed class StatisticsService(
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var scores = await db.LibraryItems.AsNoTracking()
-                .Where(i => i.Score.HasValue)
-                .Select(i => (double)i.Score!.Value)
+                .Where(i => i.DeletedAt == null && (i.UserRating.HasValue || i.Score.HasValue))
+                .Select(i => (double)(i.UserRating ?? i.Score!.Value))
                 .ToListAsync(ct).ConfigureAwait(false);
 
             double? mean = scores.Count > 0 ? scores.Average() : null;
@@ -90,6 +96,7 @@ public sealed class StatisticsService(
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var breakdown = await db.LibraryItems.AsNoTracking()
+                .Where(i => i.DeletedAt == null)
                 .GroupBy(i => i.StatusId)
                 .Select(g => new { StatusId = g.Key, Count = g.Count() })
                 .ToListAsync(ct).ConfigureAwait(false);
@@ -117,17 +124,22 @@ public sealed class StatisticsService(
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var histogram = await db.LibraryItems.AsNoTracking()
-                .Where(i => i.Score.HasValue)
-                .GroupBy(i => i.Score!.Value)
-                .Select(g => new { Score = g.Key, Count = g.Count() })
+            var rawScores = await db.LibraryItems.AsNoTracking()
+                .Where(i => i.DeletedAt == null && (i.UserRating.HasValue || i.Score.HasValue))
+                .Select(i => i.UserRating ?? (decimal?)i.Score)
                 .ToListAsync(ct).ConfigureAwait(false);
+
+            var histogram = rawScores
+                .Where(s => s.HasValue && s.Value > 0m)
+                .Select(s => Math.Clamp((int)Math.Round(s!.Value, MidpointRounding.AwayFromZero), 1, 10))
+                .GroupBy(score => score)
+                .ToDictionary(g => g.Key, g => g.Count());
 
             // Fill in 1–10 with 0 for missing scores
             var result = Enumerable.Range(1, 10)
                 .ToDictionary(
                     score => score,
-                    score => histogram.FirstOrDefault(h => h.Score == score)?.Count ?? 0);
+                    score => histogram.GetValueOrDefault(score, 0));
 
             return Result<IReadOnlyDictionary<int, int>>.Success(result);
         }
@@ -146,6 +158,7 @@ public sealed class StatisticsService(
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var genreJsonList = await db.Snapshots.AsNoTracking()
+                .Where(s => s.LibraryItem != null && s.LibraryItem.DeletedAt == null)
                 .Select(s => s.Genres)
                 .ToListAsync(ct).ConfigureAwait(false);
 
@@ -188,14 +201,19 @@ public sealed class StatisticsService(
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var cutoff = DateTime.UtcNow.AddMonths(-months);
 
-            var activity = await db.EpisodeProgress.AsNoTracking()
-                .Where(e => e.IsWatched && e.WatchedAt >= cutoff)
-                .Select(e => new { e.WatchedAt })
+            var episodeDates = await db.EpisodeProgress.AsNoTracking()
+                .Where(e => e.IsWatched && e.WatchedAt >= cutoff && e.LibraryItem != null && e.LibraryItem.DeletedAt == null)
+                .Select(e => e.WatchedAt)
                 .ToListAsync(ct).ConfigureAwait(false);
 
-            var grouped = activity
-                .Where(e => e.WatchedAt.HasValue)
-                .GroupBy(e => new { e.WatchedAt!.Value.Year, e.WatchedAt.Value.Month })
+            var chapterDates = await db.ChapterProgress.AsNoTracking()
+                .Where(c => c.IsRead && c.ReadAt >= cutoff && c.LibraryItem != null && c.LibraryItem.DeletedAt == null)
+                .Select(c => c.ReadAt)
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            var grouped = episodeDates.Concat(chapterDates)
+                .Where(d => d.HasValue)
+                .GroupBy(d => new { d!.Value.Year, d.Value.Month })
                 .Select(g => new MonthlyActivity(g.Key.Year, g.Key.Month, g.Count()))
                 .OrderBy(m => m.Year).ThenBy(m => m.Month)
                 .ToList();

@@ -61,6 +61,7 @@ public partial class App : Application
 
             var mainWindow = Services.GetRequiredService<MainWindow>();
             mainWindow.Show();
+            Theming.AppThemeManager.SyncWindowBackground(mainWindow);
 
             // SystemThemeWatcher needs a window handle — attach AFTER Show(), without
             // re-applying the theme (which would briefly reset DynamicResource values).

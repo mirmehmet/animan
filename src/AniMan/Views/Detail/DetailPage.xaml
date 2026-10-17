@@ -7,7 +7,8 @@
              xmlns:loc="clr-namespace:AniMan.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000">
+             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1000"
+             PreviewMouseDown="OnPagePreviewMouseDown">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
@@ -238,12 +239,11 @@
                         Visibility="{Binding IsPreviewMode,
                             Converter={StaticResource InverseBoolToVisibilityConverter}}">
                 <TextBlock Text="{loc:Loc Detail_SeriesNotes}" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                <ui:TextBox Text="{Binding SeriesNote, UpdateSourceTrigger=PropertyChanged}"
-                             AcceptsReturn="True" MinHeight="80"
-                             PlaceholderText="{loc:Loc Detail_NotesPlaceholder}"/>
-                <ui:Button Margin="0,6,0,0" Content="{loc:Loc Detail_SaveNote}"
-                            Command="{Binding SaveSeriesNoteCommand}"
-                            Appearance="Secondary" HorizontalAlignment="Right"/>
+                <ui:TextBox x:Name="SeriesNoteTextBox"
+                            Text="{Binding SeriesNote, UpdateSourceTrigger=PropertyChanged}"
+                            AcceptsReturn="True" MinHeight="80"
+                            PlaceholderText="{loc:Loc Detail_NotesPlaceholder}"
+                            LostFocus="OnSeriesNoteLostFocus"/>
             </StackPanel>
 
             <!-- Episode list (anime, library mode) -->

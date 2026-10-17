@@ -21,12 +21,18 @@ public sealed class SnapshotService(
     {
         try
         {
-            // Guard: duplicate check
+            // Guard: duplicate check (allow re-adding if the existing entry was soft-deleted to Trash)
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var existing = await db.LibraryItems.AsNoTracking()
+            var existing = await db.LibraryItems
                 .FirstOrDefaultAsync(i => i.MalId == malId && i.MediaType == mediaType, ct).ConfigureAwait(false);
-            if (existing is not null)
+            if (existing is { DeletedAt: null })
                 return Result<LibraryItem>.Failure($"{mediaType} {malId} is already in your library");
+
+            if (existing is not null)
+            {
+                db.LibraryItems.Remove(existing);
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
 
             // Fetch metadata
             MediaSnapshot snapshot;

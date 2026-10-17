@@ -202,5 +202,50 @@ public class StatisticsServiceTests : IDisposable
         result.Value![0].Count.Should().Be(2);
     }
 
+    [Fact]
+    public async Task GetMonthlyActivity_IncludesChaptersAndExcludesSoftDeletedItems()
+    {
+        AddItem(1, 100, MediaType.Anime, 1, 8);
+        AddItem(2, 200, MediaType.Manga, 2, 9);
+        AddItem(3, 300, MediaType.Anime, 1, 10);
+        var trashed = _db.LibraryItems.Local.Single(i => i.Id == 3);
+        trashed.DeletedAt = DateTime.UtcNow;
+
+        var now = DateTime.UtcNow;
+        _db.EpisodeProgress.AddRange(
+            new EpisodeProgress { LibraryItemId = 1, EpisodeNumber = 1, IsWatched = true, WatchedAt = now },
+            new EpisodeProgress { LibraryItemId = 3, EpisodeNumber = 1, IsWatched = true, WatchedAt = now });
+        _db.ChapterProgress.Add(
+            new ChapterProgress { LibraryItemId = 2, ChapterNumber = 1, IsRead = true, ReadAt = now });
+        await _db.SaveChangesAsync();
+
+        var svc = Create();
+        var activity = await svc.GetMonthlyActivityAsync(12);
+        activity.IsSuccess.Should().BeTrue();
+        activity.Value!.Should().ContainSingle().Which.Count.Should().Be(2);
+
+        var mean = await svc.GetMeanScoreAsync();
+        mean.Value.Should().Be(8.5);
+    }
+
+    [Fact]
+    public async Task GetMeanScoreAndHistogram_ReadsUserRatingWithFallbackToLegacyScore()
+    {
+        AddItem(1, 100, MediaType.Anime, 3, null);
+        _db.LibraryItems.Local.Single(i => i.Id == 1).UserRating = 8.5m;
+        AddItem(2, 101, MediaType.Anime, 3, 7); // legacy Score fallback
+        await _db.SaveChangesAsync();
+
+        var svc = Create();
+        var mean = await svc.GetMeanScoreAsync();
+        mean.IsSuccess.Should().BeTrue();
+        mean.Value.Should().Be(7.75);
+
+        var hist = await svc.GetScoreHistogramAsync();
+        hist.IsSuccess.Should().BeTrue();
+        hist.Value![9].Should().Be(1); // 8.5 rounds AwayFromZero to 9
+        hist.Value![7].Should().Be(1);
+    }
+
     public void Dispose() => _db.Dispose();
 }

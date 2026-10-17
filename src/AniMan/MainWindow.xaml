@@ -12,6 +12,7 @@
         Height="720" Width="1280"
         WindowStartupLocation="CenterScreen"
         WindowBackdropType="None"
+        Background="{DynamicResource ApplicationBackgroundBrush}"
         ExtendsContentIntoTitleBar="True"
         FontFamily="{DynamicResource AppFontFamily}">
 

@@ -104,19 +104,26 @@ public sealed class ExportService(
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
 
-            var statusMap = await EnsureStatusesAsync(db, backup.Statuses, ct).ConfigureAwait(false);
+            var statusMap = await EnsureStatusesAsync(db, backup.Statuses ?? [], ct).ConfigureAwait(false);
 
-            var existingKeys = mode == ImportMode.Merge
-                ? (await db.LibraryItems.AsNoTracking()
-                        .Select(i => new { i.MalId, i.MediaType })
-                        .ToListAsync(ct).ConfigureAwait(false))
-                    .Select(k => (k.MalId, k.MediaType))
-                    .ToHashSet()
-                : [];
+            var existingActiveKeys = new HashSet<(int MalId, MediaType MediaType)>();
+            var existingTrashedByKey = new Dictionary<(int MalId, MediaType MediaType), LibraryItem>();
+
+            if (mode == ImportMode.Merge)
+            {
+                var localItems = await db.LibraryItems.ToListAsync(ct).ConfigureAwait(false);
+                foreach (var local in localItems)
+                {
+                    if (local.DeletedAt is null)
+                        existingActiveKeys.Add((local.MalId, local.MediaType));
+                    else
+                        existingTrashedByKey[(local.MalId, local.MediaType)] = local;
+                }
+            }
 
             var imported = 0;
             var skipped = 0;
-            foreach (var dto in backup.Items)
+            foreach (var dto in backup.Items ?? [])
             {
                 if (!Enum.TryParse<MediaType>(dto.MediaType, ignoreCase: true, out var mediaType))
                 {
@@ -127,8 +134,24 @@ public sealed class ExportService(
                     continue;
                 }
 
-                if (mode == ImportMode.Merge && existingKeys.Contains((dto.MalId, mediaType)))
-                    continue;
+                var key = (dto.MalId, mediaType);
+                if (mode == ImportMode.Merge)
+                {
+                    if (existingActiveKeys.Contains(key))
+                        continue;
+
+                    if (existingTrashedByKey.TryGetValue(key, out var trashedLocal))
+                    {
+                        if (dto.DeletedAt is not null)
+                            continue;
+
+                        db.LibraryItems.Remove(trashedLocal);
+                        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+                        existingTrashedByKey.Remove(key);
+                    }
+
+                    existingActiveKeys.Add(key);
+                }
 
                 var entity = BuildEntity(dto, mediaType, statusMap);
 
@@ -175,7 +198,7 @@ public sealed class ExportService(
 
         foreach (var dto in backupStatuses)
         {
-            if (map.ContainsKey(dto.Name)) continue;
+            if (string.IsNullOrWhiteSpace(dto.Name) || map.ContainsKey(dto.Name)) continue;
 
             var status = new TrackingStatus
             {
@@ -192,9 +215,9 @@ public sealed class ExportService(
     }
 
     private static TrackingStatus ResolveStatus(
-        Dictionary<string, TrackingStatus> map, string statusName, MediaType mediaType)
+        Dictionary<string, TrackingStatus> map, string? statusName, MediaType mediaType)
     {
-        if (map.TryGetValue(statusName, out var status))
+        if (!string.IsNullOrWhiteSpace(statusName) && map.TryGetValue(statusName, out var status))
             return status;
 
         // Fall back to the media-appropriate "Plan to …" default, else any status.
@@ -222,26 +245,28 @@ public sealed class ExportService(
             AddedAt = dto.AddedAt,
             UpdatedAt = dto.UpdatedAt,
             DeletedAt = dto.DeletedAt,
-            EpisodeProgress = dto.Episodes
+            EpisodeProgress = (dto.Episodes ?? [])
+                .DistinctBy(e => e.EpisodeNumber)
                 .Select(e => new EpisodeProgress
                 {
                     EpisodeNumber = e.EpisodeNumber, IsWatched = e.IsWatched, WatchedAt = e.WatchedAt
                 }).ToList(),
-            ChapterProgress = dto.Chapters
+            ChapterProgress = (dto.Chapters ?? [])
+                .DistinctBy(c => c.ChapterNumber)
                 .Select(c => new ChapterProgress
                 {
                     ChapterNumber = c.ChapterNumber, IsRead = c.IsRead, ReadAt = c.ReadAt
                 }).ToList(),
-            Notes = dto.Notes
+            Notes = (dto.Notes ?? [])
                 .Select(n => new Note
                 {
                     EpisodeNumber = n.EpisodeNumber, ChapterNumber = n.ChapterNumber,
-                    Content = n.Content, CreatedAt = n.CreatedAt, UpdatedAt = n.UpdatedAt
+                    Content = n.Content ?? string.Empty, CreatedAt = n.CreatedAt, UpdatedAt = n.UpdatedAt
                 }).ToList(),
-            StreamingOverrides = dto.StreamingOverrides
+            StreamingOverrides = (dto.StreamingOverrides ?? [])
                 .Select(o => new UserStreamingOverride
                 {
-                    PlatformName = o.PlatformName, Url = o.Url, AddedAt = o.AddedAt
+                    PlatformName = o.PlatformName ?? string.Empty, Url = o.Url ?? string.Empty, AddedAt = o.AddedAt
                 }).ToList()
         };
 

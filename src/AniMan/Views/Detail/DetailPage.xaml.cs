@@ -8,6 +8,7 @@ using AniMan.Views.Library;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Wpf.Ui;
 using Wpf.Ui.Abstractions.Controls;
 using Wpf.Ui.Controls;
@@ -44,7 +45,11 @@ public partial class DetailPage : UserControl, INavigationAware
             await ((DetailViewModel)DataContext).InitializeFromArgsAsync(args);
     }
 
-    public Task OnNavigatedFromAsync() => Task.CompletedTask;
+    public async Task OnNavigatedFromAsync()
+    {
+        if (DataContext is DetailViewModel vm)
+            await vm.SaveSeriesNoteCommand.ExecuteAsync(null);
+    }
 
     private void OnGoBackClicked(object sender, RoutedEventArgs e) =>
         _navigationService.GoBack();
@@ -175,5 +180,35 @@ public partial class DetailPage : UserControl, INavigationAware
             var vm = (DetailViewModel)DataContext;
             vm.SetRatingCommand.Execute(tb.Text);
         }
+    }
+
+    private async void OnSeriesNoteLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is DetailViewModel vm)
+            await vm.SaveSeriesNoteCommand.ExecuteAsync(null);
+    }
+
+    private void OnPagePreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (Keyboard.FocusedElement is not SWC.TextBox focusedTextBox)
+            return;
+
+        for (var current = e.OriginalSource as DependencyObject; current is not null; current = GetParentObject(current))
+        {
+            if (current is SWC.TextBox)
+                return;
+        }
+
+        var scope = FocusManager.GetFocusScope(focusedTextBox);
+        FocusManager.SetFocusedElement(scope, null);
+        Keyboard.ClearFocus();
+    }
+
+    private static DependencyObject? GetParentObject(DependencyObject current)
+    {
+        if (current is ContentElement contentElement)
+            return ContentOperations.GetParent(contentElement) ?? (contentElement as FrameworkContentElement)?.Parent;
+
+        return VisualTreeHelper.GetParent(current);
     }
 }

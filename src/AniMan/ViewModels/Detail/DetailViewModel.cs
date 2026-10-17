@@ -36,6 +36,7 @@ public partial class DetailViewModel : ObservableObject
     [ObservableProperty] private int _watchedCount;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private string _seriesNote = string.Empty;
+    private string _lastSavedSeriesNote = string.Empty;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _isPreviewMode;
     [ObservableProperty] private bool _isManga;
@@ -201,7 +202,12 @@ public partial class DetailViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveSeriesNoteAsync()
     {
-        await _tracking.SaveNoteAsync(LibraryItemId, null, null, SeriesNote);
+        if (IsPreviewMode || LibraryItemId <= 0 || SeriesNote == _lastSavedSeriesNote)
+            return;
+
+        var result = await _tracking.SaveNoteAsync(LibraryItemId, null, null, SeriesNote);
+        if (result.IsSuccess)
+            _lastSavedSeriesNote = SeriesNote;
     }
 
     [RelayCommand]
@@ -341,6 +347,7 @@ public partial class DetailViewModel : ObservableObject
     {
         var note = Item?.Notes.FirstOrDefault(n => n.EpisodeNumber is null && n.ChapterNumber is null);
         SeriesNote = note?.Content ?? string.Empty;
+        _lastSavedSeriesNote = SeriesNote;
     }
 
     private async Task LoadProgressAsync()

@@ -56,9 +56,10 @@
                                FontSize="10" Margin="0,4,0,4"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
 
-                    <ProgressBar Minimum="0" Maximum="100"
+                    <ProgressBar Style="{StaticResource BrandProgressBar}"
+                                 Minimum="0" Maximum="100"
                                  Value="{Binding ProgressPercent, ElementName=Root, Mode=OneWay}"
-                                 Height="4" BorderThickness="0"
+                                 Height="6"
                                  Foreground="{Binding ProgressAccent, ElementName=Root}"/>
                 </StackPanel>
 

@@ -1,6 +1,9 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 using ThemeMode = AniMan.ViewModels.Settings.ThemeMode;
 
 namespace AniMan.Theming;
@@ -8,13 +11,15 @@ namespace AniMan.Theming;
 public static class AppThemeManager
 {
     private static bool _watching;
+    private static bool _changedHooked;
 
     // Brand violet accent applied after every theme change.
     private static readonly Color BrandAccent = Color.FromRgb(0x8B, 0x5C, 0xF6);
 
-    public static ThemeMode Parse(string? stored) => stored switch
+    public static ThemeMode Parse(string? stored) => stored?.Trim().ToLowerInvariant() switch
     {
         "light"  => ThemeMode.Light,
+        "dark"   => ThemeMode.Dark,
         "system" => ThemeMode.System,
         _        => ThemeMode.System
     };
@@ -28,6 +33,8 @@ public static class AppThemeManager
 
     public static void Apply(ThemeMode mode)
     {
+        EnsureChangedHook();
+
         var window = Application.Current?.MainWindow;
         var applied = ApplicationTheme.Dark;
 
@@ -36,24 +43,25 @@ public static class AppThemeManager
             case ThemeMode.Light:
                 StopWatching(window);
                 applied = ApplicationTheme.Light;
-                ApplicationThemeManager.Apply(applied);
+                ApplicationThemeManager.Apply(applied, WindowBackdropType.None, updateAccent: false);
                 break;
 
             case ThemeMode.Dark:
                 StopWatching(window);
                 applied = ApplicationTheme.Dark;
-                ApplicationThemeManager.Apply(applied);
+                ApplicationThemeManager.Apply(applied, WindowBackdropType.None, updateAccent: false);
                 break;
 
             case ThemeMode.System:
                 applied = ResolveSystemTheme();
-                ApplicationThemeManager.Apply(applied);
+                ApplicationThemeManager.Apply(applied, WindowBackdropType.None, updateAccent: false);
                 StartWatching(window);
                 break;
         }
 
         ApplyPalette(applied);
         ApplyBrandAccent();
+        SyncWindowBackground(window);
     }
 
     /// <summary>Applies a font family globally via the dynamic resource key AppFontFamily.</summary>
@@ -63,7 +71,21 @@ public static class AppThemeManager
         Application.Current.Resources["AppFontFamily"] = new FontFamily(fontFamily);
     }
 
-    // Theme-dependent background / surface / text palette. Overrides Wpf.Ui's
+    private static void EnsureChangedHook()
+    {
+        if (_changedHooked) return;
+        ApplicationThemeManager.Changed += OnApplicationThemeChanged;
+        _changedHooked = true;
+    }
+
+    private static void OnApplicationThemeChanged(ApplicationTheme currentApplicationTheme, Color systemAccent)
+    {
+        ApplyPalette(currentApplicationTheme);
+        ApplyBrandAccent();
+        SyncWindowBackground(Application.Current?.MainWindow);
+    }
+
+    // Theme-dependent background / surface / text / button palette. Overrides Wpf.Ui's
     // theme brushes at the top resource level so they win over the merged theme
     // dictionary, and is re-applied on every theme switch so it stays sticky.
     private static void ApplyPalette(ApplicationTheme theme)
@@ -73,27 +95,87 @@ public static class AppThemeManager
         var res = Application.Current.Resources;
         bool dark = theme != ApplicationTheme.Light;
 
-        // (background, card, controlFill, controlFillHover, stroke, textPrimary, textSecondary, textTertiary)
-        var appBg     = dark ? "#0D0D10" : "#F4F5F7";
-        var cardBg    = dark ? "#16161A" : "#FFFFFF";
-        var ctrlFill  = dark ? "#1B1B21" : "#F0F1F3";
-        var ctrlFill2 = dark ? "#232329" : "#E8EAED";
-        var stroke    = dark ? "#14FFFFFF" : "#14000000";
-        var textPri   = dark ? "#F5F5F7" : "#1A1A1F";
-        var textSec   = dark ? "#9CA0A8" : "#5C616B";
-        var textTer   = dark ? "#6B6F76" : "#8A8F99";
+        // Standard Fluent Dark (#202020 / #2B2B2B) & Fluent Light (#F3F3F3 / #FFFFFF)
+        var appBg        = dark ? "#202020" : "#F3F3F3";
+        var cardBg       = dark ? "#2B2B2B" : "#FFFFFF";
+        var cardBg2      = dark ? "#262626" : "#F9F9FB";
+        var ctrlFill     = dark ? "#353535" : "#EAECEF";
+        var ctrlFill2    = dark ? "#404040" : "#DFE2E7";
+        var ctrlPressed  = dark ? "#2D2D2D" : "#D4D8DF";
+        var ctrlDisabled = dark ? "#282828" : "#F0F1F4";
+        var inputActive  = dark ? "#1E1E1E" : "#FFFFFF";
+        var stroke       = dark ? "#1FFFFFFF" : "#1F000000";
+        var elevBorder   = dark ? "#2EFFFFFF" : "#29000000";
+        var textPri      = dark ? "#FFFFFF" : "#1A1A1F";
+        var textSec      = dark ? "#C5C5C5" : "#5C616B";
+        var textTer      = dark ? "#8A8A8A" : "#858A94";
+        var textDis      = dark ? "#5D5D5D" : "#A0A5AE";
 
         var appBgColor = Hex(appBg);
-        res["ApplicationBackgroundColor"] = appBgColor;
-        res["ApplicationBackgroundBrush"] = Brush(appBgColor);
+        var appBgBrush = Freeze(appBgColor);
+        var cardBrush = Freeze(Hex(cardBg));
+        var card2Brush = Freeze(Hex(cardBg2));
+        var ctrlBrush = Freeze(Hex(ctrlFill));
+        var ctrl2Brush = Freeze(Hex(ctrlFill2));
+        var ctrlPressedBrush = Freeze(Hex(ctrlPressed));
+        var ctrlDisabledBrush = Freeze(Hex(ctrlDisabled));
+        var inputActiveBrush = Freeze(Hex(inputActive));
+        var strokeBrush = Freeze(Hex(stroke));
+        var elevBorderBrush = Freeze(Hex(elevBorder));
+        var textPriBrush = Freeze(Hex(textPri));
+        var textSecBrush = Freeze(Hex(textSec));
+        var textTerBrush = Freeze(Hex(textTer));
+        var textDisBrush = Freeze(Hex(textDis));
 
-        res["CardBackgroundFillColorDefaultBrush"]    = Freeze(Hex(cardBg));
-        res["ControlFillColorDefaultBrush"]           = Freeze(Hex(ctrlFill));
-        res["ControlFillColorSecondaryBrush"]         = Freeze(Hex(ctrlFill2));
-        res["ControlStrokeColorDefaultBrush"]         = Freeze(Hex(stroke));
-        res["TextFillColorPrimaryBrush"]              = Freeze(Hex(textPri));
-        res["TextFillColorSecondaryBrush"]            = Freeze(Hex(textSec));
-        res["TextFillColorTertiaryBrush"]             = Freeze(Hex(textTer));
+        res["ApplicationBackgroundColor"] = appBgColor;
+        res["ApplicationBackgroundBrush"] = appBgBrush;
+
+        // Cards & Surfaces
+        res["CardBackgroundFillColorDefaultBrush"]   = cardBrush;
+        res["CardBackgroundFillColorSecondaryBrush"] = card2Brush;
+        res["CardStrokeColorDefaultBrush"]           = strokeBrush;
+        res["ContentDialogBackground"]               = cardBrush;
+        res["HairlineBorderBrush"]                   = strokeBrush;
+
+        // General Controls
+        res["ControlFillColorDefaultBrush"]     = ctrlBrush;
+        res["ControlFillColorSecondaryBrush"]   = ctrl2Brush;
+        res["ControlFillColorTertiaryBrush"]    = ctrlPressedBrush;
+        res["ControlFillColorDisabledBrush"]    = ctrlDisabledBrush;
+        res["ControlFillColorInputActiveBrush"] = inputActiveBrush;
+        res["ControlStrokeColorDefaultBrush"]   = strokeBrush;
+        res["ControlStrokeColorSecondaryBrush"] = elevBorderBrush;
+        res["ControlElevationBorderBrush"]      = elevBorderBrush;
+
+        // Secondary / Standard Buttons (ui:Button default Appearance="Secondary")
+        res["ButtonBackground"]            = ctrlBrush;
+        res["ButtonBackgroundPointerOver"] = ctrl2Brush;
+        res["ButtonBackgroundPressed"]     = ctrlPressedBrush;
+        res["ButtonBackgroundDisabled"]    = ctrlDisabledBrush;
+        res["ButtonForeground"]            = textPriBrush;
+        res["ButtonForegroundPointerOver"] = textPriBrush;
+        res["ButtonForegroundPressed"]     = textSecBrush;
+        res["ButtonForegroundDisabled"]    = textDisBrush;
+        res["ButtonBorderBrush"]           = elevBorderBrush;
+        res["ButtonBorderBrushPointerOver"] = elevBorderBrush;
+        res["ButtonBorderBrushPressed"]    = strokeBrush;
+        res["ButtonBorderBrushDisabled"]   = strokeBrush;
+
+        // TextBox / Input Controls
+        res["TextControlBackground"]            = ctrlBrush;
+        res["TextControlBackgroundPointerOver"] = ctrl2Brush;
+        res["TextControlBackgroundFocused"]     = inputActiveBrush;
+        res["TextControlForeground"]            = textPriBrush;
+        res["TextControlForegroundPointerOver"] = textPriBrush;
+        res["TextControlForegroundFocused"]     = textPriBrush;
+        res["TextControlBorderBrush"]           = elevBorderBrush;
+        res["TextControlBorderBrushPointerOver"] = elevBorderBrush;
+
+        // Typography & Icons
+        res["TextFillColorPrimaryBrush"]   = textPriBrush;
+        res["TextFillColorSecondaryBrush"] = textSecBrush;
+        res["TextFillColorTertiaryBrush"]  = textTerBrush;
+        res["TextFillColorDisabledBrush"]  = textDisBrush;
     }
 
     private static Color Hex(string hex) => (Color)ColorConverter.ConvertFromString(hex)!;
@@ -111,54 +193,98 @@ public static class AppThemeManager
     {
         if (Application.Current is null) return;
 
+        var res = Application.Current.Resources;
+
         // Override Wpf.Ui accent brushes with our brand violet so all controls
         // (NavigationView selection indicator, primary buttons, etc.) use it.
-        var accent      = new SolidColorBrush(BrandAccent);
-        var accentLight = new SolidColorBrush(Color.FromRgb(0xA7, 0x8B, 0xFA));
-        var accentDark  = new SolidColorBrush(Color.FromRgb(0x6D, 0x28, 0xD9));
+        var accent      = Freeze(BrandAccent);
+        var accentLight = Freeze(Color.FromRgb(0xA7, 0x8B, 0xFA));
+        var accentDark  = Freeze(Color.FromRgb(0x6D, 0x28, 0xD9));
+        var white       = Freeze(Colors.White);
 
-        accent.Freeze();
-        accentLight.Freeze();
-        accentDark.Freeze();
-
-        Application.Current.Resources["SystemAccentColor"]      = BrandAccent;
-        Application.Current.Resources["SystemAccentColorBrush"] = accent;
+        res["SystemAccentColor"]          = BrandAccent;
+        res["SystemAccentColorPrimary"]   = BrandAccent;
+        res["SystemAccentColorSecondary"] = Color.FromRgb(0xA7, 0x8B, 0xFA);
+        res["SystemAccentColorTertiary"]  = Color.FromRgb(0x6D, 0x28, 0xD9);
+        res["SystemAccentColorBrush"]     = accent;
 
         // Wpf.Ui layered accent brushes (used by NavigationView, Button primary, etc.)
-        Application.Current.Resources["AccentFillColorDefaultBrush"]          = accent;
-        Application.Current.Resources["AccentFillColorSecondaryBrush"]        = accentLight;
-        Application.Current.Resources["AccentFillColorTertiaryBrush"]         = accentDark;
-        Application.Current.Resources["AccentFillColorDisabledBrush"]         = accentDark;
-        Application.Current.Resources["AccentTextFillColorPrimaryBrush"]      = accent;
-        Application.Current.Resources["AccentTextFillColorSecondaryBrush"]    = accentLight;
-        Application.Current.Resources["AccentButtonBackgroundBrush"]          = accent;
-        Application.Current.Resources["AccentButtonBackgroundPointerOverBrush"] = accentLight;
-        Application.Current.Resources["AccentButtonBackgroundPressedBrush"]   = accentDark;
+        res["AccentFillColorDefaultBrush"]       = accent;
+        res["AccentFillColorSecondaryBrush"]     = accentLight;
+        res["AccentFillColorTertiaryBrush"]      = accentDark;
+        res["AccentFillColorDisabledBrush"]      = accentDark;
+        res["AccentTextFillColorPrimaryBrush"]   = accent;
+        res["AccentTextFillColorSecondaryBrush"] = accentLight;
+        res["AccentTextFillColorTertiaryBrush"]  = accentDark;
+
+        // Wpf.Ui Primary Button keys (controls/button/button.baml)
+        res["AccentButtonBackground"]            = accent;
+        res["AccentButtonBackgroundPointerOver"] = accentLight;
+        res["AccentButtonBackgroundPressed"]     = accentDark;
+        res["AccentButtonForeground"]            = white;
+        res["AccentButtonForegroundPointerOver"] = white;
+        res["AccentButtonForegroundPressed"]     = white;
+        res["TextOnAccentFillColorPrimaryBrush"]   = white;
+        res["TextOnAccentFillColorSecondaryBrush"] = white;
+
+        // Legacy alias keys
+        res["AccentButtonBackgroundBrush"]            = accent;
+        res["AccentButtonBackgroundPointerOverBrush"] = accentLight;
+        res["AccentButtonBackgroundPressedBrush"]     = accentDark;
+    }
+
+    /// <summary>
+    /// Wpf.Ui's WindowBackgroundManager.UpdateBackground calls WindowBackdrop.RemoveBackground(window),
+    /// which sets window.Background = Transparent and CompositionTarget.BackgroundColor = Transparent (#000000).
+    /// On a WindowBackdropType="None" window, that renders as pure pitch black.
+    /// This method restores the solid theme background on both the Window and its HwndSource.
+    /// </summary>
+    public static void SyncWindowBackground(Window? window)
+    {
+        if (window is null || Application.Current is null) return;
+
+        if (Application.Current.Resources["ApplicationBackgroundBrush"] is SolidColorBrush bgBrush)
+        {
+            window.Resources["ApplicationBackgroundBrush"] = bgBrush;
+            window.SetCurrentValue(Control.BackgroundProperty, bgBrush);
+
+            if (PresentationSource.FromVisual(window) is HwndSource { CompositionTarget: not null } hwndSource)
+            {
+                hwndSource.CompositionTarget.BackgroundColor = bgBrush.Color;
+            }
+        }
     }
 
     private static ApplicationTheme ResolveSystemTheme() =>
         ApplicationThemeManager.GetSystemTheme() switch
         {
-            SystemTheme.Light or SystemTheme.Glow or SystemTheme.CapturedMotion
-                or SystemTheme.Sunrise or SystemTheme.Flow => ApplicationTheme.Light,
+            SystemTheme.Light or SystemTheme.Sunrise or SystemTheme.Flow => ApplicationTheme.Light,
             _ => ApplicationTheme.Dark
         };
 
     /// <summary>
-    /// Attaches SystemThemeWatcher after the window is shown (needs a HWND).
-    /// Does NOT re-apply the theme — call this only after Apply() already ran.
+    /// Attaches SystemThemeWatcher after the window is shown (needs a HWND)
+    /// and ensures the solid theme background &amp; palette remain intact.
     /// </summary>
     public static void AttachSystemWatcher(Window window)
     {
-        if (_watching) return;
-        SystemThemeWatcher.Watch(window);
-        _watching = true;
+        EnsureChangedHook();
+        if (!_watching)
+        {
+            SystemThemeWatcher.Watch(window, WindowBackdropType.None, updateAccents: false);
+            _watching = true;
+        }
+
+        var applied = ResolveSystemTheme();
+        ApplyPalette(applied);
+        ApplyBrandAccent();
+        SyncWindowBackground(window);
     }
 
     private static void StartWatching(Window? window)
     {
         if (window is null || _watching) return;
-        SystemThemeWatcher.Watch(window);
+        SystemThemeWatcher.Watch(window, WindowBackdropType.None, updateAccents: false);
         _watching = true;
     }
 

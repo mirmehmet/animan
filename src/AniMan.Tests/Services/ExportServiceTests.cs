@@ -148,6 +148,30 @@ public class ExportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Import_Merge_RestoresLocallyTrashedItemWhenBackupItemIsActive()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Original");
+        var svc = Create();
+        await svc.ExportAsync(_tempFile);
+
+        // Soft-delete the local item so it is in Trash
+        using (var db = CreateDb())
+        {
+            var item = db.LibraryItems.Single(i => i.MalId == 100);
+            item.DeletedAt = DateTime.UtcNow;
+            db.SaveChanges();
+        }
+
+        var result = await svc.ImportAsync(_tempFile, ImportMode.Merge);
+
+        result.IsSuccess.Should().BeTrue();
+        using var verify = CreateDb();
+        var restored = verify.LibraryItems.Single(i => i.MalId == 100);
+        restored.DeletedAt.Should().BeNull();
+        restored.Score.Should().Be(8);
+    }
+
+    [Fact]
     public async Task Import_Overwrite_ReplacesAllItems()
     {
         SeedItem(100, MediaType.Anime, 1, 8, "Original");
