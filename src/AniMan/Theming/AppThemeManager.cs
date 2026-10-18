@@ -68,7 +68,9 @@ public static class AppThemeManager
     public static void ApplyFont(string fontFamily)
     {
         if (Application.Current is null) return;
-        Application.Current.Resources["AppFontFamily"] = new FontFamily(fontFamily);
+        var font = new FontFamily(fontFamily);
+        Application.Current.Resources["AppFontFamily"] = font;
+        Application.Current.Resources["ContentControlThemeFontFamily"] = font;
     }
 
     private static void EnsureChangedHook()
@@ -176,6 +178,11 @@ public static class AppThemeManager
         res["TextFillColorSecondaryBrush"] = textSecBrush;
         res["TextFillColorTertiaryBrush"]  = textTerBrush;
         res["TextFillColorDisabledBrush"]  = textDisBrush;
+
+        // NavigationView LeftFluent
+        res["NavigationViewItemForegroundLeftFluent"]            = textSecBrush;
+        res["NavigationViewItemForegroundPointerOverLeftFluent"] = textPriBrush;
+        res["NavigationViewItemBackgroundSelectedLeftFluent"]    = ctrlBrush;
     }
 
     private static Color Hex(string hex) => (Color)ColorConverter.ConvertFromString(hex)!;
@@ -209,13 +216,14 @@ public static class AppThemeManager
         res["SystemAccentColorBrush"]     = accent;
 
         // Wpf.Ui layered accent brushes (used by NavigationView, Button primary, etc.)
-        res["AccentFillColorDefaultBrush"]       = accent;
-        res["AccentFillColorSecondaryBrush"]     = accentLight;
-        res["AccentFillColorTertiaryBrush"]      = accentDark;
-        res["AccentFillColorDisabledBrush"]      = accentDark;
-        res["AccentTextFillColorPrimaryBrush"]   = accent;
-        res["AccentTextFillColorSecondaryBrush"] = accentLight;
-        res["AccentTextFillColorTertiaryBrush"]  = accentDark;
+        res["AccentFillColorDefaultBrush"]              = accent;
+        res["AccentFillColorSecondaryBrush"]            = accentLight;
+        res["AccentFillColorTertiaryBrush"]             = accentDark;
+        res["AccentFillColorDisabledBrush"]             = accentDark;
+        res["AccentTextFillColorPrimaryBrush"]          = accent;
+        res["AccentTextFillColorSecondaryBrush"]        = accentLight;
+        res["AccentTextFillColorTertiaryBrush"]         = accentDark;
+        res["NavigationViewSelectionIndicatorForeground"] = accent;
 
         // Wpf.Ui Primary Button keys (controls/button/button.baml)
         res["AccentButtonBackground"]            = accent;

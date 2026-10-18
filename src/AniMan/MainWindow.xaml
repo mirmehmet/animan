@@ -29,6 +29,8 @@
         <ui:NavigationView x:Name="RootNavigation"
                            Grid.Row="1"
                            PaneDisplayMode="LeftFluent"
+                           ItemTemplate="{StaticResource LeftFluentNavigationViewItemTemplate}"
+                           FontFamily="{DynamicResource AppFontFamily}"
                            IsBackButtonVisible="Collapsed"
                            IsPaneOpen="False">
 

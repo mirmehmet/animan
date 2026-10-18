@@ -12,6 +12,24 @@
 
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+
+    <Style TargetType="UserControl">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+        <Setter Property="TextElement.FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+
+    <Style TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+
+    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+
+    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
     </Style>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
@@ -19,6 +37,7 @@
     ═══════════════════════════════════════════════════════════════════════════ -->
 
     <Style x:Key="PageTitleText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource Font.PageTitle}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
@@ -26,6 +45,7 @@
     </Style>
 
     <Style x:Key="SectionHeaderText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource Font.SectionTitle}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Margin" Value="0,0,0,10"/>
@@ -33,6 +53,7 @@
     </Style>
 
     <Style x:Key="SectionSubheaderText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Margin" Value="2,18,0,8"/>
@@ -40,6 +61,7 @@
     </Style>
 
     <Style x:Key="CaptionText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource Font.Caption}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
     </Style>
@@ -143,6 +165,7 @@
     ═══════════════════════════════════════════════════════════════════════════ -->
 
     <Style x:Key="PillTab" TargetType="RadioButton">
+        <Setter Property="FontFamily"      Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="Background"      Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0,0,0,2"/>
         <Setter Property="BorderBrush"     Value="Transparent"/>
@@ -183,6 +206,7 @@
     ═══════════════════════════════════════════════════════════════════════════ -->
 
     <Style x:Key="SegmentRadioButton" TargetType="RadioButton">
+        <Setter Property="FontFamily"       Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="Foreground"       Value="{DynamicResource TextFillColorSecondaryBrush}"/>
         <Setter Property="Padding"          Value="16,6"/>
         <Setter Property="FontSize"         Value="12"/>
@@ -220,6 +244,7 @@
 
     <Style x:Key="SettingCard" TargetType="ui:CardControl"
            BasedOn="{StaticResource {x:Type ui:CardControl}}">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
 
@@ -228,6 +253,7 @@
     ═══════════════════════════════════════════════════════════════════════════ -->
 
     <Style x:Key="StatusPillRadio" TargetType="RadioButton">
+        <Setter Property="FontFamily"       Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="Foreground"       Value="{DynamicResource TextFillColorSecondaryBrush}"/>
         <Setter Property="Background"       Value="Transparent"/>
         <Setter Property="BorderBrush"      Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
@@ -272,6 +298,7 @@
     ═══════════════════════════════════════════════════════════════════════════ -->
 
     <Style x:Key="BackPillButton" TargetType="Button">
+        <Setter Property="FontFamily"       Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="Foreground"       Value="{DynamicResource TextFillColorPrimaryBrush}"/>
         <Setter Property="Background"       Value="{DynamicResource ControlFillColorDefaultBrush}"/>
         <Setter Property="BorderBrush"      Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
@@ -310,5 +337,104 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         LEFT FLUENT NAVIGATION ITEM  –  keeps label visible when selected
+    ═══════════════════════════════════════════════════════════════════════════ -->
+
+    <ControlTemplate x:Key="LeftFluentNavigationViewItemTemplate"
+                     TargetType="{x:Type ui:NavigationViewItem}">
+        <Border x:Name="MainBorder"
+                Width="60"
+                Height="60"
+                Padding="4"
+                Margin="0,2"
+                HorizontalAlignment="Stretch"
+                Background="Transparent"
+                BorderBrush="Transparent"
+                BorderThickness="1"
+                CornerRadius="6"
+                Cursor="Hand">
+            <Grid>
+                <Rectangle x:Name="ActiveRectangle"
+                           Width="3"
+                           Height="24"
+                           Margin="-4,0,0,0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           Fill="{DynamicResource NavigationViewSelectionIndicatorForeground}"
+                           Opacity="0.0"
+                           RadiusX="2"
+                           RadiusY="2"/>
+
+                <Grid HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <ContentPresenter x:Name="IconContentPresenter"
+                                      Grid.Row="0"
+                                      Margin="0"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Content="{TemplateBinding Icon}"
+                                      TextElement.FontSize="24"
+                                      TextElement.Foreground="{DynamicResource NavigationViewItemForegroundLeftFluent}"/>
+
+                    <Grid x:Name="ContentGrid"
+                          Grid.Row="1"
+                          Margin="0,2,0,0">
+                        <ContentPresenter x:Name="ElementContentPresenter"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          ContentStringFormat="{TemplateBinding ContentStringFormat}"
+                                          RecognizesAccessKey="True"
+                                          TextElement.FontFamily="{DynamicResource AppFontFamily}"
+                                          TextElement.FontSize="11"
+                                          TextElement.Foreground="{DynamicResource NavigationViewItemForegroundLeftFluent}"/>
+                    </Grid>
+
+                    <ContentPresenter x:Name="PART_InfoBadge"
+                                      Grid.Row="0"
+                                      Margin="0"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Top"
+                                      Content="{TemplateBinding InfoBadge}"/>
+                </Grid>
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsActive" Value="True">
+                <Setter TargetName="ActiveRectangle" Property="Opacity" Value="1.0"/>
+                <Setter TargetName="MainBorder" Property="Background" Value="{DynamicResource NavigationViewItemBackgroundSelectedLeftFluent}"/>
+                <Setter TargetName="MainBorder" Property="BorderBrush" Value="{DynamicResource ControlElevationBorderBrush}"/>
+                <Setter TargetName="IconContentPresenter" Property="TextElement.Foreground" Value="{DynamicResource NavigationViewSelectionIndicatorForeground}"/>
+                <Setter TargetName="ElementContentPresenter" Property="TextElement.Foreground" Value="{DynamicResource NavigationViewSelectionIndicatorForeground}"/>
+                <Setter TargetName="ElementContentPresenter" Property="TextElement.FontWeight" Value="SemiBold"/>
+            </Trigger>
+            <Trigger Property="Icon" Value="{x:Null}">
+                <Setter TargetName="IconContentPresenter" Property="Visibility" Value="Collapsed"/>
+            </Trigger>
+            <Trigger Property="InfoBadge" Value="{x:Null}">
+                <Setter TargetName="PART_InfoBadge" Property="Margin" Value="0"/>
+                <Setter TargetName="PART_InfoBadge" Property="Visibility" Value="Collapsed"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="MainBorder" Property="Background" Value="{DynamicResource NavigationViewItemBackgroundSelectedLeftFluent}"/>
+            </Trigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsActive" Value="False"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="IconContentPresenter" Property="TextElement.Foreground" Value="{DynamicResource NavigationViewItemForegroundPointerOverLeftFluent}"/>
+                <Setter TargetName="ElementContentPresenter" Property="TextElement.Foreground" Value="{DynamicResource NavigationViewItemForegroundPointerOverLeftFluent}"/>
+            </MultiTrigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
 
 </ResourceDictionary>
