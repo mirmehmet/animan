@@ -138,8 +138,8 @@ public partial class App : Application
         // ViewModels
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<ViewModels.Settings.SettingsViewModel>();
-        services.AddTransient<AnimeLibraryViewModel>();
-        services.AddTransient<MangaLibraryViewModel>();
+        services.AddSingleton<AnimeLibraryViewModel>();
+        services.AddSingleton<MangaLibraryViewModel>();
         services.AddTransient<DetailViewModel>();
         services.AddTransient<ViewModels.Stats.StatsViewModel>();
         // Singleton: keeps tab/search/results/scroll alive so navigating to a

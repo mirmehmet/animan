@@ -33,7 +33,6 @@ public partial class DetailPage : UserControl, INavigationAware
         viewModel.AutoCompleteRequested += OnAutoCompleteRequested;
         viewModel.AddToLibraryFromPreviewRequested += OnAddToLibraryFromPreviewRequested;
         viewModel.NoteEditRequested += OnNoteEditRequested;
-        viewModel.NavigateToFavoritesRequested += OnNavigateToFavoritesRequested;
         viewModel.SoftDeleteCompleted += OnSoftDeleteCompleted;
     }
 
@@ -123,15 +122,6 @@ public partial class DetailPage : UserControl, INavigationAware
     }
 
     // ── New handlers ──────────────────────────────────────────────────────────
-
-    private void OnNavigateToFavoritesRequested(object? sender, MediaType mediaType)
-    {
-        LibraryNavigationState.RequestFavorites(mediaType);
-        if (mediaType == MediaType.Anime)
-            _navigationService.Navigate(typeof(AnimeLibraryPage));
-        else
-            _navigationService.Navigate(typeof(MangaLibraryPage));
-    }
 
     private void OnSoftDeleteCompleted(object? sender, EventArgs e) =>
         _navigationService.GoBack();

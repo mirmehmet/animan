@@ -22,9 +22,17 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private bool _isLoadingSeason;
     [ObservableProperty] private string? _seasonErrorMessage;
     [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueItems = [];
+    [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueWatchingItems = [];
+    [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueReadingItems = [];
     [ObservableProperty] private ObservableCollection<CachedAnime> _thisSeasonItems = [];
 
-    public bool HasContinueItems => ContinueItems.Count > 0;
+    public bool HasContinueWatchingItems => ContinueWatchingItems.Count > 0;
+    public bool HasContinueReadingItems => ContinueReadingItems.Count > 0;
+    public bool HasContinueItems => HasContinueWatchingItems || HasContinueReadingItems;
+    public LibraryItemSummary? HeroItem => ContinueWatchingItems.FirstOrDefault() ?? ContinueReadingItems.FirstOrDefault();
+    public string HeroBadgeText => HeroItem?.MediaType == MediaType.Manga
+        ? LocalizationManager.Get("Dashboard_ContinueReading")
+        : LocalizationManager.Get("Dashboard_ContinueWatching");
     public bool HasSeasonItems => ThisSeasonItems.Count > 0;
     public bool HasSeasonError => !string.IsNullOrEmpty(SeasonErrorMessage);
 
@@ -72,9 +80,8 @@ public partial class DashboardViewModel : ObservableObject
             CompletedCount = animeItems.Count(i => i.StatusId == TrackingStatusIds.Completed)
                 + mangaItems.Count(i => i.StatusId == TrackingStatusIds.Completed);
 
-            var inProgress = animeItems
+            var watchingAnime = animeItems
                 .Where(i => i.StatusId == TrackingStatusIds.Watching)
-                .Concat(mangaItems.Where(i => i.StatusId == TrackingStatusIds.Reading))
                 .Select(i => new LibraryItemSummary
                 {
                     Id = i.Id,
@@ -85,9 +92,30 @@ public partial class DashboardViewModel : ObservableObject
                 .Take(10)
                 .ToList();
 
-            foreach (var item in inProgress) item.LoadCoverImage();
-            ContinueItems = new ObservableCollection<LibraryItemSummary>(inProgress);
+            var readingManga = mangaItems
+                .Where(i => i.StatusId == TrackingStatusIds.Reading)
+                .Select(i => new LibraryItemSummary
+                {
+                    Id = i.Id,
+                    Title = i.Snapshot?.Title ?? LocalizationManager.Get("Library_NoTitle"),
+                    CoverLocalPath = i.Snapshot?.CoverLocalPath,
+                    MediaType = i.MediaType
+                })
+                .Take(10)
+                .ToList();
+
+            foreach (var item in watchingAnime) item.LoadCoverImage();
+            foreach (var item in readingManga) item.LoadCoverImage();
+
+            ContinueWatchingItems = new ObservableCollection<LibraryItemSummary>(watchingAnime);
+            ContinueReadingItems = new ObservableCollection<LibraryItemSummary>(readingManga);
+            ContinueItems = new ObservableCollection<LibraryItemSummary>(watchingAnime.Concat(readingManga).Take(10));
+
+            OnPropertyChanged(nameof(HasContinueWatchingItems));
+            OnPropertyChanged(nameof(HasContinueReadingItems));
             OnPropertyChanged(nameof(HasContinueItems));
+            OnPropertyChanged(nameof(HeroItem));
+            OnPropertyChanged(nameof(HeroBadgeText));
         }
         finally { IsLoadingLibrary = false; }
     }

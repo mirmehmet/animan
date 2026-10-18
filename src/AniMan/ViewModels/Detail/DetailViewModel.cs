@@ -63,7 +63,6 @@ public partial class DetailViewModel : ObservableObject
     public event EventHandler<TrackingAutoCompleteEventArgs>? AutoCompleteRequested;
     public event EventHandler<(int MalId, MediaType MediaType)>? AddToLibraryFromPreviewRequested;
     public event EventHandler<NoteEditEventArgs>? NoteEditRequested;
-    public event EventHandler<MediaType>? NavigateToFavoritesRequested;
     public event EventHandler? SoftDeleteCompleted;
 
     public DetailViewModel(ITrackingService tracking, ISnapshotService snapshot,
@@ -159,8 +158,6 @@ public partial class DetailViewModel : ObservableObject
             Item.IsFavorite = !Item.IsFavorite;
             IsFavorite = Item.IsFavorite;
             OnPropertyChanged(nameof(Item));
-            if (IsFavorite)
-                NavigateToFavoritesRequested?.Invoke(this, Item.MediaType);
         }
     }
 

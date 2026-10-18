@@ -49,28 +49,28 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_All}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=0, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_Reading}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=2, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_Completed}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=3, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_OnHold}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=4, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_Dropped}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=5, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_PlanToRead}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=7, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_Favorites}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=99, Converter={StaticResource EqualityConverter}}"/>
-                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaStatus"
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="MangaLibraryFilter"
                                  Content="{loc:Loc Status_Ratings}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=98, Converter={StaticResource EqualityConverter}}"/>
                 </StackPanel>

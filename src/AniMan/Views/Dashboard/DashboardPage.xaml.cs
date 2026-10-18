@@ -57,7 +57,7 @@ public partial class DashboardPage : UserControl
 
     private void OnHeroClicked(object sender, MouseButtonEventArgs e)
     {
-        var first = _viewModel.ContinueItems.FirstOrDefault();
+        var first = _viewModel.HeroItem;
         if (first is not null)
             _viewModel.OpenLibraryItemCommand.Execute(first.Id);
     }

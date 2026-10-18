@@ -56,7 +56,7 @@
                                 ClipToBounds="True" Margin="0,20,24,20">
                             <Grid>
                                 <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
-                                <Image Source="{Binding ContinueItems[0].CoverImage}"
+                                <Image Source="{Binding HeroItem.CoverImage}"
                                        Stretch="UniformToFill"/>
                             </Grid>
                         </Border>
@@ -66,11 +66,11 @@
                             <Border CornerRadius="4" Padding="8,3"
                                     HorizontalAlignment="Left" Margin="0,0,0,10"
                                     Background="#4D8B5CF6">
-                                <TextBlock Text="{loc:Loc Dashboard_ContinueWatching}"
+                                <TextBlock Text="{Binding HeroBadgeText}"
                                            FontSize="10" FontWeight="SemiBold"
                                            Foreground="{StaticResource BrandAccentLightBrush}"/>
                             </Border>
-                            <TextBlock Text="{Binding ContinueItems[0].Title}"
+                            <TextBlock Text="{Binding HeroItem.Title}"
                                        FontSize="22" FontWeight="Bold" Foreground="White"
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
@@ -146,8 +146,8 @@
                 </ui:CardControl>
             </WrapPanel>
 
-            <!-- ── Continue Watching strip ─────────────────────────────────────── -->
-            <StackPanel Visibility="{Binding HasContinueItems, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <!-- ── Continue Watching strip (Anime only) ────────────────────────── -->
+            <StackPanel Visibility="{Binding HasContinueWatchingItems, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <TextBlock Text="{loc:Loc Dashboard_ContinueWatching}"
                            Style="{StaticResource SectionSubheaderText}"
                            Margin="0,0,0,10"/>
@@ -156,7 +156,50 @@
                               VerticalScrollBarVisibility="Disabled"
                               Margin="0,0,0,24"
                               PreviewMouseWheel="OnHorizontalScrollMouseWheel">
-                    <ItemsControl ItemsSource="{Binding ContinueItems}">
+                    <ItemsControl ItemsSource="{Binding ContinueWatchingItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:LibraryItemSummary}">
+                                <Border Style="{StaticResource MediaCard}"
+                                        Width="120" Height="180" Margin="0,0,10,4"
+                                        ClipToBounds="True"
+                                        MouseLeftButtonUp="OnContinueItemClicked">
+                                    <Grid>
+                                        <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
+                                        <Border CornerRadius="{StaticResource CornerMd}" ClipToBounds="True">
+                                            <Image Source="{Binding CoverImage}" Stretch="UniformToFill"/>
+                                        </Border>
+                                        <Border VerticalAlignment="Bottom"
+                                                Background="{StaticResource CardOverlayBrush}"
+                                                Padding="6,5" CornerRadius="{StaticResource CornerCardBottom}">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="White"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+
+            <!-- ── Continue Reading strip (Manga only) ─────────────────────────── -->
+            <StackPanel Visibility="{Binding HasContinueReadingItems, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{loc:Loc Dashboard_ContinueReading}"
+                           Style="{StaticResource SectionSubheaderText}"
+                           Margin="0,0,0,10"/>
+
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Margin="0,0,0,24"
+                              PreviewMouseWheel="OnHorizontalScrollMouseWheel">
+                    <ItemsControl ItemsSource="{Binding ContinueReadingItems}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal"/>
