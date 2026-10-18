@@ -15,7 +15,7 @@
 
     <Grid>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="0,44,24,24">
+        <Grid Margin="0,52,24,24">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -265,15 +265,17 @@
         </Grid>
     </ScrollViewer>
 
-    <!-- Floating back button — stays visible while the content scrolls under it -->
-    <Border HorizontalAlignment="Left" VerticalAlignment="Top"
-            Margin="16,12,0,0" CornerRadius="6"
-            Background="{DynamicResource ControlFillColorDefaultBrush}">
-        <Button Click="OnGoBackClicked"
-                Content="{Binding BackLabel}"
-                Background="Transparent" BorderThickness="0"
-                Cursor="Hand" Padding="8,4"
-                Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-    </Border>
+    <!-- Floating capsule back button — stays visible while the content scrolls under it -->
+    <Button Style="{StaticResource BackPillButton}"
+            HorizontalAlignment="Left" VerticalAlignment="Top"
+            Margin="24,12,0,0"
+            Click="OnGoBackClicked">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="14"
+                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <TextBlock Text="{Binding BackLabel}" VerticalAlignment="Center"
+                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+        </StackPanel>
+    </Button>
     </Grid>
 </UserControl>

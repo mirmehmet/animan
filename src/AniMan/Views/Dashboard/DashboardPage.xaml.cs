@@ -33,7 +33,7 @@ public partial class DashboardPage : UserControl
 
     private void OnNavigateToLibraryItemRequested(object? sender, int libraryItemId)
     {
-        var backLabel = "← Dashboard";
+        var backLabel = LocalizationManager.Get("Nav_Dashboard");
         _bag.Put(new DetailNavigationArgs(0, Core.Domain.Enums.MediaType.Anime, libraryItemId, backLabel));
         _navigationService.Navigate(typeof(Detail.DetailPage));
     }
@@ -50,7 +50,7 @@ public partial class DashboardPage : UserControl
     private void OnSeasonItemClicked(object sender, MouseButtonEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not CachedAnime anime) return;
-        var backLabel = "← " + LocalizationManager.Get("Dashboard_Title");
+        var backLabel = LocalizationManager.Get("Nav_Dashboard");
         _bag.Put(new DetailNavigationArgs(anime.Id, MediaType.Anime, null, backLabel));
         _navigationService.Navigate(typeof(Detail.DetailPage));
     }

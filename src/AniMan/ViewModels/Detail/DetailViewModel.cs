@@ -79,7 +79,7 @@ public partial class DetailViewModel : ObservableObject
 
     public async Task InitializeFromArgsAsync(DetailNavigationArgs args)
     {
-        BackLabel = args.BackLabel;
+        BackLabel = (args.BackLabel ?? string.Empty).TrimStart('←', ' ');
 
         if (args.LibraryItemId.HasValue)
         {

@@ -29,6 +29,7 @@
         <ui:NavigationView x:Name="RootNavigation"
                            Grid.Row="1"
                            PaneDisplayMode="LeftFluent"
+                           IsBackButtonVisible="Collapsed"
                            IsPaneOpen="False">
 
             <ui:NavigationView.MenuItems>

@@ -267,4 +267,48 @@
         </Setter>
     </Style>
 
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         BACK PILL BUTTON  –  modern capsule back button on DetailPage
+    ═══════════════════════════════════════════════════════════════════════════ -->
+
+    <Style x:Key="BackPillButton" TargetType="Button">
+        <Setter Property="Foreground"       Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        <Setter Property="Background"       Value="{DynamicResource ControlFillColorDefaultBrush}"/>
+        <Setter Property="BorderBrush"      Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="Padding"          Value="14,7"/>
+        <Setter Property="FontSize"         Value="12"/>
+        <Setter Property="FontWeight"       Value="SemiBold"/>
+        <Setter Property="Cursor"           Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="PillBd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="18"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="PillBd" Property="Background"  Value="{StaticResource GenreTagBackgroundBrush}"/>
+                            <Setter TargetName="PillBd" Property="BorderBrush" Value="{StaticResource BrandAccentBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource BrandAccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="PillBd" Property="Background"  Value="{StaticResource BrandAccentBrush}"/>
+                            <Setter TargetName="PillBd" Property="BorderBrush" Value="{StaticResource BrandAccentBrush}"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
