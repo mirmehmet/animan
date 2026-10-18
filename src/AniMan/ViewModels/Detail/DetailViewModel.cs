@@ -215,6 +215,10 @@ public partial class DetailViewModel : ObservableObject
         {
             MediaSnapshot = result.Value;
             LoadCoverImage();
+            if (!IsManga && Item is not null)
+            {
+                await LoadStreamingAsync(Item.MalId, force: true);
+            }
         }
     }
 
@@ -304,9 +308,12 @@ public partial class DetailViewModel : ObservableObject
         string.IsNullOrEmpty(json) ? [] :
         JsonSerializer.Deserialize<List<string>>(json) ?? [];
 
-    private async Task LoadStreamingAsync(int malId)
+    private async Task LoadStreamingAsync(int malId, bool force = false)
     {
-        var result = await _catalog.GetAnimeStreamingAsync(malId);
+        StreamingPlatforms.Clear();
+        OnPropertyChanged(nameof(HasStreamingPlatforms));
+
+        var result = await _catalog.GetAnimeStreamingAsync(malId, force);
         if (!result.IsSuccess || result.Value!.Count == 0) return;
         StreamingPlatforms = new ObservableCollection<StreamingBadgeViewModel>(
             result.Value!.Select(s => new StreamingBadgeViewModel
@@ -320,7 +327,7 @@ public partial class DetailViewModel : ObservableObject
 
     private void LoadCoverImage()
     {
-        var bmp = Imaging.CoverImageLoader.FromFile(MediaSnapshot?.CoverLocalPath);
+        var bmp = Imaging.CoverImageLoader.FromFile(MediaSnapshot?.CoverLocalPath, decodePixelWidth: 360);
         if (bmp is not null) CoverImage = bmp;
     }
 

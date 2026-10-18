@@ -60,7 +60,32 @@ public partial class DashboardViewModel : ObservableObject
         NavigateToDiscoverRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand]
-    private async Task RetrySeasonAsync() => await LoadSeasonAsync();
+    private async Task RetrySeasonAsync() => await LoadSeasonAsync(force: true);
+
+    private async Task LoadSeasonAsync(bool force = false)
+    {
+        if (!force && ThisSeasonItems.Count > 0) return;
+
+        IsLoadingSeason = true;
+        SeasonErrorMessage = null;
+        OnPropertyChanged(nameof(HasSeasonError));
+        try
+        {
+            var result = await _catalog.GetCurrentSeasonAsync();
+            if (result.IsSuccess)
+            {
+                ThisSeasonItems = new ObservableCollection<CachedAnime>(
+                    result.Value!.Take(10));
+                OnPropertyChanged(nameof(HasSeasonItems));
+            }
+            else
+            {
+                SeasonErrorMessage = result.Error;
+                OnPropertyChanged(nameof(HasSeasonError));
+            }
+        }
+        finally { IsLoadingSeason = false; }
+    }
 
     private async Task LoadLibraryAsync()
     {
@@ -118,29 +143,6 @@ public partial class DashboardViewModel : ObservableObject
             OnPropertyChanged(nameof(HeroBadgeText));
         }
         finally { IsLoadingLibrary = false; }
-    }
-
-    private async Task LoadSeasonAsync()
-    {
-        IsLoadingSeason = true;
-        SeasonErrorMessage = null;
-        OnPropertyChanged(nameof(HasSeasonError));
-        try
-        {
-            var result = await _catalog.GetCurrentSeasonAsync();
-            if (result.IsSuccess)
-            {
-                ThisSeasonItems = new ObservableCollection<CachedAnime>(
-                    result.Value!.Take(10));
-                OnPropertyChanged(nameof(HasSeasonItems));
-            }
-            else
-            {
-                SeasonErrorMessage = result.Error;
-                OnPropertyChanged(nameof(HasSeasonError));
-            }
-        }
-        finally { IsLoadingSeason = false; }
     }
 
     partial void OnSeasonErrorMessageChanged(string? value) =>

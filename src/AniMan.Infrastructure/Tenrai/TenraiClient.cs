@@ -9,15 +9,8 @@ using Polly.Retry;
 namespace AniMan.Infrastructure.Tenrai;
 
 /// <summary>
-/// Primary media source: <see href="https://tenrai.org/">Tenrai</see>, a MyAnimeList API whose
-/// v1 schema is a drop-in match for Jikan v4 — the DTOs in <c>MediaSource.Dtos</c> bind to it
-/// unchanged.
-/// <para>
-/// AniMan moved here from Jikan on 2026-07-26. Jikan's public API had been unable to reach
-/// MyAnimeList since ~2026-07-10, serving stale cache (<c>X-Cache-Status: STALE</c>, data frozen
-/// at 10–13 July) for whatever it still held and 504 for everything else, and its maintainers
-/// have announced the public API is shutting down. Tenrai is the successor they point users to.
-/// </para>
+/// Primary media source: <see href="https://tenrai.org/">Tenrai</see>, a fast and reliable MyAnimeList API.
+/// The DTOs in <c>MediaSource.Dtos</c> bind to its v1 schema directly.
 /// </summary>
 public sealed class TenraiClient : IMediaSourceClient
 {
@@ -58,10 +51,7 @@ public sealed class TenraiClient : IMediaSourceClient
                response.StatusCode == HttpStatusCode.TooManyRequests;
     }
 
-    // `limit` is sent as a query parameter again. Under Jikan it had to be dropped and
-    // applied client-side, because every distinct query string was a separate cache key
-    // there and the extra parameter turned a working search into a 504. Tenrai has no
-    // such behaviour — verified: `?q=konosuba&limit=5` returns exactly 5 results.
+    // Tenrai natively supports the `limit` query parameter (e.g., `?q=konosuba&limit=5` returns 5 results).
     public Task<Result<PagedResult<AnimeDto>>> SearchAnimeAsync(
         string query, int limit = 25, CancellationToken ct = default) =>
         GetAsync<PagedResult<AnimeDto>>(

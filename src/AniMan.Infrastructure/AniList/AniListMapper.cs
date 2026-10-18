@@ -87,7 +87,7 @@ internal static partial class AniListMapper
 
     // ── Field translation ─────────────────────────────────────────────────────
 
-    // Jikan's `title` is the romaji form, so match that and fall back through the
+    // Romaji title is preferred to match the primary source, falling back through the
     // other variants rather than showing an empty card.
     private static string PreferredTitle(AniListTitle? title) =>
         title?.Romaji ?? title?.English ?? title?.Native ?? string.Empty;
@@ -137,7 +137,7 @@ internal static partial class AniListMapper
 
     /// <summary>
     /// AniList dates are fuzzy — any component may be missing. Missing month/day fall back
-    /// to January 1st so the result still parses as the ISO string Jikan returns and the
+    /// to January 1st so the result still parses as a standard ISO string that the
     /// existing views expect.
     /// </summary>
     private static string? ToIsoDate(AniListFuzzyDate? date)

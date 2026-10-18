@@ -22,6 +22,14 @@ public partial class DiscoverCardViewModel : ObservableObject
     public async Task LoadCoverAsync(IHttpClientFactory httpClientFactory, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(CoverUrl)) return;
+
+        var cached = Imaging.CoverImageLoader.TryGetFromUrlCache(CoverUrl, 160);
+        if (cached is not null)
+        {
+            CoverImage = cached;
+            return;
+        }
+
         try
         {
             var http = httpClientFactory.CreateClient("covers");
@@ -30,7 +38,7 @@ public partial class DiscoverCardViewModel : ObservableObject
             // BitmapImage inherits DispatcherObject — must be created on the UI (STA) thread.
             // After GetByteArrayAsync we're on a ThreadPool MTA thread, so marshal back.
             await Application.Current.Dispatcher.InvokeAsync(() =>
-                CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, 160));
+                CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, 160, CoverUrl));
         }
         catch (OperationCanceledException) { throw; }
         catch { /* leave cover blank on failure */ }

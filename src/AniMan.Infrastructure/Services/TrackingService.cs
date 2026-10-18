@@ -26,6 +26,7 @@ public sealed class TrackingService(
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var items = await db.LibraryItems.AsNoTracking()
+                .AsSplitQuery()
                 .Include(i => i.Snapshot)
                 .Include(i => i.Status)
                 .Include(i => i.EpisodeProgress)
@@ -50,6 +51,7 @@ public sealed class TrackingService(
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var item = await db.LibraryItems.AsNoTracking()
+                .AsSplitQuery()
                 .Include(i => i.Snapshot)
                 .Include(i => i.Status)
                 .Include(i => i.EpisodeProgress)

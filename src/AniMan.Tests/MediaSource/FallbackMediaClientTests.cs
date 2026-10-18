@@ -139,6 +139,24 @@ public class FallbackMediaClientTests
     }
 
     [Fact]
+    public async Task GetAnimeStreaming_PrimaryReturnsEmpty_FallsBack()
+    {
+        _primary.Setup(c => c.GetAnimeStreamingAsync(41467, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+        _secondary.Setup(c => c.GetAnimeStreamingAsync(41467, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>>
+                {
+                    Data = [new StreamingDto { Name = "Disney Plus" }]
+                }));
+
+        var result = await CreateClient().GetAnimeStreamingAsync(41467);
+
+        result.Value!.Data!.Single().Name.Should().Be("Disney Plus");
+    }
+
+    [Fact]
     public async Task GetCurrentSeason_PrimaryFails_FallsBack()
     {
         _primary.Setup(c => c.GetCurrentSeasonAsync(It.IsAny<CancellationToken>()))

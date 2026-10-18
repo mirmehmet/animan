@@ -126,25 +126,24 @@ public partial class App : Application
         services.AddSingleton<IContentDialogService, ContentDialogService>();
         services.AddSingleton<NavigationBag>();
 
-        // Pages
-        services.AddTransient<Views.Dashboard.DashboardPage>();
-        services.AddTransient<Views.Library.AnimeLibraryPage>();
-        services.AddTransient<Views.Library.MangaLibraryPage>();
-        services.AddTransient<Views.Discover.DiscoverPage>();
-        services.AddTransient<Views.Stats.StatsPage>();
-        services.AddTransient<Views.Settings.SettingsPage>();
+        // Pages: Main tab pages are Singletons so their VisualTrees are preserved and not leaked/duplicated across navigations.
+        // DetailPage is Transient as it represents individual items on demand.
+        services.AddSingleton<Views.Dashboard.DashboardPage>();
+        services.AddSingleton<Views.Library.AnimeLibraryPage>();
+        services.AddSingleton<Views.Library.MangaLibraryPage>();
+        services.AddSingleton<Views.Discover.DiscoverPage>();
+        services.AddSingleton<Views.Stats.StatsPage>();
+        services.AddSingleton<Views.Settings.SettingsPage>();
         services.AddTransient<Views.Detail.DetailPage>();
 
         // ViewModels
-        services.AddTransient<DashboardViewModel>();
-        services.AddTransient<ViewModels.Settings.SettingsViewModel>();
+        services.AddSingleton<DashboardViewModel>();
+        services.AddSingleton<ViewModels.Settings.SettingsViewModel>();
         services.AddSingleton<AnimeLibraryViewModel>();
         services.AddSingleton<MangaLibraryViewModel>();
-        services.AddTransient<DetailViewModel>();
-        services.AddTransient<ViewModels.Stats.StatsViewModel>();
-        // Singleton: keeps tab/search/results/scroll alive so navigating to a
-        // detail page and back (or to any other page) doesn't reset Discover.
+        services.AddSingleton<ViewModels.Stats.StatsViewModel>();
         services.AddSingleton<ViewModels.Discover.DiscoverViewModel>();
+        services.AddTransient<DetailViewModel>();
 
         return services.BuildServiceProvider();
     }

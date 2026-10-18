@@ -9,8 +9,7 @@ namespace AniMan.Infrastructure.MediaSource;
 /// Tries the primary media source and falls back to the secondary when it fails.
 /// <para>
 /// Because the switch is per request and there is no circuit breaker, the app returns to the
-/// primary the moment it starts answering again — no state to reset and no timer to wait out.
-/// This was written during the Jikan outage of July 2026 and kept after the move to Tenrai:
+/// primary the moment it starts answering again — no state to reset and no timer to wait out:
 /// a single upstream going quiet should degrade the app, not stop it.
 /// </para>
 /// </summary>
@@ -44,10 +43,27 @@ public sealed class FallbackMediaClient(
         WithFallbackAsync(nameof(GetAnimeEpisodesAsync),
             c => c.GetAnimeEpisodesAsync(malId, page, ct));
 
-    public Task<Result<SingleResult<IReadOnlyList<StreamingDto>>>> GetAnimeStreamingAsync(
-        int malId, CancellationToken ct = default) =>
-        WithFallbackAsync(nameof(GetAnimeStreamingAsync),
-            c => c.GetAnimeStreamingAsync(malId, ct));
+    public async Task<Result<SingleResult<IReadOnlyList<StreamingDto>>>> GetAnimeStreamingAsync(
+        int malId, CancellationToken ct = default)
+    {
+        var primaryResult = await primary.GetAnimeStreamingAsync(malId, ct).ConfigureAwait(false);
+        if (primaryResult.IsSuccess && primaryResult.Value?.Data is { Count: > 0 })
+            return primaryResult;
+
+        logger.LogInformation(
+            "GetAnimeStreamingAsync: primary source {Reason} for anime {Id} — falling back to secondary",
+            primaryResult.IsSuccess ? "returned no streaming platforms" : $"failed ({primaryResult.Error})",
+            malId);
+
+        var secondaryResult = await secondary.GetAnimeStreamingAsync(malId, ct).ConfigureAwait(false);
+        if (secondaryResult.IsSuccess && secondaryResult.Value?.Data is { Count: > 0 })
+        {
+            logger.LogInformation("GetAnimeStreamingAsync: served by secondary source for anime {Id}", malId);
+            return secondaryResult;
+        }
+
+        return primaryResult.IsSuccess ? primaryResult : secondaryResult;
+    }
 
     public Task<Result<PagedResult<AnimeDto>>> GetCurrentSeasonAsync(
         CancellationToken ct = default) =>

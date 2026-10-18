@@ -6,7 +6,7 @@ namespace AniMan.Infrastructure.AniList;
 /// <summary>
 /// AniList advertises its budget in the <c>X-RateLimit-Limit</c> response header. It has
 /// been serving a degraded <b>30 requests/minute</b> (down from the documented 90), so the
-/// lower figure is what we hold ourselves to. AniList is only reached when Jikan fails, so
+/// lower figure is what we hold ourselves to. AniList is only reached when the primary source fails, so
 /// this ceiling is generous in practice.
 /// </summary>
 public sealed class AniListRateLimiter : IDisposable

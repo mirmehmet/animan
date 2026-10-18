@@ -66,8 +66,8 @@ public partial class DiscoverPage : SWC.UserControl
 
     private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (sender is not ScrollViewer sv) return;
-        if (sv.ExtentHeight > 0 && sv.VerticalOffset >= sv.ExtentHeight * 0.85)
+        if (e.VerticalChange <= 0 || sender is not ScrollViewer sv) return;
+        if (sv.ScrollableHeight > 0 && sv.VerticalOffset >= sv.ScrollableHeight - 240)
             _vm.LoadMoreCommand.Execute(null);
     }
 

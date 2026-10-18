@@ -123,6 +123,70 @@ public class CatalogServiceTests : IDisposable
         result.Value.Select(e => e.EpisodeNumber).Should().BeEquivalentTo(Enumerable.Range(1, 12));
     }
 
+    [Fact]
+    public async Task GetAnimeStreamingAsync_CacheHit_DoesNotCallTheSource()
+    {
+        _db.AnimeStreaming.Add(new CachedAnimeStreaming
+        {
+            AnimeId = 1,
+            PlatformName = "Crunchyroll",
+            Url = "https://crunchyroll.com"
+        });
+        await _db.SaveChangesAsync();
+
+        var svc = CreateService();
+        var result = await svc.GetAnimeStreamingAsync(1);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Should().HaveCount(1);
+        result.Value![0].PlatformName.Should().Be("Crunchyroll");
+        _sourceMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetAnimeStreamingAsync_CacheMiss_CallsSourceAndStores()
+    {
+        var streamingResponse = new SingleResult<IReadOnlyList<StreamingDto>>
+        {
+            Data = [new StreamingDto { Name = "Disney+", Url = "https://disneyplus.com" }]
+        };
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(41467, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(streamingResponse));
+
+        var svc = CreateService();
+        var result = await svc.GetAnimeStreamingAsync(41467);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Should().HaveCount(1);
+        result.Value![0].PlatformName.Should().Be("Disney+");
+
+        var stored = await _db.AnimeStreaming.Where(s => s.AnimeId == 41467).ToListAsync();
+        stored.Should().HaveCount(1);
+        stored[0].PlatformName.Should().Be("Disney+");
+    }
+
+    [Fact]
+    public async Task GetAnimeStreamingAsync_NegativeCache_DoesNotCallSourceRepeatedly()
+    {
+        var emptyResponse = new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] };
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(99999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(emptyResponse));
+
+        var svc = CreateService();
+        var first = await svc.GetAnimeStreamingAsync(99999);
+        first.IsSuccess.Should().BeTrue();
+        first.Value!.Should().BeEmpty();
+
+        // Second call should hit negative cache and not call source again
+        var second = await svc.GetAnimeStreamingAsync(99999);
+        second.IsSuccess.Should().BeTrue();
+        second.Value!.Should().BeEmpty();
+
+        _sourceMock.Verify(s => s.GetAnimeStreamingAsync(99999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static CachedAnime MakeCachedAnime(int id, int daysOld, int? totalEpisodes = null) => new()

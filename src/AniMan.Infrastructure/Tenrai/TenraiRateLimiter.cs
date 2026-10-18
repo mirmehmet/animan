@@ -4,10 +4,9 @@ using Microsoft.Extensions.Logging;
 namespace AniMan.Infrastructure.Tenrai;
 
 /// <summary>
-/// Tenrai publishes no rate limits and sends no <c>X-RateLimit-*</c> headers, but it does answer
-/// 429 under bursts — one appeared in a 12-request burst during testing, while a paced 1/second
-/// run stayed clean. These budgets are therefore a deliberate guess on the safe side, carried
-/// over from the limits Jikan documented (3/second, 60/minute).
+/// Tenrai publishes no formal rate limits and sends no <c>X-RateLimit-*</c> headers, but it does answer
+/// 429 under rapid bursts. These budgets are a deliberate safe choice (3/second, 60/minute)
+/// to ensure stable requests.
 /// </summary>
 public sealed class TenraiRateLimiter : IDisposable
 {

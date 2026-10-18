@@ -203,14 +203,27 @@ public sealed class CatalogService(
     }
 
     public async Task<Result<IReadOnlyList<CachedAnimeStreaming>>> GetAnimeStreamingAsync(
-        int malId, CancellationToken ct = default)
+        int malId, bool force = false, CancellationToken ct = default)
     {
         try
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var rows = await db.AnimeStreaming.AsNoTracking()
-                .Where(s => s.AnimeId == malId).ToListAsync(ct).ConfigureAwait(false);
-            return Result<IReadOnlyList<CachedAnimeStreaming>>.Success(rows);
+            if (!force)
+            {
+                await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+                var rows = await db.AnimeStreaming.AsNoTracking()
+                    .Where(s => s.AnimeId == malId).ToListAsync(ct).ConfigureAwait(false);
+
+                if (rows.Count > 0)
+                    return Result<IReadOnlyList<CachedAnimeStreaming>>.Success(rows);
+
+                if (NegativeStreamingCache.TryGetValue(malId, out var lastChecked) &&
+                    DateTime.UtcNow - lastChecked < TimeSpan.FromHours(24))
+                {
+                    return Result<IReadOnlyList<CachedAnimeStreaming>>.Success(rows);
+                }
+            }
+
+            return await FetchAndCacheStreamingAsync(malId, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -247,6 +260,7 @@ public sealed class CatalogService(
     // The service is registered transient — the in-flight set must be static to
     // deduplicate refreshes across instances (e.g. rapid re-navigation).
     private static readonly ConcurrentDictionary<(string Kind, int MalId), byte> InFlightRefreshes = new();
+    private static readonly ConcurrentDictionary<int, DateTime> NegativeStreamingCache = new();
 
     /// <summary>
     /// Runs a fire-and-forget cache refresh at most once per (kind, id) at a time,
@@ -375,10 +389,6 @@ public sealed class CatalogService(
             db.Entry(existing).CurrentValues.SetValues(anime);
 
         await UpsertGenresAsync(db, [(anime.Id, MediaMapper.ExtractAnimeGenres(dto))], "anime", ct).ConfigureAwait(false);
-
-        // Refresh streaming
-        var existingStreaming = db.AnimeStreaming.Where(s => s.AnimeId == anime.Id);
-        db.AnimeStreaming.RemoveRange(existingStreaming);
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
@@ -595,14 +605,34 @@ public sealed class CatalogService(
         return mapped;
     }
 
-    private async Task FetchAndCacheStreamingAsync(int malId, CancellationToken ct)
+    private async Task<Result<IReadOnlyList<CachedAnimeStreaming>>> FetchAndCacheStreamingAsync(
+        int malId, CancellationToken ct)
     {
         var result = await sourceClient.GetAnimeStreamingAsync(malId, ct).ConfigureAwait(false);
-        if (!result.IsSuccess || result.Value?.Data is null) return;
+        if (!result.IsSuccess)
+            return Result<IReadOnlyList<CachedAnimeStreaming>>.Failure(result.Error ?? "Failed to load streaming info.");
 
-        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-        var streaming = result.Value.Data.Select(s => MediaMapper.ToStreaming(s, malId)).ToList();
-        db.AnimeStreaming.AddRange(streaming);
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        var data = result.Value?.Data ?? [];
+        var streaming = data.Select(s => MediaMapper.ToStreaming(s, malId)).ToList();
+
+        if (streaming.Count == 0)
+        {
+            NegativeStreamingCache[malId] = DateTime.UtcNow;
+        }
+        else
+        {
+            NegativeStreamingCache.TryRemove(malId, out _);
+        }
+
+        await TryCacheAsync($"streaming for anime {malId}", async () =>
+        {
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var existing = db.AnimeStreaming.Where(s => s.AnimeId == malId);
+            db.AnimeStreaming.RemoveRange(existing);
+            db.AnimeStreaming.AddRange(streaming);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        return Result<IReadOnlyList<CachedAnimeStreaming>>.Success(streaming);
     }
 }

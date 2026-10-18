@@ -7,52 +7,57 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
 
-    <VirtualizingStackPanel>
-        <ItemsControl ItemsSource="{Binding Chapters}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Border Padding="12,6"
-                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                            BorderThickness="0,0,0,1">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+    <ItemsControl ItemsSource="{Binding Chapters}"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <VirtualizingStackPanel/>
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <Border Padding="12,6"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                            <ui:Button Grid.Column="0" Margin="0,0,8,0"
-                                        Command="{Binding MarkUpToHereCommand}"
-                                        Appearance="Transparent"
-                                        ToolTip="{loc:Loc Detail_MarkUpToHere}">
-                                <ui:SymbolIcon Symbol="MultiselectLtr24"/>
-                            </ui:Button>
+                        <ui:Button Grid.Column="0" Margin="0,0,8,0"
+                                    Command="{Binding MarkUpToHereCommand}"
+                                    Appearance="Transparent"
+                                    ToolTip="{loc:Loc Detail_MarkUpToHere}">
+                            <ui:SymbolIcon Symbol="MultiselectLtr24"/>
+                        </ui:Button>
 
-                            <CheckBox Grid.Column="1" Margin="0,0,12,0"
-                                      IsChecked="{Binding IsRead}"/>
+                        <CheckBox Grid.Column="1" Margin="0,0,12,0"
+                                  IsChecked="{Binding IsRead}"/>
 
-                            <TextBlock Grid.Column="2" Margin="0,0,12,0"
-                                       Text="{Binding ChapterLabel}"
-                                       FontWeight="SemiBold" VerticalAlignment="Center"
-                                       MinWidth="50"/>
+                        <TextBlock Grid.Column="2" Margin="0,0,12,0"
+                                   Text="{Binding ChapterLabel}"
+                                   FontWeight="SemiBold" VerticalAlignment="Center"
+                                   MinWidth="50"/>
 
-                            <TextBlock Grid.Column="3" Margin="8,0,0,0"
-                                       Text="{Binding ReadAtDisplay}"
-                                       FontSize="11" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                        <TextBlock Grid.Column="3" Margin="8,0,0,0"
+                                   Text="{Binding ReadAtDisplay}"
+                                   FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
 
-                            <ui:Button Grid.Column="4" Margin="8,0,0,0"
-                                        Command="{Binding OpenNoteCommand}"
-                                        Appearance="Transparent"
-                                        ToolTip="{loc:Loc Detail_Note}">
-                                <ui:SymbolIcon Symbol="Note24"/>
-                            </ui:Button>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </VirtualizingStackPanel>
+                        <ui:Button Grid.Column="4" Margin="8,0,0,0"
+                                    Command="{Binding OpenNoteCommand}"
+                                    Appearance="Transparent"
+                                    ToolTip="{loc:Loc Detail_Note}">
+                            <ui:SymbolIcon Symbol="Note24"/>
+                        </ui:Button>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
 </UserControl>
