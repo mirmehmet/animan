@@ -3,7 +3,17 @@
 [![CI](https://github.com/mirmehmet/animan/actions/workflows/ci.yml/badge.svg)](https://github.com/mirmehmet/animan/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](LICENSE)
 
-A WPF desktop app for tracking anime and manga, powered by the [Tenrai](https://tenrai.org/) (MyAnimeList) API with [AniList](https://anilist.co/) as an automatic fallback.
+A modern WPF desktop app for tracking anime and manga, powered by the [Tenrai](https://tenrai.org/) (MyAnimeList) API with [AniList](https://anilist.co/) as an automatic fallback.
+
+---
+
+## Screenshots
+
+| Dashboard | Library |
+| :---: | :---: |
+| ![Dashboard](images/1.png) | ![Anime Library](images/2.png) |
+| **Media Details & Streaming Links** | **Discover & Search** |
+| ![Detail Page](images/3.png) | ![Discover & Search](images/4.png) |
 
 ---
 
@@ -13,6 +23,7 @@ A WPF desktop app for tracking anime and manga, powered by the [Tenrai](https://
 - Keeps working when the primary API is down — requests fall back to AniList and return on their own
 - Personal library with status tracking (Watching, Completed, On-hold, Dropped, Plan to watch)
 - Episode and chapter progress tracking
+- Streaming platform availability with direct links to providers (Crunchyroll, Netflix, Disney+, Prime Video, etc.)
 - Cover art downloaded and cached locally
 - Stats page with score distribution, top genres, and monthly activity
 - Export & import library as a portable JSON backup (Merge or Overwrite)
