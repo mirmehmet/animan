@@ -75,6 +75,7 @@ public class SnapshotServiceTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.MalId.Should().Be(5);
+        result.Value.StartedAt.Should().NotBeNull();
         result.Value.Snapshot!.Title.Should().Be("Steins;Gate");
 
         _libraryDb.LibraryItems.Should().HaveCount(1);
@@ -113,7 +114,7 @@ public class SnapshotServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SnapshotAsync_SoftDeletedItem_ReplacesTrashedAndSucceeds()
+    public async Task SnapshotAsync_SoftDeletedItem_RestoresAndPreservesProgressRatingAndNotes()
     {
         SetupAnime(25, "Cowboy Bebop");
         _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
@@ -123,19 +124,121 @@ public class SnapshotServiceTests : IDisposable
         var first = await svc.SnapshotAsync(25, MediaType.Anime, 1);
         first.IsSuccess.Should().BeTrue();
 
-        // Soft-delete the item (move to Trash)
+        // Add user progress, rating, and note, then soft-delete to Trash
         using (var db = await _libraryFactory.CreateDbContextAsync())
         {
             var item = await db.LibraryItems.SingleAsync(i => i.MalId == 25);
+            item.UserRating = 9.5m;
+            db.EpisodeProgress.Add(new EpisodeProgress
+            {
+                LibraryItemId = item.Id, EpisodeNumber = 1, IsWatched = true, WatchedAt = DateTime.UtcNow
+            });
+            db.Notes.Add(new Note
+            {
+                LibraryItemId = item.Id, Content = "Masterpiece", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+            });
             item.DeletedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
         }
 
-        // Re-adding the soft-deleted item should succeed and leave an active item
+        // Re-adding the soft-deleted item restores it with preserved user data
         var reAdded = await svc.SnapshotAsync(25, MediaType.Anime, 6);
         reAdded.IsSuccess.Should().BeTrue();
         reAdded.Value!.DeletedAt.Should().BeNull();
         reAdded.Value.StatusId.Should().Be(6);
+
+        using (var verify = await _libraryFactory.CreateDbContextAsync())
+        {
+            var restored = await verify.LibraryItems
+                .Include(i => i.EpisodeProgress)
+                .Include(i => i.Notes)
+                .SingleAsync(i => i.MalId == 25);
+            restored.UserRating.Should().Be(9.5m);
+            restored.EpisodeProgress.Should().ContainSingle(e => e.EpisodeNumber == 1 && e.IsWatched);
+            restored.Notes.Should().ContainSingle(n => n.Content == "Masterpiece");
+        }
+    }
+
+    [Fact]
+    public async Task SnapshotAsync_SoftDeletedItem_CatalogFetchFails_PreservesTrashedItem()
+    {
+        SetupAnime(30, "Trigun");
+        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
+            .Returns(new System.Net.Http.HttpClient());
+
+        var svc = CreateService();
+        await svc.SnapshotAsync(30, MediaType.Anime, 1);
+
+        using (var db = await _libraryFactory.CreateDbContextAsync())
+        {
+            var item = await db.LibraryItems.SingleAsync(i => i.MalId == 30);
+            item.DeletedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        _catalogServiceMock
+            .Setup(c => c.GetAnimeAsync(30, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedAnime>.Failure("Offline"));
+
+        var attempt = await svc.SnapshotAsync(30, MediaType.Anime, 1);
+        attempt.IsSuccess.Should().BeFalse();
+
+        using (var verify = await _libraryFactory.CreateDbContextAsync())
+        {
+            verify.LibraryItems.Should().ContainSingle(i => i.MalId == 30 && i.DeletedAt != null);
+        }
+    }
+
+    [Fact]
+    public async Task ReSnapshotAsync_UsesForceRefreshAndPreservesExistingCoverWhenDownloadFails()
+    {
+        var coverPath = Path.Combine(_paths.CoversPath, "50_anime.jpg");
+        await File.WriteAllBytesAsync(coverPath, [1, 2, 3]);
+
+        using (var db = await _libraryFactory.CreateDbContextAsync())
+        {
+            db.LibraryItems.Add(new LibraryItem
+            {
+                Id = 50,
+                MalId = 50,
+                MediaType = MediaType.Anime,
+                StatusId = 1,
+                AddedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Snapshot = new MediaSnapshot
+                {
+                    LibraryItemId = 50,
+                    Title = "Old Title",
+                    TotalEpisodes = 10,
+                    CoverLocalPath = coverPath,
+                    Genres = "[]",
+                    SnapshotAt = DateTime.UtcNow.AddDays(-5)
+                }
+            });
+            await db.SaveChangesAsync();
+        }
+
+        _catalogServiceMock
+            .Setup(c => c.GetAnimeAsync(50, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
+            {
+                Id = 50,
+                Title = "Updated Title",
+                TotalEpisodes = 12,
+                CoverLargeUrl = "https://example.com/50.jpg",
+                FetchedAt = DateTime.UtcNow
+            }));
+        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
+            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
+
+        var svc = CreateService();
+        var refreshed = await svc.ReSnapshotAsync(50);
+
+        refreshed.IsSuccess.Should().BeTrue();
+        refreshed.Value!.Title.Should().Be("Updated Title");
+        refreshed.Value.TotalEpisodes.Should().Be(12);
+        refreshed.Value.CoverLocalPath.Should().Be(coverPath);
+        _catalogServiceMock.Verify(c => c.GetAnimeAsync(50, true, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -143,7 +246,7 @@ public class SnapshotServiceTests : IDisposable
     private void SetupAnime(int malId, string title)
     {
         _catalogServiceMock
-            .Setup(c => c.GetAnimeAsync(malId, It.IsAny<CancellationToken>()))
+            .Setup(c => c.GetAnimeAsync(malId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
             {
                 Id = malId, Title = title, FetchedAt = DateTime.UtcNow

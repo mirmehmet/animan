@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AniMan.Core.Common;
+using AniMan.Core.Domain.Enums;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -37,10 +38,25 @@ public sealed class StatisticsService(
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var count = await db.EpisodeProgress
+            var watchedCount = await db.EpisodeProgress
                 .CountAsync(e => e.IsWatched && e.LibraryItem != null && e.LibraryItem.DeletedAt == null, ct)
                 .ConfigureAwait(false);
-            return Result<TimeSpan>.Success(TimeSpan.FromMinutes(count * MinutesPerEpisode));
+
+            var rewatchedItems = await db.LibraryItems.AsNoTracking()
+                .Where(i => i.DeletedAt == null && i.MediaType == MediaType.Anime && i.RewatchCount > 0)
+                .Select(i => new
+                {
+                    i.RewatchCount,
+                    TotalEpisodes = i.Snapshot != null ? i.Snapshot.TotalEpisodes : null,
+                    WatchedEpisodes = i.EpisodeProgress.Count(e => e.IsWatched)
+                })
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            var rewatchEpisodes = rewatchedItems.Sum(i =>
+                (long)i.RewatchCount * (i.TotalEpisodes is > 0 ? i.TotalEpisodes.Value : i.WatchedEpisodes));
+
+            var totalEpisodes = watchedCount + rewatchEpisodes;
+            return Result<TimeSpan>.Success(TimeSpan.FromMinutes(totalEpisodes * MinutesPerEpisode));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -76,6 +92,7 @@ public sealed class StatisticsService(
             var scores = await db.LibraryItems.AsNoTracking()
                 .Where(i => i.DeletedAt == null && (i.UserRating.HasValue || i.Score.HasValue))
                 .Select(i => (double)(i.UserRating ?? i.Score!.Value))
+                .Where(s => s > 0)
                 .ToListAsync(ct).ConfigureAwait(false);
 
             double? mean = scores.Count > 0 ? scores.Average() : null;
@@ -169,7 +186,7 @@ public sealed class StatisticsService(
                 try
                 {
                     var genres = JsonSerializer.Deserialize<List<string>>(json ?? "[]") ?? [];
-                    foreach (var g in genres)
+                    foreach (var g in genres.Where(g => !string.IsNullOrWhiteSpace(g)))
                         counts[g] = counts.GetValueOrDefault(g) + 1;
                 }
                 catch (Exception ex)
@@ -199,7 +216,9 @@ public sealed class StatisticsService(
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var cutoff = DateTime.UtcNow.AddMonths(-months);
+            var now = DateTime.UtcNow;
+            var cutoff = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc)
+                .AddMonths(-Math.Max(0, months - 1));
 
             var episodeDates = await db.EpisodeProgress.AsNoTracking()
                 .Where(e => e.IsWatched && e.WatchedAt >= cutoff && e.LibraryItem != null && e.LibraryItem.DeletedAt == null)

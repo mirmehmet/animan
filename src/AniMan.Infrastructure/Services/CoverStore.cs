@@ -55,4 +55,35 @@ public sealed class CoverStore(
         if (File.Exists(filePath)) return filePath;
         return await DownloadAsync(malId, mediaType, url, ct).ConfigureAwait(false);
     }
+
+    /// <summary>Deletes the canonical cover file for the given media item if present on disk.</summary>
+    public void Delete(int malId, MediaType mediaType) =>
+        TryDeleteFile(GetLocalPath(malId, mediaType));
+
+    /// <summary>Removes cover files in <c>covers/</c> that are not present in <paramref name="referencedFullPaths"/>.</summary>
+    public void SweepUnreferenced(ISet<string> referencedFullPaths)
+    {
+        if (!Directory.Exists(storagePaths.CoversPath))
+            return;
+
+        foreach (var file in Directory.GetFiles(storagePaths.CoversPath, "*.jpg"))
+        {
+            var fullPath = Path.GetFullPath(file);
+            if (!referencedFullPaths.Contains(fullPath))
+                TryDeleteFile(fullPath);
+        }
+    }
+
+    private void TryDeleteFile(string filePath)
+    {
+        try
+        {
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(ex, "Could not delete cover file {Path}", filePath);
+        }
+    }
 }

@@ -62,9 +62,11 @@ public class StatisticsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetTotalWatchTime_Is24MinutesPerWatchedEpisode()
+    public async Task GetTotalWatchTime_Is24MinutesPerWatchedEpisodeAndIncludesRewatches()
     {
-        AddItem(1, 100, MediaType.Anime, 1, null);
+        AddItem(1, 100, MediaType.Anime, 3, null);
+        _db.LibraryItems.Local.Single(i => i.Id == 1).RewatchCount = 1;
+        _db.Snapshots.Local.Single(s => s.LibraryItemId == 1).TotalEpisodes = 3;
         _db.EpisodeProgress.AddRange(
             new EpisodeProgress { LibraryItemId = 1, EpisodeNumber = 1, IsWatched = true, WatchedAt = DateTime.UtcNow },
             new EpisodeProgress { LibraryItemId = 1, EpisodeNumber = 2, IsWatched = true, WatchedAt = DateTime.UtcNow },
@@ -74,7 +76,7 @@ public class StatisticsServiceTests : IDisposable
         var result = await Create().GetTotalWatchTimeAsync();
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().Be(TimeSpan.FromMinutes(3 * 24));
+        result.Value.Should().Be(TimeSpan.FromMinutes(6 * 24));
     }
 
     [Fact]

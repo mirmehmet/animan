@@ -99,6 +99,82 @@ public class ExportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Import_RandomJsonInOverwriteMode_RejectsAndPreservesExistingLibrary()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Do Not Wipe Me");
+        await File.WriteAllTextAsync(_tempFile, """{"hello":"world"}""");
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeFalse();
+        using var verify = CreateDb();
+        verify.LibraryItems.Should().ContainSingle(i => i.MalId == 100);
+    }
+
+    [Fact]
+    public async Task Import_EmptyItemsInOverwriteMode_RefusesToWipeNonEmptyLibrary()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Protected");
+        await File.WriteAllTextAsync(
+            _tempFile,
+            """{"schemaVersion":1,"exportedAt":"2026-10-28T12:00:00Z","statuses":[],"items":[]}""");
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeFalse();
+        using var verify = CreateDb();
+        verify.LibraryItems.Should().ContainSingle(i => i.MalId == 100);
+    }
+
+    [Fact]
+    public async Task Import_Merge_DeduplicatesRepeatedBackupItems()
+    {
+        await File.WriteAllTextAsync(_tempFile, """
+        {
+          "schemaVersion": 1,
+          "exportedAt": "2026-10-28T12:00:00Z",
+          "statuses": [],
+          "items": [
+            { "malId": 100, "mediaType": "Anime", "statusName": "Watching", "snapshot": { "title": "First", "genres": "[]", "snapshotAt": "2026-10-28T12:00:00Z" } },
+            { "malId": 100, "mediaType": "Anime", "statusName": "Completed", "snapshot": { "title": "Duplicate", "genres": "[]", "snapshotAt": "2026-10-28T12:00:00Z" } }
+          ]
+        }
+        """);
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Merge);
+
+        result.IsSuccess.Should().BeTrue();
+        using var verify = CreateDb();
+        verify.LibraryItems.Should().ContainSingle(i => i.MalId == 100);
+    }
+
+    [Fact]
+    public async Task Import_Overwrite_SweepsUnreferencedOrphanCovers()
+    {
+        var keptCover = Path.Combine(_paths.CoversPath, "100_anime.jpg");
+        var orphanCover = Path.Combine(_paths.CoversPath, "999_anime.jpg");
+        await File.WriteAllBytesAsync(keptCover, [1, 2, 3]);
+        await File.WriteAllBytesAsync(orphanCover, [4, 5, 6]);
+
+        await File.WriteAllTextAsync(_tempFile, """
+        {
+          "schemaVersion": 1,
+          "exportedAt": "2026-10-28T12:00:00Z",
+          "statuses": [],
+          "items": [
+            { "malId": 100, "mediaType": "Anime", "statusName": "Watching", "snapshot": { "title": "First", "genres": "[]", "snapshotAt": "2026-10-28T12:00:00Z" } }
+          ]
+        }
+        """);
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeTrue();
+        File.Exists(keptCover).Should().BeTrue();
+        File.Exists(orphanCover).Should().BeFalse("unreferenced cover files are swept after Overwrite");
+    }
+
+    [Fact]
     public async Task Import_Merge_KeepsExistingItemUnchanged()
     {
         SeedItem(100, MediaType.Anime, 1, 8, "Original");

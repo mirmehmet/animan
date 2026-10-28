@@ -1,4 +1,5 @@
 using AniMan.Core.Common;
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -10,7 +11,8 @@ namespace AniMan.Infrastructure.Services;
 
 public sealed class TrackingService(
     IDbContextFactory<LibraryDbContext> libraryFactory,
-    ILogger<TrackingService> logger) : ITrackingService
+    ILogger<TrackingService> logger,
+    CoverStore? coverStore = null) : ITrackingService
 {
     private const string LoadError = "Failed to load your library.";
     private const string ProgressError = "Failed to update your progress.";
@@ -75,32 +77,43 @@ public sealed class TrackingService(
     // ── Episode/chapter progress ──────────────────────────────────────────────
 
     public Task<Result<TrackingResult>> SetEpisodeWatchedAsync(
-        int libraryItemId, int episodeNumber, bool watched, CancellationToken ct = default) =>
-        MutateProgressAsync(libraryItemId, isManga: false, nameof(SetEpisodeWatchedAsync), async db =>
+        int libraryItemId, int episodeNumber, bool watched, CancellationToken ct = default)
+    {
+        if (episodeNumber <= 0)
+            return Task.FromResult(Result<TrackingResult>.Failure("Episode number must be positive."));
+
+        return MutateProgressAsync(libraryItemId, isManga: false, markStarted: watched, nameof(SetEpisodeWatchedAsync), async db =>
         {
             var ep = await db.EpisodeProgress.FirstOrDefaultAsync(
                 e => e.LibraryItemId == libraryItemId && e.EpisodeNumber == episodeNumber, ct).ConfigureAwait(false);
 
             if (ep is null)
             {
+                if (!watched) return;
+
                 db.EpisodeProgress.Add(new EpisodeProgress
                 {
                     LibraryItemId = libraryItemId,
                     EpisodeNumber = episodeNumber,
-                    IsWatched = watched,
-                    WatchedAt = watched ? DateTime.UtcNow : null
+                    IsWatched = true,
+                    WatchedAt = DateTime.UtcNow
                 });
             }
-            else
+            else if (ep.IsWatched != watched)
             {
                 ep.IsWatched = watched;
                 ep.WatchedAt = watched ? DateTime.UtcNow : null;
             }
         }, ct);
+    }
 
     public Task<Result<TrackingResult>> MarkUpToHereAsync(
-        int libraryItemId, int episodeNumber, CancellationToken ct = default) =>
-        MutateProgressAsync(libraryItemId, isManga: false, nameof(MarkUpToHereAsync), async db =>
+        int libraryItemId, int episodeNumber, CancellationToken ct = default)
+    {
+        if (episodeNumber < 0)
+            return Task.FromResult(Result<TrackingResult>.Failure("Episode number cannot be negative."));
+
+        return MutateProgressAsync(libraryItemId, isManga: false, markStarted: episodeNumber > 0, nameof(MarkUpToHereAsync), async db =>
         {
             // "Exactly up to here": everything at or below the target is watched
             // (existing watch dates preserved), everything above it — including
@@ -115,7 +128,7 @@ public sealed class TrackingService(
             foreach (var ep in all.Where(e => e.EpisodeNumber <= episodeNumber))
             {
                 existingSet.Add(ep.EpisodeNumber);
-                ep.IsWatched = true;
+                if (!ep.IsWatched) ep.IsWatched = true;
                 ep.WatchedAt ??= DateTime.UtcNow;
             }
 
@@ -133,34 +146,46 @@ public sealed class TrackingService(
                 }
             }
         }, ct);
+    }
 
     public Task<Result<TrackingResult>> SetChapterReadAsync(
-        int libraryItemId, int chapterNumber, bool read, CancellationToken ct = default) =>
-        MutateProgressAsync(libraryItemId, isManga: true, nameof(SetChapterReadAsync), async db =>
+        int libraryItemId, int chapterNumber, bool read, CancellationToken ct = default)
+    {
+        if (chapterNumber <= 0)
+            return Task.FromResult(Result<TrackingResult>.Failure("Chapter number must be positive."));
+
+        return MutateProgressAsync(libraryItemId, isManga: true, markStarted: read, nameof(SetChapterReadAsync), async db =>
         {
             var ch = await db.ChapterProgress.FirstOrDefaultAsync(
                 c => c.LibraryItemId == libraryItemId && c.ChapterNumber == chapterNumber, ct).ConfigureAwait(false);
 
             if (ch is null)
             {
+                if (!read) return;
+
                 db.ChapterProgress.Add(new ChapterProgress
                 {
                     LibraryItemId = libraryItemId,
                     ChapterNumber = chapterNumber,
-                    IsRead = read,
-                    ReadAt = read ? DateTime.UtcNow : null
+                    IsRead = true,
+                    ReadAt = DateTime.UtcNow
                 });
             }
-            else
+            else if (ch.IsRead != read)
             {
                 ch.IsRead = read;
                 ch.ReadAt = read ? DateTime.UtcNow : null;
             }
         }, ct);
+    }
 
     public Task<Result<TrackingResult>> MarkChaptersUpToAsync(
-        int libraryItemId, int chapterNumber, CancellationToken ct = default) =>
-        MutateProgressAsync(libraryItemId, isManga: true, nameof(MarkChaptersUpToAsync), async db =>
+        int libraryItemId, int chapterNumber, CancellationToken ct = default)
+    {
+        if (chapterNumber < 0)
+            return Task.FromResult(Result<TrackingResult>.Failure("Chapter number cannot be negative."));
+
+        return MutateProgressAsync(libraryItemId, isManga: true, markStarted: chapterNumber > 0, nameof(MarkChaptersUpToAsync), async db =>
         {
             // "Exactly up to here" — see MarkUpToHereAsync; chapter mirror.
             var all = await db.ChapterProgress
@@ -173,7 +198,7 @@ public sealed class TrackingService(
             foreach (var ch in all.Where(c => c.ChapterNumber <= chapterNumber))
             {
                 existingSet.Add(ch.ChapterNumber);
-                ch.IsRead = true;
+                if (!ch.IsRead) ch.IsRead = true;
                 ch.ReadAt ??= DateTime.UtcNow;
             }
 
@@ -191,6 +216,7 @@ public sealed class TrackingService(
                 }
             }
         }, ct);
+    }
 
     // ── Item field updates ────────────────────────────────────────────────────
 
@@ -206,8 +232,15 @@ public sealed class TrackingService(
 
     public Task<Result> UpdateStatusAsync(
         int libraryItemId, int statusId, CancellationToken ct = default) =>
-        MutateItemAsync(libraryItemId, nameof(UpdateStatusAsync),
-            item => item.StatusId = statusId, ct);
+        MutateItemAsync(libraryItemId, nameof(UpdateStatusAsync), item =>
+        {
+            item.StatusId = statusId;
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            if (statusId is TrackingStatusIds.Watching or TrackingStatusIds.Reading)
+                item.StartedAt ??= today;
+            else if (statusId == TrackingStatusIds.Completed)
+                item.CompletedAt ??= today;
+        }, ct);
 
     public Task<Result> ToggleFavoriteAsync(
         int libraryItemId, CancellationToken ct = default) =>
@@ -229,7 +262,7 @@ public sealed class TrackingService(
             return Task.FromResult(Result.Failure("Rating must be between 0.0 and 10.0"));
 
         if (rating.HasValue)
-            rating = Math.Round(rating.Value, 1);
+            rating = Math.Round(rating.Value, 1, MidpointRounding.AwayFromZero);
 
         return MutateItemAsync(libraryItemId, nameof(SetRatingAsync),
             item => item.UserRating = rating, ct);
@@ -255,14 +288,36 @@ public sealed class TrackingService(
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-            var existing = await db.Notes.FirstOrDefaultAsync(n =>
-                n.LibraryItemId == libraryItemId &&
-                n.EpisodeNumber == episodeNumber &&
-                n.ChapterNumber == chapterNumber, ct).ConfigureAwait(false);
+            var matching = await db.Notes
+                .Where(n =>
+                    n.LibraryItemId == libraryItemId &&
+                    n.EpisodeNumber == episodeNumber &&
+                    n.ChapterNumber == chapterNumber)
+                .OrderByDescending(n => n.UpdatedAt)
+                .ThenByDescending(n => n.Id)
+                .ToListAsync(ct).ConfigureAwait(false);
 
-            if (existing is null)
+            if (string.IsNullOrWhiteSpace(content))
             {
-                existing = new Note
+                if (matching.Count > 0)
+                {
+                    db.Notes.RemoveRange(matching);
+                    await db.SaveChangesAsync(ct).ConfigureAwait(false);
+                }
+
+                return Result<Note>.Success(new Note
+                {
+                    LibraryItemId = libraryItemId,
+                    EpisodeNumber = episodeNumber,
+                    ChapterNumber = chapterNumber,
+                    Content = string.Empty
+                });
+            }
+
+            Note primary;
+            if (matching.Count == 0)
+            {
+                primary = new Note
                 {
                     LibraryItemId = libraryItemId,
                     EpisodeNumber = episodeNumber,
@@ -271,17 +326,21 @@ public sealed class TrackingService(
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-                db.Notes.Add(existing);
+                db.Notes.Add(primary);
             }
             else
             {
-                existing.Content = content;
-                existing.UpdatedAt = DateTime.UtcNow;
+                primary = matching[0];
+                primary.Content = content;
+                primary.UpdatedAt = DateTime.UtcNow;
+
+                if (matching.Count > 1)
+                    db.Notes.RemoveRange(matching.Skip(1));
             }
 
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
             logger.LogDebug("Note saved for item {Id} ep={Ep} ch={Ch}", libraryItemId, episodeNumber, chapterNumber);
-            return Result<Note>.Success(existing);
+            return Result<Note>.Success(primary);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -325,8 +384,14 @@ public sealed class TrackingService(
             var trashed = await db.LibraryItems
                 .Where(i => i.DeletedAt != null)
                 .ToListAsync(ct).ConfigureAwait(false);
+            if (trashed.Count == 0)
+                return Result.Success();
+
+            var purgedKeys = trashed.Select(i => (i.MalId, i.MediaType)).Distinct().ToList();
             db.LibraryItems.RemoveRange(trashed);
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            await DeleteCoversForPurgedKeysAsync(db, purgedKeys, ct).ConfigureAwait(false);
             return Result.Success();
         }
         catch (OperationCanceledException) { throw; }
@@ -370,8 +435,11 @@ public sealed class TrackingService(
                 .ToListAsync(ct).ConfigureAwait(false);
             if (expired.Count > 0)
             {
+                var purgedKeys = expired.Select(i => (i.MalId, i.MediaType)).Distinct().ToList();
                 db.LibraryItems.RemoveRange(expired);
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                await DeleteCoversForPurgedKeysAsync(db, purgedKeys, ct).ConfigureAwait(false);
                 logger.LogInformation("Purged {Count} expired trash items", expired.Count);
             }
         }
@@ -383,6 +451,29 @@ public sealed class TrackingService(
     }
 
     // ── Shared cores ──────────────────────────────────────────────────────────
+
+    private async Task DeleteCoversForPurgedKeysAsync(
+        LibraryDbContext db,
+        IReadOnlyList<(int MalId, MediaType MediaType)> purgedKeys,
+        CancellationToken ct)
+    {
+        if (coverStore is null || purgedKeys.Count == 0)
+            return;
+
+        var malIds = purgedKeys.Select(k => k.MalId).Distinct().ToList();
+        var stillPresent = (await db.LibraryItems.AsNoTracking()
+            .Where(i => malIds.Contains(i.MalId))
+            .Select(i => new { i.MalId, i.MediaType })
+            .ToListAsync(ct).ConfigureAwait(false))
+            .Select(i => (i.MalId, i.MediaType))
+            .ToHashSet();
+
+        foreach (var (malId, mediaType) in purgedKeys)
+        {
+            if (!stillPresent.Contains((malId, mediaType)))
+                coverStore.Delete(malId, mediaType);
+        }
+    }
 
     /// <summary>Find-mutate-save skeleton shared by all single-item field updates.</summary>
     private async Task<Result> MutateItemAsync(
@@ -412,12 +503,16 @@ public sealed class TrackingService(
     /// methods: mutate, bump the item timestamp, save, report auto-complete state.
     /// </summary>
     private async Task<Result<TrackingResult>> MutateProgressAsync(
-        int libraryItemId, bool isManga, string operation,
+        int libraryItemId, bool isManga, bool markStarted, string operation,
         Func<LibraryDbContext, Task> mutate, CancellationToken ct)
     {
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var item = await db.LibraryItems.FindAsync([libraryItemId], ct).ConfigureAwait(false);
+            if (item is null)
+                return Result<TrackingResult>.Failure($"Item {libraryItemId} not found");
+
             await mutate(db).ConfigureAwait(false);
 
             // State already matches the target → true no-op: don't bump the item
@@ -425,7 +520,10 @@ public sealed class TrackingService(
             if (!db.ChangeTracker.HasChanges())
                 return Result<TrackingResult>.Success(new TrackingResult(AutoCompleteNeeded: false));
 
-            await UpdateItemTimestampAsync(db, libraryItemId, ct).ConfigureAwait(false);
+            item.UpdatedAt = DateTime.UtcNow;
+            if (markStarted)
+                item.StartedAt ??= DateOnly.FromDateTime(DateTime.Now);
+
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
             return await BuildResultAsync(db, libraryItemId, isManga, ct).ConfigureAwait(false);
         }
@@ -435,13 +533,6 @@ public sealed class TrackingService(
             logger.LogError(ex, "{Operation} failed for item {Id}", operation, libraryItemId);
             return Result<TrackingResult>.Failure(ProgressError);
         }
-    }
-
-    private static async Task UpdateItemTimestampAsync(
-        LibraryDbContext db, int libraryItemId, CancellationToken ct)
-    {
-        var item = await db.LibraryItems.FindAsync([libraryItemId], ct).ConfigureAwait(false);
-        if (item is not null) item.UpdatedAt = DateTime.UtcNow;
     }
 
     private static async Task<(int Done, int Total)> CountProgressAsync(

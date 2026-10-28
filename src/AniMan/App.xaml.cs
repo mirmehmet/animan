@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using System.IO;
 using System.Windows;
+using System.Windows.Markup;
 using Wpf.Ui;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
@@ -21,6 +22,8 @@ namespace AniMan;
 
 public partial class App : Application
 {
+    private static bool _languageMetadataOverridden;
+
     public static IServiceProvider Services { get; private set; } = null!;
 
     private static Serilog.ILogger AppLogger => Log.ForContext<App>();
@@ -58,6 +61,7 @@ public partial class App : Application
 
             var language = await settings.GetLanguageAsync();
             LocalizationManager.SetCulture(language);
+            ApplyXmlLanguageMetadata();
 
             // Purge soft-deleted items older than 30 days on every startup
             var tracking = Services.GetRequiredService<ITrackingService>();
@@ -80,6 +84,18 @@ public partial class App : Application
                 "AniMan", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private static void ApplyXmlLanguageMetadata()
+    {
+        if (_languageMetadataOverridden)
+            return;
+
+        FrameworkElement.LanguageProperty.OverrideMetadata(
+            typeof(FrameworkElement),
+            new FrameworkPropertyMetadata(
+                XmlLanguage.GetLanguage(LocalizationManager.Culture.IetfLanguageTag)));
+        _languageMetadataOverridden = true;
     }
 
     private void RegisterGlobalExceptionHandlers()

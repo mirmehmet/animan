@@ -7,10 +7,6 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.21">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.9" />
     <PackageReference Include="MinVer" Version="7.0.0">
@@ -35,6 +31,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\animan.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en;tr</SatelliteResourceLanguages>
     <!-- Single-file publish defaults -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>

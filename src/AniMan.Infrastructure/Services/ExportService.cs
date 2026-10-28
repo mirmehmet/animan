@@ -15,6 +15,7 @@ public sealed class ExportService(
     ILogger<ExportService> logger) : IExportService
 {
     internal const int CurrentSchemaVersion = 1;
+    private const long MaxBackupSizeBytes = 50L * 1024 * 1024; // 50 MB
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -75,20 +76,32 @@ public sealed class ExportService(
     {
         try
         {
-            if (!File.Exists(filePath))
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists)
                 return Result.Failure($"Backup file not found: {filePath}");
+
+            if (fileInfo.Length > MaxBackupSizeBytes)
+                return Result.Failure("Backup file is too large (maximum 50 MB).");
 
             LibraryBackup? backup;
             await using (var stream = File.OpenRead(filePath))
                 backup = await JsonSerializer.DeserializeAsync<LibraryBackup>(stream, JsonOptions, ct).ConfigureAwait(false);
 
-            if (backup is null)
+            if (backup is null || backup.SchemaVersion < 1 || backup.ExportedAt == default)
                 return Result.Failure("Backup file is empty or invalid.");
             if (backup.SchemaVersion > CurrentSchemaVersion)
                 return Result.Failure(
                     $"Backup schema version {backup.SchemaVersion} is newer than supported ({CurrentSchemaVersion}).");
 
+            var backupItems = backup.Items ?? [];
+
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+            if (mode == ImportMode.Overwrite && backupItems.Count == 0 &&
+                await db.LibraryItems.AnyAsync(ct).ConfigureAwait(false))
+            {
+                return Result.Failure("Backup contains no items; refusing to overwrite a non-empty library.");
+            }
 
             // Overwrite deletes everything before inserting; a single transaction keeps
             // the user's library intact if the insert phase fails. The InMemory test
@@ -101,6 +114,11 @@ public sealed class ExportService(
             {
                 // Cascade delete removes snapshots/progress/notes/overrides with their item.
                 db.LibraryItems.RemoveRange(await db.LibraryItems.ToListAsync(ct).ConfigureAwait(false));
+                var customStatuses = await db.TrackingStatuses
+                    .Where(s => !s.IsDefault)
+                    .ToListAsync(ct).ConfigureAwait(false);
+                if (customStatuses.Count > 0)
+                    db.TrackingStatuses.RemoveRange(customStatuses);
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
 
@@ -121,10 +139,20 @@ public sealed class ExportService(
                 }
             }
 
+            var seenKeys = new HashSet<(int MalId, MediaType MediaType)>(existingActiveKeys);
+            var referencedCovers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var imported = 0;
             var skipped = 0;
-            foreach (var dto in backup.Items ?? [])
+
+            foreach (var dto in backupItems)
             {
+                if (dto.MalId <= 0)
+                {
+                    skipped++;
+                    logger.LogWarning("Skipping backup item with invalid MalId {MalId}", dto.MalId);
+                    continue;
+                }
+
                 if (!Enum.TryParse<MediaType>(dto.MediaType, ignoreCase: true, out var mediaType))
                 {
                     skipped++;
@@ -137,8 +165,11 @@ public sealed class ExportService(
                 var key = (dto.MalId, mediaType);
                 if (mode == ImportMode.Merge)
                 {
-                    if (existingActiveKeys.Contains(key))
+                    if (!seenKeys.Add(key))
+                    {
+                        skipped++;
                         continue;
+                    }
 
                     if (existingTrashedByKey.TryGetValue(key, out var trashedLocal))
                     {
@@ -149,8 +180,6 @@ public sealed class ExportService(
                         await db.SaveChangesAsync(ct).ConfigureAwait(false);
                         existingTrashedByKey.Remove(key);
                     }
-
-                    existingActiveKeys.Add(key);
                 }
 
                 var entity = BuildEntity(dto, mediaType, statusMap);
@@ -159,8 +188,12 @@ public sealed class ExportService(
                 // machine — never trust it. Re-point to this machine's covers folder,
                 // re-downloading from CoverOriginalUrl when the file is gone.
                 if (entity.Snapshot is { } snap)
+                {
                     snap.CoverLocalPath = await coverStore.EnsureAsync(
                         dto.MalId, mediaType, snap.CoverOriginalUrl, ct).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(snap.CoverLocalPath))
+                        referencedCovers.Add(Path.GetFullPath(snap.CoverLocalPath));
+                }
 
                 db.LibraryItems.Add(entity);
                 imported++;
@@ -170,6 +203,9 @@ public sealed class ExportService(
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct).ConfigureAwait(false);
+
+            if (mode == ImportMode.Overwrite)
+                coverStore.SweepUnreferenced(referencedCovers);
 
             logger.LogInformation(
                 "Imported {Count} items ({Mode}) from {Path}; {Skipped} skipped",
@@ -198,17 +234,20 @@ public sealed class ExportService(
 
         foreach (var dto in backupStatuses)
         {
-            if (string.IsNullOrWhiteSpace(dto.Name) || map.ContainsKey(dto.Name)) continue;
+            var trimmedName = dto.Name?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedName) || map.ContainsKey(trimmedName))
+                continue;
 
             var status = new TrackingStatus
             {
-                Name = dto.Name,
-                IsDefault = dto.IsDefault,
+                Name = trimmedName,
+                // Seeded default statuses already exist in DB; custom statuses from backups are never system defaults.
+                IsDefault = false,
                 DisplayOrder = dto.DisplayOrder,
                 Color = dto.Color
             };
             db.TrackingStatuses.Add(status);
-            map[dto.Name] = status;
+            map[trimmedName] = status;
         }
 
         return map;
@@ -217,7 +256,7 @@ public sealed class ExportService(
     private static TrackingStatus ResolveStatus(
         Dictionary<string, TrackingStatus> map, string? statusName, MediaType mediaType)
     {
-        if (!string.IsNullOrWhiteSpace(statusName) && map.TryGetValue(statusName, out var status))
+        if (!string.IsNullOrWhiteSpace(statusName) && map.TryGetValue(statusName.Trim(), out var status))
             return status;
 
         // Fall back to the media-appropriate "Plan to …" default, else any status.
@@ -230,43 +269,59 @@ public sealed class ExportService(
     private static LibraryItem BuildEntity(
         LibraryItemDto dto, MediaType mediaType, Dictionary<string, TrackingStatus> statusMap)
     {
+        var sanitizedScore = dto.Score is >= 1 and <= 10 ? dto.Score : null;
+        var sanitizedRating = dto.UserRating.HasValue
+            ? Math.Round(Math.Clamp(dto.UserRating.Value, 0m, 10m), 1, MidpointRounding.AwayFromZero)
+            : (decimal?)null;
+
         var item = new LibraryItem
         {
             MalId = dto.MalId,
             MediaType = mediaType,
             Status = ResolveStatus(statusMap, dto.StatusName, mediaType),
-            Score = dto.Score,
-            UserRating = dto.UserRating,
+            Score = sanitizedScore,
+            UserRating = sanitizedRating,
             IsFavorite = dto.IsFavorite,
-            RewatchCount = dto.RewatchCount,
+            RewatchCount = Math.Max(0, dto.RewatchCount),
             LastRewatchDate = dto.LastRewatchDate,
             StartedAt = dto.StartedAt,
             CompletedAt = dto.CompletedAt,
-            AddedAt = dto.AddedAt,
-            UpdatedAt = dto.UpdatedAt,
+            AddedAt = dto.AddedAt == default ? DateTime.UtcNow : dto.AddedAt,
+            UpdatedAt = dto.UpdatedAt == default ? DateTime.UtcNow : dto.UpdatedAt,
             DeletedAt = dto.DeletedAt,
             EpisodeProgress = (dto.Episodes ?? [])
+                .Where(e => e.EpisodeNumber > 0)
                 .DistinctBy(e => e.EpisodeNumber)
                 .Select(e => new EpisodeProgress
                 {
                     EpisodeNumber = e.EpisodeNumber, IsWatched = e.IsWatched, WatchedAt = e.WatchedAt
                 }).ToList(),
             ChapterProgress = (dto.Chapters ?? [])
+                .Where(c => c.ChapterNumber > 0)
                 .DistinctBy(c => c.ChapterNumber)
                 .Select(c => new ChapterProgress
                 {
                     ChapterNumber = c.ChapterNumber, IsRead = c.IsRead, ReadAt = c.ReadAt
                 }).ToList(),
             Notes = (dto.Notes ?? [])
+                .Where(n => !string.IsNullOrWhiteSpace(n.Content))
+                .GroupBy(n => (n.EpisodeNumber, n.ChapterNumber))
+                .Select(g => g.Last())
                 .Select(n => new Note
                 {
-                    EpisodeNumber = n.EpisodeNumber, ChapterNumber = n.ChapterNumber,
-                    Content = n.Content ?? string.Empty, CreatedAt = n.CreatedAt, UpdatedAt = n.UpdatedAt
+                    EpisodeNumber = n.EpisodeNumber,
+                    ChapterNumber = n.ChapterNumber,
+                    Content = n.Content,
+                    CreatedAt = n.CreatedAt == default ? DateTime.UtcNow : n.CreatedAt,
+                    UpdatedAt = n.UpdatedAt == default ? DateTime.UtcNow : n.UpdatedAt
                 }).ToList(),
             StreamingOverrides = (dto.StreamingOverrides ?? [])
+                .Where(o => !string.IsNullOrWhiteSpace(o.PlatformName))
                 .Select(o => new UserStreamingOverride
                 {
-                    PlatformName = o.PlatformName ?? string.Empty, Url = o.Url ?? string.Empty, AddedAt = o.AddedAt
+                    PlatformName = o.PlatformName,
+                    Url = o.Url ?? string.Empty,
+                    AddedAt = o.AddedAt == default ? DateTime.UtcNow : o.AddedAt
                 }).ToList()
         };
 
@@ -274,13 +329,25 @@ public sealed class ExportService(
         {
             item.Snapshot = new MediaSnapshot
             {
-                Title = s.Title, TitleJapanese = s.TitleJapanese, Synopsis = s.Synopsis, Type = s.Type,
-                Status = s.Status, Studio = s.Studio,
-                TotalEpisodes = s.TotalEpisodes, TotalChapters = s.TotalChapters, TotalVolumes = s.TotalVolumes,
-                AiringStart = s.AiringStart, AiringEnd = s.AiringEnd, Season = s.Season, Year = s.Year,
-                MalScore = s.MalScore, Genres = s.Genres, CoverLocalPath = s.CoverLocalPath,
-                CoverOriginalUrl = s.CoverOriginalUrl, StreamingPlatforms = s.StreamingPlatforms,
-                SnapshotAt = s.SnapshotAt
+                Title = string.IsNullOrWhiteSpace(s.Title) ? $"#{dto.MalId}" : s.Title,
+                TitleJapanese = s.TitleJapanese,
+                Synopsis = s.Synopsis,
+                Type = s.Type,
+                Status = s.Status,
+                Studio = s.Studio,
+                TotalEpisodes = s.TotalEpisodes is > 0 ? s.TotalEpisodes : null,
+                TotalChapters = s.TotalChapters is > 0 ? s.TotalChapters : null,
+                TotalVolumes = s.TotalVolumes is > 0 ? s.TotalVolumes : null,
+                AiringStart = s.AiringStart,
+                AiringEnd = s.AiringEnd,
+                Season = s.Season,
+                Year = s.Year,
+                MalScore = s.MalScore,
+                Genres = string.IsNullOrWhiteSpace(s.Genres) ? "[]" : s.Genres,
+                CoverLocalPath = null,
+                CoverOriginalUrl = s.CoverOriginalUrl,
+                StreamingPlatforms = s.StreamingPlatforms,
+                SnapshotAt = s.SnapshotAt == default ? DateTime.UtcNow : s.SnapshotAt
             };
         }
 

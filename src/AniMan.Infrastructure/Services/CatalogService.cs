@@ -16,6 +16,10 @@ public sealed class CatalogService(
     ISettingsService settingsService,
     ILogger<CatalogService> logger) : ICatalogService
 {
+    private const int MaxEpisodePages = 100;
+
+    public static void ClearCaches() => NegativeStreamingCache.Clear();
+
     public async Task<Result<IReadOnlyList<CachedAnime>>> SearchAnimeAsync(
         string query, CancellationToken ct = default)
     {
@@ -58,10 +62,17 @@ public sealed class CatalogService(
         }
     }
 
-    public async Task<Result<CachedAnime>> GetAnimeAsync(int malId, CancellationToken ct = default)
+    public async Task<Result<CachedAnime>> GetAnimeAsync(
+        int malId, bool force = false, CancellationToken ct = default)
     {
+        if (malId <= 0)
+            return Result<CachedAnime>.Failure("Invalid anime ID.");
+
         try
         {
+            if (force)
+                return await FetchAndCacheAnimeAsync(malId, ct).ConfigureAwait(false);
+
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var cached = await db.Anime.AsNoTracking()
                 .FirstOrDefaultAsync(a => a.Id == malId, ct).ConfigureAwait(false);
@@ -86,10 +97,17 @@ public sealed class CatalogService(
         }
     }
 
-    public async Task<Result<CachedManga>> GetMangaAsync(int malId, CancellationToken ct = default)
+    public async Task<Result<CachedManga>> GetMangaAsync(
+        int malId, bool force = false, CancellationToken ct = default)
     {
+        if (malId <= 0)
+            return Result<CachedManga>.Failure("Invalid manga ID.");
+
         try
         {
+            if (force)
+                return await FetchAndCacheMangaAsync(malId, ct).ConfigureAwait(false);
+
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var cached = await db.Manga.AsNoTracking()
                 .FirstOrDefaultAsync(m => m.Id == malId, ct).ConfigureAwait(false);
@@ -117,12 +135,22 @@ public sealed class CatalogService(
     public async Task<Result<IReadOnlyList<CachedEpisode>>> GetAnimeEpisodesAsync(
         int malId, CancellationToken ct = default)
     {
+        if (malId <= 0)
+            return Result<IReadOnlyList<CachedEpisode>>.Failure("Invalid anime ID.");
+
         try
         {
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var anime = await db.Anime.AsNoTracking().FirstOrDefaultAsync(a => a.Id == malId, ct).ConfigureAwait(false);
+            var anime = await db.Anime.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == malId, ct).ConfigureAwait(false);
+
             if (anime is null)
-                return Result<IReadOnlyList<CachedEpisode>>.Failure($"Anime {malId} not in catalog");
+            {
+                var animeResult = await GetAnimeAsync(malId, force: false, ct).ConfigureAwait(false);
+                if (!animeResult.IsSuccess)
+                    return Result<IReadOnlyList<CachedEpisode>>.Failure(animeResult.Error!);
+                anime = animeResult.Value!;
+            }
 
             var cached = await db.Episodes.AsNoTracking()
                 .Where(e => e.AnimeId == malId)
@@ -132,7 +160,7 @@ public sealed class CatalogService(
             if (cached.Count > 0 && !await IsStaleAsync(anime.FetchedAt, ct).ConfigureAwait(false))
                 return Result<IReadOnlyList<CachedEpisode>>.Success(cached);
 
-            return await FetchAndCacheEpisodesAsync(malId, anime.TotalEpisodes, ct).ConfigureAwait(false);
+            return await FetchAndCacheEpisodesAsync(malId, anime.TotalEpisodes, cached, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -205,6 +233,9 @@ public sealed class CatalogService(
     public async Task<Result<IReadOnlyList<CachedAnimeStreaming>>> GetAnimeStreamingAsync(
         int malId, bool force = false, CancellationToken ct = default)
     {
+        if (malId <= 0)
+            return Result<IReadOnlyList<CachedAnimeStreaming>>.Failure("Invalid anime ID.");
+
         try
         {
             if (!force)
@@ -223,7 +254,16 @@ public sealed class CatalogService(
                 }
             }
 
-            return await FetchAndCacheStreamingAsync(malId, ct).ConfigureAwait(false);
+            var ownsInFlight = InFlightRefreshes.TryAdd(("streaming", malId), 0);
+            try
+            {
+                return await FetchAndCacheStreamingAsync(malId, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (ownsInFlight)
+                    InFlightRefreshes.TryRemove(("streaming", malId), out _);
+            }
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -340,21 +380,63 @@ public sealed class CatalogService(
     }
 
     private async Task<Result<IReadOnlyList<CachedEpisode>>> FetchAndCacheEpisodesAsync(
-        int malId, int? totalEpisodes, CancellationToken ct)
+        int malId, int? totalEpisodes, IReadOnlyList<CachedEpisode> existingCached, CancellationToken ct)
     {
         var allEpisodes = new List<CachedEpisode>();
+        var failedMidway = false;
+        string? failureError = null;
         int page = 1;
 
-        while (true)
+        while (page <= MaxEpisodePages)
         {
             var result = await sourceClient.GetAnimeEpisodesAsync(malId, page, ct).ConfigureAwait(false);
-            if (!result.IsSuccess || result.Value?.Data is null) break;
+            if (!result.IsSuccess || result.Value?.Data is null)
+            {
+                failedMidway = true;
+                failureError = result.Error;
+                break;
+            }
+
+            if (result.Value.Data.Count == 0)
+            {
+                // If an earlier page reported HasNextPage == true and we still haven't reached
+                // totalEpisodes, an empty page (e.g. AniList fallback on page > 1) means the
+                // multi-page list was truncated rather than legitimately empty.
+                if (page > 1 && (totalEpisodes is null || allEpisodes.Count < totalEpisodes.Value))
+                    failedMidway = true;
+                break;
+            }
 
             var episodes = result.Value.Data.Select(e => MediaMapper.ToEpisode(e, malId));
             allEpisodes.AddRange(episodes);
 
             if (result.Value.Pagination?.HasNextPage != true) break;
             page++;
+        }
+
+        allEpisodes = allEpisodes
+            .Where(e => e.EpisodeNumber > 0)
+            .DistinctBy(e => e.EpisodeNumber)
+            .OrderBy(e => e.EpisodeNumber)
+            .ToList();
+
+        if (failedMidway)
+        {
+            if (existingCached.Count > 0)
+            {
+                logger.LogWarning(
+                    "Episode refresh failed at page {Page} for anime {Id}; preserving {Count} cached episodes",
+                    page, malId, existingCached.Count);
+                return Result<IReadOnlyList<CachedEpisode>>.Success(existingCached);
+            }
+
+            if (allEpisodes.Count == 0)
+                return Result<IReadOnlyList<CachedEpisode>>.Failure(failureError ?? "Failed to load episode list.");
+
+            logger.LogWarning(
+                "Episode fetch truncated at page {Page} for anime {Id}; serving {Count} episodes without overwriting cache",
+                page, malId, allEpisodes.Count);
+            return Result<IReadOnlyList<CachedEpisode>>.Success(allEpisodes);
         }
 
         // Placeholder fallback: the source lists no episodes but we know the total
@@ -367,6 +449,12 @@ public sealed class CatalogService(
         await TryCacheAsync($"episodes for anime {malId}", async () =>
         {
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            if (!await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false))
+            {
+                logger.LogDebug("Skipping episode cache write for anime {Id}: parent anime not in catalog", malId);
+                return;
+            }
+
             var existing = db.Episodes.Where(e => e.AnimeId == malId);
             db.Episodes.RemoveRange(existing);
             db.Episodes.AddRange(allEpisodes);
@@ -413,7 +501,7 @@ public sealed class CatalogService(
 
     /// <summary>
     /// Batched genre upsert for one or more media items: one query for existing
-    /// genres and one for stale links, instead of two round-trips per item.
+    /// genres and a diff against existing links, instead of two round-trips per item.
     /// </summary>
     private static async Task UpsertGenresAsync(
         CatalogDbContext db,
@@ -426,7 +514,10 @@ public sealed class CatalogService(
         // Items with no genres keep their existing links (same as the old per-item
         // early return).
         var withGenres = items
-            .Select(i => (i.MediaId, Genres: i.Genres.DistinctBy(g => g.Id).ToList()))
+            .Select(i => (i.MediaId, Genres: i.Genres
+                .Where(g => g.Id > 0 && !string.IsNullOrWhiteSpace(g.Name))
+                .DistinctBy(g => g.Id)
+                .ToList()))
             .Where(i => i.Genres.Count > 0)
             .ToList();
         if (withGenres.Count == 0) return;
@@ -450,19 +541,37 @@ public sealed class CatalogService(
                 db.Genres.Add(genre);
 
         var mediaIds = withGenres.Select(i => i.MediaId).ToList();
-        var toDelete = await db.MediaGenres
+        var existingLinks = await db.MediaGenres
             .Where(mg => mediaIds.Contains(mg.MediaId) && mg.MediaType == mediaType)
             .ToListAsync(ct).ConfigureAwait(false);
-        db.MediaGenres.RemoveRange(toDelete);
 
-        foreach (var (mediaId, genres) in withGenres)
-            foreach (var genre in genres)
+        var desiredPairs = withGenres
+            .SelectMany(i => i.Genres.Select(g => (i.MediaId, GenreId: g.Id)))
+            .ToHashSet();
+
+        foreach (var link in existingLinks)
+        {
+            if (!desiredPairs.Remove((link.MediaId, link.GenreId)))
+                db.MediaGenres.Remove(link);
+        }
+
+        var stagedPairs = db.ChangeTracker.Entries<CachedMediaGenre>()
+            .Where(e => e.State == EntityState.Added && e.Entity.MediaType == mediaType)
+            .Select(e => (e.Entity.MediaId, e.Entity.GenreId))
+            .ToHashSet();
+
+        foreach (var (mediaId, genreId) in desiredPairs)
+        {
+            if (stagedPairs.Add((mediaId, genreId)))
+            {
                 db.MediaGenres.Add(new CachedMediaGenre
                 {
                     MediaId = mediaId,
                     MediaType = mediaType,
-                    GenreId = genre.Id
+                    GenreId = genreId
                 });
+            }
+        }
     }
 
     /// <summary>
@@ -492,13 +601,14 @@ public sealed class CatalogService(
             .ToList();
         if (unresolved.Count == 0) return;
 
-        var names = unresolved.Select(g => g.Name).Distinct().ToList();
-
-        var byName = (await db.Genres
-            .Where(g => names.Contains(g.Name))
+        // Load the full genre dictionary (a few dozen rows at most) so matching is truly
+        // case-insensitive even on SQLite's default case-sensitive TEXT collation.
+        var allStored = await db.Genres.AsNoTracking()
             .Select(g => new { g.Id, g.Name })
-            .ToListAsync(ct).ConfigureAwait(false))
-            .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var byName = allStored
+            .GroupBy(g => g.Name.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
         // Genres added earlier in this same unit of work are not queryable yet.
@@ -507,13 +617,14 @@ public sealed class CatalogService(
             .Select(e => e.Entity)
             .ToList();
         foreach (var genre in staged)
-            byName.TryAdd(genre.Name, genre.Id);
+            byName.TryAdd(genre.Name.Trim(), genre.Id);
 
         // Continue after the highest generated id, counting both saved and staged rows.
-        var maxStored = await db.Genres
+        var maxStored = allStored
             .Where(g => g.Id >= GeneratedGenreIdBase)
-            .Select(g => (int?)g.Id)
-            .MaxAsync(ct).ConfigureAwait(false);
+            .Select(g => g.Id)
+            .DefaultIfEmpty(0)
+            .Max();
 
         var maxStaged = staged
             .Where(g => g.Id >= GeneratedGenreIdBase)
@@ -521,27 +632,35 @@ public sealed class CatalogService(
             .DefaultIfEmpty(0)
             .Max();
 
-        var nextId = Math.Max(GeneratedGenreIdBase, Math.Max(maxStored ?? 0, maxStaged) + 1);
+        var nextId = Math.Max(GeneratedGenreIdBase, Math.Max(maxStored, maxStaged) + 1);
 
         foreach (var genre in unresolved)
         {
-            if (byName.TryGetValue(genre.Name, out var existingId))
+            var trimmed = genre.Name.Trim();
+            genre.Name = trimmed;
+            if (byName.TryGetValue(trimmed, out var existingId))
             {
                 genre.Id = existingId;
                 continue;
             }
 
             genre.Id = nextId++;
-            byName[genre.Name] = genre.Id;
+            byName[trimmed] = genre.Id;
         }
     }
 
     private async Task<List<CachedAnime>> UpsertAnimeListAsync(
         IReadOnlyList<AnimeDto> dtos, CancellationToken ct)
     {
-        // seasons/now can return duplicate MAL IDs — deduplicate before tracking.
-        var uniqueDtos = dtos.GroupBy(d => d.MalId).Select(g => g.First()).ToList();
+        // seasons/now can return duplicate MAL IDs — filter invalid IDs and deduplicate before tracking.
+        var uniqueDtos = dtos
+            .Where(d => d.MalId > 0)
+            .GroupBy(d => d.MalId)
+            .Select(g => g.First())
+            .ToList();
         var mapped = uniqueDtos.Select(MediaMapper.ToAnime).ToList();
+        if (mapped.Count == 0)
+            return mapped;
 
         // Mapping is complete above; caching below is best-effort so a database
         // failure cannot discard results the API already returned successfully.
@@ -575,8 +694,14 @@ public sealed class CatalogService(
     private async Task<List<CachedManga>> UpsertMangaListAsync(
         IReadOnlyList<MangaDto> dtos, CancellationToken ct)
     {
-        var uniqueDtos = dtos.GroupBy(d => d.MalId).Select(g => g.First()).ToList();
+        var uniqueDtos = dtos
+            .Where(d => d.MalId > 0)
+            .GroupBy(d => d.MalId)
+            .Select(g => g.First())
+            .ToList();
         var mapped = uniqueDtos.Select(MediaMapper.ToManga).ToList();
+        if (mapped.Count == 0)
+            return mapped;
 
         await TryCacheAsync("manga list", async () =>
         {
@@ -613,7 +738,11 @@ public sealed class CatalogService(
             return Result<IReadOnlyList<CachedAnimeStreaming>>.Failure(result.Error ?? "Failed to load streaming info.");
 
         var data = result.Value?.Data ?? [];
-        var streaming = data.Select(s => MediaMapper.ToStreaming(s, malId)).ToList();
+        var streaming = data
+            .Where(s => !string.IsNullOrWhiteSpace(s.Name))
+            .Select(s => MediaMapper.ToStreaming(s, malId))
+            .DistinctBy(s => s.PlatformName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         if (streaming.Count == 0)
         {
@@ -627,6 +756,20 @@ public sealed class CatalogService(
         await TryCacheAsync($"streaming for anime {malId}", async () =>
         {
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var hasParent = await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false);
+            if (!hasParent)
+            {
+                var parentResult = await GetAnimeAsync(malId, force: false, ct).ConfigureAwait(false);
+                hasParent = parentResult.IsSuccess &&
+                            await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false);
+            }
+
+            if (!hasParent)
+            {
+                logger.LogDebug("Skipping streaming cache write for anime {Id}: parent anime not in catalog", malId);
+                return;
+            }
+
             var existing = db.AnimeStreaming.Where(s => s.AnimeId == malId);
             db.AnimeStreaming.RemoveRange(existing);
             db.AnimeStreaming.AddRange(streaming);

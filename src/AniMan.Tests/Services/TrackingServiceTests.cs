@@ -74,6 +74,16 @@ public class TrackingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SetEpisodeWatched_FalseWhenMissing_DoesNotCreateRow()
+    {
+        var svc = Create();
+        var result = await svc.SetEpisodeWatchedAsync(1, 9, watched: false);
+
+        result.IsSuccess.Should().BeTrue();
+        _db.EpisodeProgress.AsNoTracking().Where(e => e.LibraryItemId == 1 && e.EpisodeNumber == 9).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task SetEpisodeWatched_False_ClearsWatchedAt()
     {
         _db.EpisodeProgress.Add(new EpisodeProgress
@@ -206,7 +216,7 @@ public class TrackingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SaveNote_Create_ThenUpdate()
+    public async Task SaveNote_Create_Update_ThenClearRemovesRow()
     {
         var svc = Create();
 
@@ -218,6 +228,9 @@ public class TrackingServiceTests : IDisposable
         var updated = _db.Notes.AsNoTracking().Single(n => n.LibraryItemId == 1);
         updated.Content.Should().Be("Updated note");
         _db.Notes.AsNoTracking().Count(n => n.LibraryItemId == 1).Should().Be(1);
+
+        await svc.SaveNoteAsync(1, null, null, "   ");
+        _db.Notes.AsNoTracking().Where(n => n.LibraryItemId == 1).Should().BeEmpty();
     }
 
     [Fact]

@@ -7,6 +7,7 @@ using AniMan.ViewModels.Detail;
 using AniMan.Views.Library;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using Wpf.Ui;
@@ -153,22 +154,36 @@ public partial class DetailPage : UserControl, INavigationAware
             vm.SoftDeleteCommand.Execute(null);
     }
 
-    private void OnRatingKeyDown(object sender, KeyEventArgs e)
+    private async void OnRatingKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && sender is SWC.TextBox tb)
-        {
-            var vm = (DetailViewModel)DataContext;
-            vm.SetRatingCommand.Execute(tb.Text);
-            tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
-        }
+        if (e.Key != Key.Enter || sender is not SWC.TextBox tb)
+            return;
+
+        e.Handled = true;
+        var moved = tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+        if (!moved)
+            await CommitRatingAsync(tb);
     }
 
-    private void OnRatingLostFocus(object sender, RoutedEventArgs e)
+    private async void OnRatingLostFocus(object sender, RoutedEventArgs e)
     {
         if (sender is SWC.TextBox tb)
+            await CommitRatingAsync(tb);
+    }
+
+    private async Task CommitRatingAsync(SWC.TextBox tb)
+    {
+        try
         {
-            var vm = (DetailViewModel)DataContext;
-            vm.SetRatingCommand.Execute(tb.Text);
+            if (DataContext is DetailViewModel vm)
+            {
+                await vm.SetRatingCommand.ExecuteAsync(tb.Text);
+                BindingOperations.GetBindingExpression(tb, SWC.TextBox.TextProperty)?.UpdateTarget();
+            }
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.ForContext<DetailPage>().Error(ex, "Rating commit failed");
         }
     }
 

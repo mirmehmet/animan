@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using AniMan.Core.Common;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -172,20 +173,16 @@ public partial class DetailViewModel : ObservableObject
     [RelayCommand]
     private async Task SetRatingAsync(string? ratingText)
     {
-        if (string.IsNullOrWhiteSpace(ratingText))
-        {
-            var r = await _tracking.SetRatingAsync(LibraryItemId, null);
-            if (r.IsSuccess) UserRating = null;
-            return;
-        }
-
-        if (!decimal.TryParse(ratingText, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+        if (!RatingParser.TryParse(ratingText, out var parsed))
             return;
 
-        parsed = Math.Round(Math.Clamp(parsed, 0m, 10m), 1);
         var result = await _tracking.SetRatingAsync(LibraryItemId, parsed);
-        if (result.IsSuccess) UserRating = parsed;
+        if (result.IsSuccess)
+        {
+            UserRating = parsed;
+            if (Item is not null)
+                Item.UserRating = parsed;
+        }
     }
 
     [RelayCommand]
@@ -211,14 +208,24 @@ public partial class DetailViewModel : ObservableObject
     private async Task ReSnapshotAsync()
     {
         var result = await _snapshot.ReSnapshotAsync(LibraryItemId);
-        if (result.IsSuccess)
+        if (!result.IsSuccess) return;
+
+        if (Item is not null)
+            Item.Snapshot = result.Value;
+
+        MediaSnapshot = result.Value;
+        Genres = DeserializeGenres(MediaSnapshot?.Genres);
+        LoadCoverImage();
+        await LoadProgressAsync();
+
+        if (IsManga)
         {
-            MediaSnapshot = result.Value;
-            LoadCoverImage();
-            if (!IsManga && Item is not null)
-            {
-                await LoadStreamingAsync(Item.MalId, force: true);
-            }
+            await LoadChaptersAsync();
+        }
+        else if (Item is not null)
+        {
+            await LoadEpisodesAsync();
+            await LoadStreamingAsync(Item.MalId, force: true);
         }
     }
 
@@ -304,9 +311,18 @@ public partial class DetailViewModel : ObservableObject
             { UseShellExecute = true });
     }
 
-    private static IReadOnlyList<string> DeserializeGenres(string? json) =>
-        string.IsNullOrEmpty(json) ? [] :
-        JsonSerializer.Deserialize<List<string>>(json) ?? [];
+    private static IReadOnlyList<string> DeserializeGenres(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 
     private async Task LoadStreamingAsync(int malId, bool force = false)
     {
@@ -349,7 +365,10 @@ public partial class DetailViewModel : ObservableObject
 
     private void LoadSeriesNote()
     {
-        var note = Item?.Notes.FirstOrDefault(n => n.EpisodeNumber is null && n.ChapterNumber is null);
+        var note = Item?.Notes.FirstOrDefault(n =>
+            n.EpisodeNumber is null &&
+            n.ChapterNumber is null &&
+            !string.IsNullOrWhiteSpace(n.Content));
         SeriesNote = note?.Content ?? string.Empty;
         _lastSavedSeriesNote = SeriesNote;
     }
@@ -367,9 +386,10 @@ public partial class DetailViewModel : ObservableObject
         if (Item?.Snapshot is null) return;
 
         var episodeProgress = Item.EpisodeProgress
-            .ToDictionary(ep => ep.EpisodeNumber, ep => ep);
+            .GroupBy(ep => ep.EpisodeNumber)
+            .ToDictionary(g => g.Key, g => g.First());
         var episodeNotes = Item.Notes
-            .Where(n => n.EpisodeNumber.HasValue)
+            .Where(n => n.EpisodeNumber.HasValue && !string.IsNullOrWhiteSpace(n.Content))
             .Select(n => n.EpisodeNumber!.Value)
             .ToHashSet();
 
@@ -409,9 +429,10 @@ public partial class DetailViewModel : ObservableObject
         if (Item?.Snapshot is null) return;
 
         var chapterProgress = Item.ChapterProgress
-            .ToDictionary(cp => cp.ChapterNumber, cp => cp);
+            .GroupBy(cp => cp.ChapterNumber)
+            .ToDictionary(g => g.Key, g => g.First());
         var chapterNotes = Item.Notes
-            .Where(n => n.ChapterNumber.HasValue)
+            .Where(n => n.ChapterNumber.HasValue && !string.IsNullOrWhiteSpace(n.Content))
             .Select(n => n.ChapterNumber!.Value)
             .ToHashSet();
 
@@ -568,7 +589,13 @@ public partial class DetailViewModel : ObservableObject
         {
             var note = Item.Notes.FirstOrDefault(n =>
                 n.EpisodeNumber == episodeNumber && n.ChapterNumber == chapterNumber);
-            if (note is null)
+            if (!hasText)
+            {
+                if (note is not null)
+                    Item.Notes.Remove(note);
+            }
+            else if (note is null)
+            {
                 Item.Notes.Add(new Note
                 {
                     LibraryItemId = LibraryItemId,
@@ -576,8 +603,11 @@ public partial class DetailViewModel : ObservableObject
                     ChapterNumber = chapterNumber,
                     Content = content
                 });
+            }
             else
+            {
                 note.Content = content;
+            }
         }
     }
 

@@ -21,6 +21,8 @@ public class CatalogServiceTests : IDisposable
 
     public CatalogServiceTests()
     {
+        CatalogService.ClearCaches();
+
         var options = new DbContextOptionsBuilder<CatalogDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
@@ -35,7 +37,7 @@ public class CatalogServiceTests : IDisposable
         _sourceMock = new Mock<IMediaSourceClient>(MockBehavior.Strict);
 
         _settingsMock = new Mock<ISettingsService>();
-        _settingsMock.Setup(s => s.GetCacheRefreshDaysAsync()).ReturnsAsync(7);
+        _settingsMock.Setup(s => s.GetCacheRefreshDaysAsync(It.IsAny<CancellationToken>())).ReturnsAsync(7);
     }
 
     private CatalogService CreateService() => new(
@@ -58,6 +60,29 @@ public class CatalogServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAnimeAsync_ForceTrue_BypassesFreshCacheAndUpdatesIt()
+    {
+        _db.Anime.Add(MakeCachedAnime(7, daysOld: 0, totalEpisodes: 10));
+        await _db.SaveChangesAsync();
+
+        var updatedDto = new AnimeDto { MalId = 7, Title = "Refreshed Anime 7", Episodes = 12 };
+        _sourceMock
+            .Setup(j => j.GetAnimeFullAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(new SingleResult<AnimeDto> { Data = updatedDto }));
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+
+        var svc = CreateService();
+        var result = await svc.GetAnimeAsync(7, force: true);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Title.Should().Be("Refreshed Anime 7");
+        result.Value.TotalEpisodes.Should().Be(12);
+    }
+
+    [Fact]
     public async Task GetAnimeAsync_CacheMiss_CallsTheSourceAndStores()
     {
         var dto = MakeAnimeDto(42);
@@ -65,6 +90,10 @@ public class CatalogServiceTests : IDisposable
         _sourceMock
             .Setup(j => j.GetAnimeFullAsync(42, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(apiResponse));
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
 
         var svc = CreateService();
         var result = await svc.GetAnimeAsync(42);
@@ -90,13 +119,16 @@ public class CatalogServiceTests : IDisposable
             .Setup(j => j.GetAnimeFullAsync(5, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(
                 new SingleResult<AnimeDto> { Data = dto }));
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
 
         var svc = CreateService();
         var result = await svc.GetAnimeAsync(5);
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Id.Should().Be(5);
-        // Background refresh fires async — we don't wait for it
     }
 
     [Fact]
@@ -124,6 +156,54 @@ public class CatalogServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAnimeEpisodesAsync_MissingParentAnime_FetchesParentFirst()
+    {
+        var dto = new AnimeDto { MalId = 77, Title = "Parent Fetched", Episodes = 3 };
+        _sourceMock
+            .Setup(j => j.GetAnimeFullAsync(77, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(new SingleResult<AnimeDto> { Data = dto }));
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(77, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+        _sourceMock
+            .Setup(j => j.GetAnimeEpisodesAsync(77, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<AnimeEpisodeDto>>.Success(new PagedResult<AnimeEpisodeDto>
+            {
+                Data = [new AnimeEpisodeDto { MalId = 1, Title = "Ep 1" }],
+                Pagination = new PaginationDto { HasNextPage = false }
+            }));
+
+        var svc = CreateService();
+        var result = await svc.GetAnimeEpisodesAsync(77);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Should().ContainSingle(e => e.EpisodeNumber == 1 && e.Title == "Ep 1");
+        (await _db.Anime.AsNoTracking().AnyAsync(a => a.Id == 77)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetAnimeEpisodesAsync_StaleCacheAndUpstreamFailure_PreservesCachedEpisodes()
+    {
+        _db.Anime.Add(MakeCachedAnime(88, daysOld: 14, totalEpisodes: 2));
+        _db.Episodes.AddRange(
+            new CachedEpisode { AnimeId = 88, EpisodeNumber = 1, Title = "Real Ep 1" },
+            new CachedEpisode { AnimeId = 88, EpisodeNumber = 2, Title = "Real Ep 2" });
+        await _db.SaveChangesAsync();
+
+        _sourceMock
+            .Setup(j => j.GetAnimeEpisodesAsync(88, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<PagedResult<AnimeEpisodeDto>>.Failure("Network down"));
+
+        var svc = CreateService();
+        var result = await svc.GetAnimeEpisodesAsync(88);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Select(e => e.Title).Should().Equal("Real Ep 1", "Real Ep 2");
+        _db.Episodes.AsNoTracking().Where(e => e.AnimeId == 88).Should().HaveCount(2);
+    }
+
+    [Fact]
     public async Task GetAnimeStreamingAsync_CacheHit_DoesNotCallTheSource()
     {
         _db.AnimeStreaming.Add(new CachedAnimeStreaming
@@ -144,7 +224,7 @@ public class CatalogServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAnimeStreamingAsync_CacheMiss_CallsSourceAndStores()
+    public async Task GetAnimeStreamingAsync_CacheMiss_AutoFetchesParentAnimeAndStoresStreaming()
     {
         var streamingResponse = new SingleResult<IReadOnlyList<StreamingDto>>
         {
@@ -153,6 +233,10 @@ public class CatalogServiceTests : IDisposable
         _sourceMock
             .Setup(s => s.GetAnimeStreamingAsync(41467, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(streamingResponse));
+        _sourceMock
+            .Setup(j => j.GetAnimeFullAsync(41467, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(
+                new SingleResult<AnimeDto> { Data = MakeAnimeDto(41467) }));
 
         var svc = CreateService();
         var result = await svc.GetAnimeStreamingAsync(41467);
@@ -161,14 +245,20 @@ public class CatalogServiceTests : IDisposable
         result.Value!.Should().HaveCount(1);
         result.Value![0].PlatformName.Should().Be("Disney+");
 
+        (await _db.Anime.AsNoTracking().AnyAsync(a => a.Id == 41467)).Should().BeTrue(
+            "parent Anime must be cached first so FK_AnimeStreaming_Anime_AnimeId never fails");
         var stored = await _db.AnimeStreaming.Where(s => s.AnimeId == 41467).ToListAsync();
         stored.Should().HaveCount(1);
         stored[0].PlatformName.Should().Be("Disney+");
+        _sourceMock.Verify(s => s.GetAnimeStreamingAsync(41467, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetAnimeStreamingAsync_NegativeCache_DoesNotCallSourceRepeatedly()
     {
+        _db.Anime.Add(MakeCachedAnime(99999, daysOld: 0));
+        await _db.SaveChangesAsync();
+
         var emptyResponse = new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] };
         _sourceMock
             .Setup(s => s.GetAnimeStreamingAsync(99999, It.IsAny<CancellationToken>()))

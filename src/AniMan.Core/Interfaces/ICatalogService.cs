@@ -7,8 +7,8 @@ public interface ICatalogService
 {
     Task<Result<IReadOnlyList<CachedAnime>>> SearchAnimeAsync(string query, CancellationToken ct = default);
     Task<Result<IReadOnlyList<CachedManga>>> SearchMangaAsync(string query, CancellationToken ct = default);
-    Task<Result<CachedAnime>> GetAnimeAsync(int malId, CancellationToken ct = default);
-    Task<Result<CachedManga>> GetMangaAsync(int malId, CancellationToken ct = default);
+    Task<Result<CachedAnime>> GetAnimeAsync(int malId, bool force = false, CancellationToken ct = default);
+    Task<Result<CachedManga>> GetMangaAsync(int malId, bool force = false, CancellationToken ct = default);
     Task<Result<IReadOnlyList<CachedEpisode>>> GetAnimeEpisodesAsync(int malId, CancellationToken ct = default);
     Task<Result<IReadOnlyList<CachedAnime>>> GetCurrentSeasonAsync(CancellationToken ct = default);
     Task<Result<IReadOnlyList<CachedAnime>>> GetTopAnimeAsync(int page = 1, CancellationToken ct = default);
