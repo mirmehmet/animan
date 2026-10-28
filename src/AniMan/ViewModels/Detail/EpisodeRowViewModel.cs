@@ -2,12 +2,14 @@ using AniMan.Core.Interfaces;
 using AniMan.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 
 namespace AniMan.ViewModels.Detail;
 
 public partial class EpisodeRowViewModel : ObservableObject
 {
     private readonly ITrackingService _tracking;
+    private readonly ILogger _logger;
     private bool _suppress;
 
     public int LibraryItemId { get; init; }
@@ -39,9 +41,10 @@ public partial class EpisodeRowViewModel : ObservableObject
     public event EventHandler<EpisodeRowViewModel>? MarkUpToHereRequested;
     public event EventHandler<EpisodeRowViewModel>? NoteRequested;
 
-    public EpisodeRowViewModel(ITrackingService tracking)
+    public EpisodeRowViewModel(ITrackingService tracking, ILogger logger)
     {
         _tracking = tracking;
+        _logger = logger;
     }
 
     /// <summary>Sets the initial watched state and date without triggering persistence.</summary>
@@ -71,7 +74,7 @@ public partial class EpisodeRowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error(ex, "Episode watched toggle failed for item {Id} ep {Ep}",
+            _logger.LogError(ex, "Episode watched toggle failed for item {Id} ep {Ep}",
                 LibraryItemId, EpisodeNumber);
         }
 

@@ -385,7 +385,7 @@ public partial class DetailViewModel : ObservableObject
         var rows = new List<EpisodeRowViewModel>();
         for (int i = 1; i <= total; i++)
         {
-            var row = new EpisodeRowViewModel(_tracking)
+            var row = new EpisodeRowViewModel(_tracking, _logger)
             {
                 LibraryItemId = LibraryItemId,
                 EpisodeNumber = i,
@@ -420,7 +420,7 @@ public partial class DetailViewModel : ObservableObject
         var rows = new List<ChapterRowViewModel>();
         for (int i = 1; i <= total; i++)
         {
-            var row = new ChapterRowViewModel(_tracking)
+            var row = new ChapterRowViewModel(_tracking, _logger)
             {
                 LibraryItemId = LibraryItemId,
                 ChapterNumber = i,

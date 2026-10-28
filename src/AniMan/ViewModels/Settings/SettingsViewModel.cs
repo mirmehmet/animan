@@ -7,6 +7,7 @@ using AniMan.Localization;
 using AniMan.Theming;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 
 namespace AniMan.ViewModels.Settings;
 
@@ -16,7 +17,8 @@ public partial class SettingsViewModel(
     ISettingsService settingsService,
     ITrackingService trackingService,
     IDataManagementService dataManagementService,
-    IExportService exportService) : ObservableObject
+    IExportService exportService,
+    ILogger<SettingsViewModel> logger) : ObservableObject
 {
     private bool _initialized;
 
@@ -126,7 +128,7 @@ public partial class SettingsViewModel(
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error(ex, "Failed to save language setting");
+            logger.LogError(ex, "Failed to save language setting");
         }
     }
 
@@ -141,7 +143,7 @@ public partial class SettingsViewModel(
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error(ex, "Failed to save startup page setting");
+            logger.LogError(ex, "Failed to save startup page setting");
         }
     }
 
@@ -155,7 +157,7 @@ public partial class SettingsViewModel(
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error(ex, "Failed to save font setting");
+            logger.LogError(ex, "Failed to save font setting");
         }
     }
 
@@ -207,7 +209,7 @@ public partial class SettingsViewModel(
     partial void OnTrashItemsChanged(ObservableCollection<LibraryItem> value) =>
         OnPropertyChanged(nameof(HasTrashItems));
 
-    // ── Data reset ────────────────────────────────────────────────────────────
+    // ── Data reset ────────────────────────────────────────────────────
 
     [RelayCommand]
     private async Task DeleteAllDataAsync()

@@ -23,6 +23,8 @@ public partial class App : Application
 {
     public static IServiceProvider Services { get; private set; } = null!;
 
+    private static Serilog.ILogger AppLogger => Log.ForContext<App>();
+
     private static string AppDataPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AniMan");
 
@@ -36,6 +38,8 @@ public partial class App : Application
 
         ConfigureSerilog();
         RegisterGlobalExceptionHandlers();
+
+        AppLogger.Information("AniMan starting up");
 
         try
         {
@@ -70,7 +74,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Log.Fatal(ex, "Startup failed");
+            AppLogger.Fatal(ex, "Startup failed");
             System.Windows.MessageBox.Show(
                 LocalizationManager.Get("App_StartupFailed"),
                 "AniMan", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
@@ -84,7 +88,7 @@ public partial class App : Application
         // anything reaching these handlers is a bug, not an expected error path.
         DispatcherUnhandledException += (_, args) =>
         {
-            Log.Fatal(args.Exception, "Unhandled dispatcher exception");
+            AppLogger.Fatal(args.Exception, "Unhandled dispatcher exception");
             System.Windows.MessageBox.Show(
                 LocalizationManager.Get("App_UnexpectedError"),
                 LocalizationManager.Get("App_UnexpectedErrorTitle"),
@@ -94,13 +98,13 @@ public partial class App : Application
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
-            Log.Error(args.Exception, "Unobserved task exception");
+            AppLogger.Error(args.Exception, "Unobserved task exception");
             args.SetObserved();
         };
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
-            Log.Fatal(args.ExceptionObject as Exception,
+            AppLogger.Fatal(args.ExceptionObject as Exception,
                 "Unhandled AppDomain exception (terminating: {IsTerminating})", args.IsTerminating);
             Log.CloseAndFlush();
         };
@@ -113,7 +117,7 @@ public partial class App : Application
         services.AddLogging(logging =>
         {
             logging.ClearProviders();
-            logging.AddSerilog();
+            logging.AddSerilog(dispose: true);
         });
 
         services.AddInfrastructure(AppDataPath);
@@ -161,12 +165,25 @@ public partial class App : Application
 
     private static void ConfigureSerilog()
     {
+        const long maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+
         Log.Logger = new LoggerConfiguration()
+#if DEBUG
             .MinimumLevel.Debug()
+#else
+            .MinimumLevel.Information()
+#endif
+            .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore", Serilog.Events.LogEventLevel.Warning)
+            .MinimumLevel.Override("System", Serilog.Events.LogEventLevel.Warning)
+            .Enrich.FromLogContext()
             .WriteTo.File(
                 Path.Combine(AppDataPath, "logs", "AniMan_.log"),
                 rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 7)
+                retainedFileCountLimit: 7,
+                fileSizeLimitBytes: maxFileSizeBytes,
+                rollOnFileSizeLimit: true,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
     }
 
@@ -175,6 +192,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        AppLogger.Information("AniMan shutting down");
         Log.CloseAndFlush();
         base.OnExit(e);
     }

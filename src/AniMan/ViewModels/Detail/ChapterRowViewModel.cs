@@ -2,12 +2,14 @@ using AniMan.Core.Interfaces;
 using AniMan.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 
 namespace AniMan.ViewModels.Detail;
 
 public partial class ChapterRowViewModel : ObservableObject
 {
     private readonly ITrackingService _tracking;
+    private readonly ILogger _logger;
     private bool _suppress;
 
     public int LibraryItemId { get; init; }
@@ -38,9 +40,10 @@ public partial class ChapterRowViewModel : ObservableObject
     public event EventHandler<ChapterRowViewModel>? MarkUpToHereRequested;
     public event EventHandler<ChapterRowViewModel>? NoteRequested;
 
-    public ChapterRowViewModel(ITrackingService tracking)
+    public ChapterRowViewModel(ITrackingService tracking, ILogger logger)
     {
         _tracking = tracking;
+        _logger = logger;
     }
 
     /// <summary>Sets the initial read state and date without triggering persistence.</summary>
@@ -70,7 +73,7 @@ public partial class ChapterRowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error(ex, "Chapter read toggle failed for item {Id} ch {Ch}",
+            _logger.LogError(ex, "Chapter read toggle failed for item {Id} ch {Ch}",
                 LibraryItemId, ChapterNumber);
         }
 

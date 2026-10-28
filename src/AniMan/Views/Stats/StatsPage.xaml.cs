@@ -1,14 +1,18 @@
 using System.Windows.Controls;
 using AniMan.ViewModels.Stats;
+using Microsoft.Extensions.Logging;
 
 namespace AniMan.Views.Stats;
 
 public partial class StatsPage : UserControl
 {
-    public StatsPage(StatsViewModel viewModel)
+    private readonly ILogger<StatsPage> _logger;
+
+    public StatsPage(StatsViewModel viewModel, ILogger<StatsPage> logger)
     {
         InitializeComponent();
         DataContext = viewModel;
+        _logger = logger;
     }
 
     // async void event handler: never let an exception escape to the dispatcher.
@@ -20,7 +24,7 @@ public partial class StatsPage : UserControl
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error(ex, "Stats page load failed");
+            _logger.LogError(ex, "Stats page load failed");
         }
     }
 }
