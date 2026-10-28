@@ -63,7 +63,7 @@
                                    Foreground="{StaticResource BrandAccentBrush}"/>
                 </ui:CardControl>
 
-                <ui:CardControl Margin="0,0,0,12" Padding="20,14" MinWidth="180">
+                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
                     <ui:CardControl.Header>
                         <StackPanel>
                             <TextBlock Text="{Binding CompletedCount}"
@@ -73,6 +73,19 @@
                         </StackPanel>
                     </ui:CardControl.Header>
                     <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="28"
+                                   Foreground="{StaticResource BrandAccentBrush}"/>
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,0,12" Padding="20,14" MinWidth="180">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{Binding MeanScoreText}"
+                                       FontSize="32" FontWeight="Bold"/>
+                            <TextBlock Text="{loc:Loc Stats_MeanScore}" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:SymbolIcon Symbol="Star24" FontSize="28"
                                    Foreground="{StaticResource BrandAccentBrush}"/>
                 </ui:CardControl>
             </WrapPanel>

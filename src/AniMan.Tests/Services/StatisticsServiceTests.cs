@@ -132,8 +132,10 @@ public class StatisticsServiceTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Should().HaveCount(2);
+        result.Value![0].StatusId.Should().Be(3);
         result.Value![0].StatusName.Should().Be("Completed");
         result.Value![0].Count.Should().Be(2);
+        result.Value![1].StatusId.Should().Be(1);
         result.Value![1].StatusName.Should().Be("Watching");
         result.Value![1].Count.Should().Be(1);
     }

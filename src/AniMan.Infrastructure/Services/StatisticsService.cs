@@ -121,7 +121,7 @@ public sealed class StatisticsService(
             var statuses = await db.TrackingStatuses.AsNoTracking().ToListAsync(ct).ConfigureAwait(false);
             var result = breakdown
                 .Join(statuses, b => b.StatusId, s => s.Id,
-                    (b, s) => new StatusBreakdown(s.Name, b.Count, s.Color))
+                    (b, s) => new StatusBreakdown(s.Id, s.Name, b.Count, s.Color))
                 .OrderByDescending(s => s.Count)
                 .ToList();
 

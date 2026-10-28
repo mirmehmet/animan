@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using AniMan.Core.Domain;
 using AniMan.Core.Interfaces;
+using AniMan.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -64,9 +66,11 @@ public partial class StatsViewModel : ObservableObject
         if (time.IsSuccess)
         {
             var t = time.Value;
-            WatchTimeText = t.TotalHours >= 1
-                ? $"{(int)t.TotalHours}h {t.Minutes}m"
-                : $"{t.Minutes}m";
+            var hours = (int)t.TotalHours;
+            var minutes = t.Minutes;
+            WatchTimeText = hours >= 1
+                ? string.Format(LocalizationManager.Get("Stats_WatchTimeFormat"), hours, minutes)
+                : string.Format(LocalizationManager.Get("Stats_WatchTimeMinutesFormat"), minutes);
         }
 
         var ch = await _stats.GetTotalChaptersReadAsync();
@@ -84,15 +88,21 @@ public partial class StatsViewModel : ObservableObject
 
         var items = result.Value!;
         CompletedCount = items
-            .Where(s => string.Equals(s.StatusName, "Completed", StringComparison.OrdinalIgnoreCase))
+            .Where(s => s.StatusId == TrackingStatusIds.Completed)
             .Sum(s => s.Count);
 
         int total = items.Sum(s => s.Count);
-        if (total == 0) return;
+        if (total == 0)
+        {
+            StatusBreakdown = [];
+            return;
+        }
 
         StatusBreakdown = new ObservableCollection<StatusBarViewModel>(
             items.Select(s => new StatusBarViewModel(
-                s.StatusName, s.Count,
+                s.StatusId,
+                TrackingStatusDisplay.GetDisplayName(s.StatusId, s.StatusName),
+                s.Count,
                 (double)s.Count / total,
                 s.Color)));
     }
@@ -102,9 +112,18 @@ public partial class StatsViewModel : ObservableObject
         var result = await _stats.GetScoreHistogramAsync();
         if (!result.IsSuccess) return;
 
-        if (!result.Value!.Any()) return;
+        if (!result.Value!.Any())
+        {
+            ScoreHistogram = [];
+            return;
+        }
+
         int max = result.Value!.Values.Max();
-        if (max == 0) return;
+        if (max == 0)
+        {
+            ScoreHistogram = [];
+            return;
+        }
 
         ScoreHistogram = new ObservableCollection<ScoreBarViewModel>(
             result.Value.Select(kv => new ScoreBarViewModel(
@@ -119,7 +138,11 @@ public partial class StatsViewModel : ObservableObject
 
         var items = result.Value!;
         int max = items.Count > 0 ? items.Max(g => g.Count) : 0;
-        if (max == 0) return;
+        if (max == 0)
+        {
+            TopGenres = [];
+            return;
+        }
 
         TopGenres = new ObservableCollection<GenreBarViewModel>(
             items.Select(g => new GenreBarViewModel(
@@ -134,7 +157,11 @@ public partial class StatsViewModel : ObservableObject
 
         var items = result.Value!;
         int max = items.Count > 0 ? items.Max(m => m.Count) : 0;
-        if (max == 0) return;
+        if (max == 0)
+        {
+            MonthlyActivity = [];
+            return;
+        }
 
         MonthlyActivity = new ObservableCollection<MonthBarViewModel>(
             items.Select(m => new MonthBarViewModel(

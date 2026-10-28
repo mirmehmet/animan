@@ -96,12 +96,18 @@
                 Icon="BookOpen24"
                 Title="{loc:Loc Library_EmptyTitle}"
                 Subtitle="{loc:Loc Library_EmptyMessage}"
-                Visibility="{Binding Items.Count, ConverterParameter=Invert,
-                             Converter={StaticResource CountToVisibilityConverter}}"/>
+                Visibility="{Binding IsEmptyLibrary, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <!-- No search/filter matches state -->
+            <ctrl:EmptyStateControl
+                Icon="Search24"
+                Title="{loc:Loc Library_NoResultsTitle}"
+                Subtitle="{loc:Loc Library_NoResultsMessage}"
+                Visibility="{Binding IsNoResults, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
             <!-- Cards -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
-                          Visibility="{Binding Items.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                          Visibility="{Binding HasContent, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <ItemsControl ItemsSource="{Binding Items}" Margin="18,12,18,24">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>

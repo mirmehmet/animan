@@ -41,6 +41,11 @@ public abstract partial class LibraryViewModelBase : ObservableObject
 
     public bool IsRatingsTab => ActiveStatusId == 98;
 
+    public bool HasTotalItems => _allItems.Count > 0;
+    public bool IsEmptyLibrary => !IsLoading && _allItems.Count == 0;
+    public bool IsNoResults => !IsLoading && _allItems.Count > 0 && Items.Count == 0;
+    public bool HasContent => !IsLoading && Items.Count > 0;
+
     protected LibraryViewModelBase(ITrackingService tracking, MediaType mediaType)
     {
         _tracking = tracking;
@@ -54,6 +59,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     private async Task LoadAsync()
     {
         IsLoading = true;
+        OnStateChanged();
         try
         {
             var result = await _tracking.GetLibraryAsync(_mediaType.ToString().ToLowerInvariant());
@@ -70,7 +76,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
                     Title = item.Snapshot?.Title ?? LocalizationManager.Get("Library_NoTitle"),
                     CoverLocalPath = item.Snapshot?.CoverLocalPath,
                     StatusId = item.StatusId,
-                    StatusName = item.Status?.Name ?? string.Empty,
+                    StatusName = TrackingStatusDisplay.GetDisplayName(item.StatusId, item.Status?.Name),
                     StatusColor = item.Status?.Color,
                     Score = item.Score,
                     UserRating = item.UserRating,
@@ -89,16 +95,20 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         finally
         {
             IsLoading = false;
+            OnStateChanged();
         }
     }
 
     partial void OnSearchQueryChanged(string value) => ApplyFilter();
+
     partial void OnActiveStatusIdChanged(int value)
     {
         OnPropertyChanged(nameof(IsRatingsTab));
         ApplyFilter();
     }
+
     partial void OnRatingSortModeChanged(LibraryRatingSort value) => ApplyFilter();
+
     partial void OnRatingSortIndexChanged(int value)
     {
         RatingSortMode = (LibraryRatingSort)value;
@@ -120,6 +130,15 @@ public abstract partial class LibraryViewModelBase : ObservableObject
                 c.Title.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase));
 
         Items = new ObservableCollection<LibraryCardViewModel>(filtered);
+        OnStateChanged();
+    }
+
+    private void OnStateChanged()
+    {
+        OnPropertyChanged(nameof(HasTotalItems));
+        OnPropertyChanged(nameof(IsEmptyLibrary));
+        OnPropertyChanged(nameof(IsNoResults));
+        OnPropertyChanged(nameof(HasContent));
     }
 
     // Unrated items always sort to the end, regardless of direction.

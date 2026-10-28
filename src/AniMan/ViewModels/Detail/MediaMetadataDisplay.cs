@@ -20,6 +20,7 @@ internal static class MediaMetadataDisplay
         ["Finished"]          = "MediaStatus_Finished",
         ["On Hiatus"]         = "MediaStatus_OnHiatus",
         ["Discontinued"]      = "MediaStatus_Discontinued",
+        ["Cancelled"]         = "MediaStatus_Cancelled",
         ["Not yet published"] = "MediaStatus_NotYetPublished",
     };
 

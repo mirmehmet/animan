@@ -54,7 +54,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <ui:TextBox Grid.Column="0"
-                        PlaceholderText="{loc:Loc Discover_SearchAnime}"
+                        PlaceholderText="{Binding SearchPlaceholder}"
                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,8,0"
                         KeyDown="OnSearchKeyDown"/>
@@ -85,7 +85,7 @@
                            FontSize="12" HorizontalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                 <ui:Button Content="{loc:Loc Discover_ErrorRetry}"
-                           Command="{Binding LoadCommand}"
+                           Command="{Binding RetryCommand}"
                            Appearance="Secondary"
                            Margin="0,12,0,0" HorizontalAlignment="Center"/>
             </StackPanel>

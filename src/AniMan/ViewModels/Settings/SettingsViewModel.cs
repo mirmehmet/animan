@@ -13,6 +13,8 @@ namespace AniMan.ViewModels.Settings;
 
 public enum ThemeMode { Light, Dark, System }
 
+public record StartupPageOption(string Key, string Display);
+
 public partial class SettingsViewModel(
     ISettingsService settingsService,
     ITrackingService trackingService,
@@ -49,9 +51,15 @@ public partial class SettingsViewModel(
 
     // ── Startup page ──────────────────────────────────────────────────────────
 
-    public IReadOnlyList<string> StartupPageOptions { get; } =
-        ["Dashboard", "Anime", "Manga", "Discover"];
+    public IReadOnlyList<StartupPageOption> StartupPageOptions { get; } =
+    [
+        new("Dashboard", LocalizationManager.Get("StartupPage_Dashboard")),
+        new("Anime", LocalizationManager.Get("StartupPage_Anime")),
+        new("Manga", LocalizationManager.Get("StartupPage_Manga")),
+        new("Discover", LocalizationManager.Get("StartupPage_Discover"))
+    ];
 
+    [ObservableProperty] private StartupPageOption? _selectedStartupPageOption;
     [ObservableProperty] private string _selectedStartupPage = "Dashboard";
 
     // ── About ─────────────────────────────────────────────────────────────────
@@ -88,18 +96,28 @@ public partial class SettingsViewModel(
 
     public async Task InitializeAsync()
     {
-        var theme = await settingsService.GetThemeAsync();
-        SelectedThemeMode = AppThemeManager.Parse(theme);
+        _initialized = false;
+        try
+        {
+            var theme = await settingsService.GetThemeAsync();
+            SelectedThemeMode = AppThemeManager.Parse(theme);
 
-        var language = await settingsService.GetLanguageAsync();
-        SelectedLanguage = Languages.FirstOrDefault(l => l.Code == language) ?? Languages[0];
+            var language = await settingsService.GetLanguageAsync();
+            SelectedLanguage = Languages.FirstOrDefault(l => l.Code == language) ?? Languages[0];
 
-        SelectedStartupPage = await settingsService.GetStartupPageAsync();
+            var startupKey = await settingsService.GetStartupPageAsync();
+            SelectedStartupPage = startupKey;
+            SelectedStartupPageOption = StartupPageOptions.FirstOrDefault(
+                o => string.Equals(o.Key, startupKey, StringComparison.OrdinalIgnoreCase)) ?? StartupPageOptions[0];
 
-        SelectedFont = await settingsService.GetFontAsync();
+            SelectedFont = await settingsService.GetFontAsync();
 
-        await LoadTrashAsync();
-        _initialized = true;
+            await LoadTrashAsync();
+        }
+        finally
+        {
+            _initialized = true;
+        }
     }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
@@ -134,12 +152,13 @@ public partial class SettingsViewModel(
 
     // ── Startup page ──────────────────────────────────────────────────────────
 
-    async partial void OnSelectedStartupPageChanged(string value)
+    async partial void OnSelectedStartupPageOptionChanged(StartupPageOption? value)
     {
-        if (!_initialized) return;
+        if (!_initialized || value is null) return;
         try
         {
-            await settingsService.SetStartupPageAsync(value);
+            SelectedStartupPage = value.Key;
+            await settingsService.SetStartupPageAsync(value.Key);
         }
         catch (Exception ex)
         {
@@ -212,10 +231,14 @@ public partial class SettingsViewModel(
     // ── Data reset ────────────────────────────────────────────────────
 
     [RelayCommand]
-    private async Task DeleteAllDataAsync()
+    public async Task<Result> DeleteAllDataAsync()
     {
-        await dataManagementService.ResetAllDataAsync();
-        TrashItems.Clear();
-        OnPropertyChanged(nameof(HasTrashItems));
+        var result = await dataManagementService.ResetAllDataAsync();
+        if (result.IsSuccess)
+        {
+            TrashItems.Clear();
+            OnPropertyChanged(nameof(HasTrashItems));
+        }
+        return result;
     }
 }

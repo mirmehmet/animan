@@ -75,7 +75,8 @@
                             Icon="{ui:SymbolIcon Symbol=Home24}"
                             Header="{loc:Loc Settings_StartupPage}">
                 <ComboBox ItemsSource="{Binding StartupPageOptions}"
-                          SelectedItem="{Binding SelectedStartupPage, Mode=TwoWay}"
+                          SelectedItem="{Binding SelectedStartupPageOption, Mode=TwoWay}"
+                          DisplayMemberPath="Display"
                           MinWidth="160"/>
             </ui:CardControl>
 
@@ -83,16 +84,28 @@
             <TextBlock Text="{loc:Loc Settings_DataBackup}" Style="{StaticResource SectionSubheaderText}"/>
 
             <ui:CardControl Style="{StaticResource SettingCard}"
-                            Icon="{ui:SymbolIcon Symbol=ArrowExportUp24}"
-                            Header="{loc:Loc Settings_Export}">
+                            Icon="{ui:SymbolIcon Symbol=ArrowExportUp24}">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Text="{loc:Loc Settings_Export}" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:Loc Settings_ExportDesc}" FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </ui:CardControl.Header>
                 <ui:Button Content="{loc:Loc Settings_ExportAction}"
                            Click="OnExportClicked"
                            Appearance="Secondary"/>
             </ui:CardControl>
 
             <ui:CardControl Style="{StaticResource SettingCard}"
-                            Icon="{ui:SymbolIcon Symbol=ArrowImport24}"
-                            Header="{loc:Loc Settings_Import}">
+                            Icon="{ui:SymbolIcon Symbol=ArrowImport24}">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Text="{loc:Loc Settings_Import}" FontSize="14" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:Loc Settings_ImportDesc}" FontSize="12"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </ui:CardControl.Header>
                 <ui:Button Content="{loc:Loc Settings_ImportAction}"
                            Click="OnImportClicked"
                            Appearance="Secondary"/>
@@ -146,8 +159,7 @@
                                     <TextBlock FontSize="11"
                                                Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                Text="{Binding DeletedAt,
-                                                   Converter={StaticResource DaysRemainingConverter},
-                                                   StringFormat='{}{0} days left'}"/>
+                                                   Converter={StaticResource DaysRemainingConverter}}"/>
                                 </StackPanel>
                             </ui:CardControl.Header>
                             <ui:Button Content="{loc:Loc Common_Restore}"

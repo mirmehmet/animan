@@ -90,7 +90,7 @@
   <data name="Stats_EpisodesWatched" xml:space="preserve"><value>İzlenen bölüm</value></data>
   <data name="Stats_WatchTime" xml:space="preserve"><value>İzleme süresi</value></data>
   <data name="Stats_ChaptersRead" xml:space="preserve"><value>Okunan bölüm</value></data>
-  <data name="Stats_MeanScore" xml:space="preserve"><value>Ortalama puan</value></data>
+  <data name="Stats_MeanScore" xml:space="preserve"><value>Ortalama Puan</value></data>
   <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Durum Dağılımı</value></data>
   <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Puan Dağılımı</value></data>
   <data name="Stats_TopGenres" xml:space="preserve"><value>En Çok Türler</value></data>
@@ -141,7 +141,7 @@
 
   <data name="Nav_Dashboard" xml:space="preserve"><value>Ana Sayfa</value></data>
 
-  <data name="Dashboard_Title" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Dashboard_Title" xml:space="preserve"><value>Ana Sayfa</value></data>
   <data name="Dashboard_ContinueWatching" xml:space="preserve"><value>İzlemeye Devam</value></data>
   <data name="Dashboard_ContinueReading" xml:space="preserve"><value>Okumaya Devam</value></data>
   <data name="Dashboard_ThisSeason" xml:space="preserve"><value>Bu Sezon</value></data>
@@ -257,4 +257,13 @@
   <data name="App_UnexpectedErrorTitle" xml:space="preserve"><value>Beklenmeyen Hata</value></data>
   <data name="App_UnexpectedError" xml:space="preserve"><value>Beklenmeyen bir hata oluştu. Ayrıntılar log dosyasına yazıldı.</value></data>
   <data name="App_StartupFailed" xml:space="preserve"><value>AniMan başlatılamadı. Ayrıntılar log dosyasına yazıldı.</value></data>
+  <data name="Stats_WatchTimeFormat" xml:space="preserve"><value>{0} sa {1} dk</value></data>
+  <data name="Stats_WatchTimeMinutesFormat" xml:space="preserve"><value>{0} dk</value></data>
+  <data name="MediaStatus_Cancelled" xml:space="preserve"><value>İptal Edildi</value></data>
+  <data name="StartupPage_Dashboard" xml:space="preserve"><value>Ana Sayfa</value></data>
+  <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>
+  <data name="StartupPage_Manga" xml:space="preserve"><value>Manga</value></data>
+  <data name="StartupPage_Discover" xml:space="preserve"><value>Keşfet</value></data>
+  <data name="Settings_DeleteAllDataFailed" xml:space="preserve"><value>Tüm veriler silinemedi.</value></data>
+  <data name="Settings_DeleteAllDataFailedTitle" xml:space="preserve"><value>Hata</value></data>
 </root>

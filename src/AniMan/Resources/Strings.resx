@@ -257,4 +257,13 @@
   <data name="App_UnexpectedErrorTitle" xml:space="preserve"><value>Unexpected Error</value></data>
   <data name="App_UnexpectedError" xml:space="preserve"><value>An unexpected error occurred. Details were written to the log file.</value></data>
   <data name="App_StartupFailed" xml:space="preserve"><value>AniMan failed to start. Details were written to the log file.</value></data>
+  <data name="Stats_WatchTimeFormat" xml:space="preserve"><value>{0}h {1}m</value></data>
+  <data name="Stats_WatchTimeMinutesFormat" xml:space="preserve"><value>{0}m</value></data>
+  <data name="MediaStatus_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="StartupPage_Dashboard" xml:space="preserve"><value>Home</value></data>
+  <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>
+  <data name="StartupPage_Manga" xml:space="preserve"><value>Manga</value></data>
+  <data name="StartupPage_Discover" xml:space="preserve"><value>Discover</value></data>
+  <data name="Settings_DeleteAllDataFailed" xml:space="preserve"><value>Failed to delete all data.</value></data>
+  <data name="Settings_DeleteAllDataFailedTitle" xml:space="preserve"><value>Error</value></data>
 </root>

@@ -2,7 +2,7 @@ using AniMan.Core.Common;
 
 namespace AniMan.Core.Interfaces;
 
-public record StatusBreakdown(string StatusName, int Count, string? Color);
+public record StatusBreakdown(int StatusId, string StatusName, int Count, string? Color);
 public record MonthlyActivity(int Year, int Month, int Count);
 
 public interface IStatisticsService
