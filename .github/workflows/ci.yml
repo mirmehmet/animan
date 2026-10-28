@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 # Cancel superseded runs on the same ref to save runner minutes.
 concurrency:
   group: ci-${{ github.ref }}
@@ -20,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
@@ -33,4 +38,4 @@ jobs:
         run: dotnet build AniMan.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test AniMan.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test AniMan.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"

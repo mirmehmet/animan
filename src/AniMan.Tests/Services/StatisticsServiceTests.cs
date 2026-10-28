@@ -2,6 +2,7 @@ using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
+using AniMan.Tests.Integration;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,21 +12,13 @@ namespace AniMan.Tests.Services;
 
 public class StatisticsServiceTests : IDisposable
 {
+    private readonly SqliteContextFactory<LibraryDbContext> _factory;
     private readonly LibraryDbContext _db;
-    private readonly IDbContextFactory<LibraryDbContext> _factory;
 
     public StatisticsServiceTests()
     {
-        var options = new DbContextOptionsBuilder<LibraryDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _db = new LibraryDbContext(options);
-        _db.Database.EnsureCreated();
-
-        var factoryMock = new Mock<IDbContextFactory<LibraryDbContext>>();
-        factoryMock.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new LibraryDbContext(options));
-        _factory = factoryMock.Object;
+        _factory = new SqliteContextFactory<LibraryDbContext>(opts => new LibraryDbContext(opts));
+        _db = _factory.CreateDbContext();
     }
 
     private StatisticsService Create() => new(_factory, NullLogger<StatisticsService>.Instance);
@@ -251,5 +244,9 @@ public class StatisticsServiceTests : IDisposable
         hist.Value![7].Should().Be(1);
     }
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        _factory.Dispose();
+    }
 }

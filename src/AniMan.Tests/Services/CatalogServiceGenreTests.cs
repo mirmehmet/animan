@@ -5,6 +5,7 @@ using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Tenrai;
 using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
+using AniMan.Tests.Integration;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,23 +22,15 @@ public class CatalogServiceGenreTests : IDisposable
 {
     private const int GeneratedIdBase = 10000;
 
+    private readonly SqliteContextFactory<CatalogDbContext> _factory;
     private readonly CatalogDbContext _db;
-    private readonly IDbContextFactory<CatalogDbContext> _factory;
     private readonly Mock<IMediaSourceClient> _sourceMock = new(MockBehavior.Strict);
     private readonly Mock<ISettingsService> _settingsMock = new();
 
     public CatalogServiceGenreTests()
     {
-        var options = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _db = new CatalogDbContext(options);
-        _db.Database.EnsureCreated();
-
-        var factoryMock = new Mock<IDbContextFactory<CatalogDbContext>>();
-        factoryMock.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new CatalogDbContext(options));
-        _factory = factoryMock.Object;
+        _factory = new SqliteContextFactory<CatalogDbContext>(opts => new CatalogDbContext(opts));
+        _db = _factory.CreateDbContext();
 
         _settingsMock.Setup(s => s.GetCacheRefreshDaysAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(7);
@@ -154,6 +147,7 @@ public class CatalogServiceGenreTests : IDisposable
     public void Dispose()
     {
         _db.Dispose();
+        _factory.Dispose();
         GC.SuppressFinalize(this);
     }
 }

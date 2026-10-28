@@ -34,7 +34,7 @@ jobs:
         run: dotnet build AniMan.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test AniMan.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test AniMan.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
 
       - name: Publish self-contained exe
         run: >
@@ -49,10 +49,16 @@ jobs:
           -p:DebugSymbols=false
           -o publish
 
-      - name: Rename artifact with version tag
-        run: Rename-Item -Path "publish/AniMan.exe" -NewName "AniMan-${{ github.ref_name }}.exe"
+      - name: Rename artifact and compute checksum
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          Rename-Item -Path "publish/AniMan.exe" -NewName "AniMan-$env:TAG_NAME.exe"
+          $hash = (Get-FileHash -Path "publish/AniMan-$env:TAG_NAME.exe" -Algorithm SHA256).Hash
+          "$hash  AniMan-$env:TAG_NAME.exe" | Out-File -FilePath "publish/AniMan-$env:TAG_NAME.exe.sha256" -Encoding ascii
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create ${{ github.ref_name }} "publish/AniMan-${{ github.ref_name }}.exe" --title "AniMan ${{ github.ref_name }}" --generate-notes
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create $env:TAG_NAME "publish/AniMan-$env:TAG_NAME.exe" "publish/AniMan-$env:TAG_NAME.exe.sha256" --title "AniMan $env:TAG_NAME" --generate-notes

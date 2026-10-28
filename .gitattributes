@@ -1,0 +1,27 @@
+# Auto detect text files and enforce CRLF in working copy (matching .editorconfig)
+* text=auto eol=crlf
+
+# Source and project files
+*.cs text diff=csharp eol=crlf
+*.xaml text eol=crlf
+*.resx text eol=crlf
+*.json text eol=crlf
+*.props text eol=crlf
+*.csproj text eol=crlf
+*.slnx text eol=crlf
+*.md text eol=crlf
+*.yml text eol=crlf
+*.yaml text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.exe binary
+*.dll binary
+*.pdb binary
+*.db binary
+*.db-wal binary
+*.db-shm binary
+

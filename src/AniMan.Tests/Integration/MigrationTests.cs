@@ -157,6 +157,142 @@ public class MigrationTests
     }
 
     [Fact]
+    public async Task Migrate_FiftyItemV025UserLibrary_PreservesAllItemsProgressNotesAndSettingsWithoutDataLoss()
+    {
+        await using var db = NewLibraryContext(out var connection);
+        using var _ = connection;
+
+        // 1. Build initial v0.2.5 schema
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync("20260726161715_InitialCreate");
+
+        var now = new DateTime(2026, 10, 28, 12, 0, 0, DateTimeKind.Utc);
+        var expectedItems = new List<(int MalId, MediaType Type, int StatusId, int Score, string Title)>();
+
+        // 2. Seed 50 library items simulating user library (30 anime, 20 manga)
+        for (int i = 1; i <= 50; i++)
+        {
+            var isAnime = i <= 30;
+            var mediaType = isAnime ? MediaType.Anime : MediaType.Manga;
+            var rem = i % 5;
+            var statusId = isAnime
+                ? (rem == 0 ? TrackingStatusIds.Completed : rem == 1 ? TrackingStatusIds.Watching : rem == 2 ? TrackingStatusIds.OnHold : rem == 3 ? TrackingStatusIds.Dropped : TrackingStatusIds.PlanToWatch)
+                : (rem == 0 ? TrackingStatusIds.Completed : rem == 1 ? TrackingStatusIds.Reading : rem == 2 ? TrackingStatusIds.OnHold : rem == 3 ? TrackingStatusIds.Dropped : TrackingStatusIds.PlanToRead);
+            var score = (i % 10) + 1;
+            var title = isAnime ? $"Anime Series #{i}" : $"Manga Series #{i}";
+
+            expectedItems.Add((i * 100, mediaType, statusId, score, title));
+
+            var item = new LibraryItem
+            {
+                MalId = i * 100,
+                MediaType = mediaType,
+                StatusId = statusId,
+                Score = score,
+                IsFavorite = i % 3 == 0,
+                RewatchCount = i % 4,
+                AddedAt = now.AddDays(-i),
+                UpdatedAt = now.AddHours(-i),
+                Snapshot = new MediaSnapshot
+                {
+                    Title = title,
+                    TotalEpisodes = isAnime ? 12 : null,
+                    TotalChapters = isAnime ? null : 50,
+                    Genres = isAnime ? "[\"Action\",\"Fantasy\"]" : "[\"Romance\",\"Drama\"]",
+                    SnapshotAt = now.AddDays(-i)
+                }
+            };
+            db.LibraryItems.Add(item);
+        }
+        await db.SaveChangesAsync();
+
+        // Add progress and notes for all items
+        var itemsInDb = await db.LibraryItems.ToListAsync();
+        for (int i = 0; i < 50; i++)
+        {
+            var item = itemsInDb[i];
+            if (item.MediaType == MediaType.Anime)
+            {
+                db.EpisodeProgress.Add(new EpisodeProgress
+                {
+                    LibraryItemId = item.Id,
+                    EpisodeNumber = 1,
+                    IsWatched = true,
+                    WatchedAt = now
+                });
+            }
+            else
+            {
+                db.ChapterProgress.Add(new ChapterProgress
+                {
+                    LibraryItemId = item.Id,
+                    ChapterNumber = 1,
+                    IsRead = true,
+                    ReadAt = now
+                });
+            }
+
+            db.Notes.Add(new Note
+            {
+                LibraryItemId = item.Id,
+                Content = $"Great series notes for item {item.Id}",
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
+        // Add user settings
+        db.Settings.AddRange(
+            new AppSetting { Key = "Theme", Value = "Dark" },
+            new AppSetting { Key = "Language", Value = "tr" },
+            new AppSetting { Key = "StartupPage", Value = "Anime" },
+            new AppSetting { Key = "CacheRefreshDays", Value = "14" }
+        );
+        await db.SaveChangesAsync();
+
+        // 3. Perform migration to v0.2.6 (HardenLibraryConstraints)
+        await db.Database.MigrateAsync();
+
+        // 4. Verify that EVERY single user record is 100% intact with zero data loss
+        await using var verify = new LibraryDbContext(
+            new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
+
+        var migratedItems = await verify.LibraryItems
+            .Include(i => i.Snapshot)
+            .OrderBy(i => i.Id)
+            .ToListAsync();
+
+        migratedItems.Should().HaveCount(50, "all 50 user library items must survive migration");
+
+        for (int i = 0; i < 50; i++)
+        {
+            var actual = migratedItems[i];
+            var expected = expectedItems[i];
+
+            actual.MalId.Should().Be(expected.MalId);
+            actual.MediaType.Should().Be(expected.Type);
+            actual.StatusId.Should().Be(expected.StatusId);
+            actual.Score.Should().Be(expected.Score);
+            actual.Snapshot.Should().NotBeNull();
+            actual.Snapshot!.Title.Should().Be(expected.Title);
+        }
+
+        // Progress rows intact
+        (await verify.EpisodeProgress.CountAsync()).Should().BeGreaterThan(0);
+        (await verify.ChapterProgress.CountAsync()).Should().BeGreaterThan(0);
+
+        // Notes intact
+        var notes = await verify.Notes.ToListAsync();
+        notes.Should().HaveCount(50);
+
+        // Settings intact
+        (await verify.Settings.FindAsync(["Theme"]))?.Value.Should().Be("Dark");
+        (await verify.Settings.FindAsync(["Language"]))?.Value.Should().Be("tr");
+        (await verify.Settings.FindAsync(["StartupPage"]))?.Value.Should().Be("Anime");
+        (await verify.Settings.FindAsync(["CacheRefreshDays"]))?.Value.Should().Be("14");
+    }
+
+    [Fact]
     public async Task Migrate_FromV025CatalogDatabase_DeduplicatesEpisodesAndStreamingAndEnforcesUniqueIndexes()
     {
         await using var db = NewCatalogContext(out var connection);
@@ -213,7 +349,8 @@ public class MigrationTests
         var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = ":memory:",
-            ForeignKeys = true
+            ForeignKeys = true,
+            Pooling = false
         }.ToString());
         connection.Open();
         return connection;

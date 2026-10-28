@@ -21,7 +21,7 @@ logs/
 *.log
 
 ## Covers cache
-src/AniMan/Assets/Covers/
+covers/
 
 ## dotnet-skills (cloned at setup time, not committed)
 .github/skills/

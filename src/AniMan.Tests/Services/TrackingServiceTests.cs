@@ -5,26 +5,19 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AniMan.Tests.Integration;
 
 namespace AniMan.Tests.Services;
 
 public class TrackingServiceTests : IDisposable
 {
+    private readonly SqliteContextFactory<LibraryDbContext> _factory;
     private readonly LibraryDbContext _db;
-    private readonly IDbContextFactory<LibraryDbContext> _factory;
 
     public TrackingServiceTests()
     {
-        var options = new DbContextOptionsBuilder<LibraryDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _db = new LibraryDbContext(options);
-        _db.Database.EnsureCreated();
-
-        var factoryMock = new Mock<IDbContextFactory<LibraryDbContext>>();
-        factoryMock.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new LibraryDbContext(options));
-        _factory = factoryMock.Object;
+        _factory = new SqliteContextFactory<LibraryDbContext>(opts => new LibraryDbContext(opts));
+        _db = _factory.CreateDbContext();
 
         SeedData();
     }
@@ -318,5 +311,9 @@ public class TrackingServiceTests : IDisposable
         manga.Value!.Should().ContainSingle(i => i.MalId == 200);
     }
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        _factory.Dispose();
+    }
 }

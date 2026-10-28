@@ -21,7 +21,8 @@ internal sealed class SqliteContextFactory<TContext> : IDbContextFactory<TContex
         var connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = ":memory:",
-            ForeignKeys = true
+            ForeignKeys = true,
+            Pooling = false
         }.ToString();
 
         _connection = new SqliteConnection(connectionString);
@@ -42,5 +43,15 @@ internal sealed class SqliteContextFactory<TContext> : IDbContextFactory<TContex
     public Task<TContext> CreateDbContextAsync(CancellationToken ct = default) =>
         Task.FromResult(CreateDbContext());
 
-    public void Dispose() => _connection.Dispose();
+    public void Dispose()
+    {
+        try
+        {
+            _connection.Dispose();
+        }
+        catch
+        {
+            // Suppress teardown exceptions on already closed in-memory connections
+        }
+    }
 }

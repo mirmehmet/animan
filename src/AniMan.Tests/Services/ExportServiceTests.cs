@@ -5,6 +5,7 @@ using AniMan.Core.Interfaces;
 using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
+using AniMan.Tests.Integration;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,14 +16,12 @@ namespace AniMan.Tests.Services;
 public class ExportServiceTests : IDisposable
 {
     private readonly string _tempFile = Path.Combine(Path.GetTempPath(), $"AniMan_test_{Guid.NewGuid():N}.json");
-    private readonly DbContextOptions<LibraryDbContext> _options;
+    private readonly SqliteContextFactory<LibraryDbContext> _factory;
     private readonly StoragePaths _paths;
 
     public ExportServiceTests()
     {
-        _options = new DbContextOptionsBuilder<LibraryDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
+        _factory = new SqliteContextFactory<LibraryDbContext>(opts => new LibraryDbContext(opts));
 
         _paths = new StoragePaths(
             Path.GetTempPath(),
@@ -32,24 +31,14 @@ public class ExportServiceTests : IDisposable
 
     private ExportService Create()
     {
-        var factoryMock = new Mock<IDbContextFactory<LibraryDbContext>>();
-        factoryMock.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => CreateDb());
-
-        // No real HTTP in tests — downloads fail gracefully, leaving covers null.
         var coverStore = new CoverStore(
             Mock.Of<IHttpClientFactory>(f => f.CreateClient("covers") == new HttpClient()),
             _paths, NullLogger<CoverStore>.Instance);
 
-        return new ExportService(factoryMock.Object, coverStore, NullLogger<ExportService>.Instance);
+        return new ExportService(_factory, coverStore, NullLogger<ExportService>.Instance);
     }
 
-    private LibraryDbContext CreateDb()
-    {
-        var db = new LibraryDbContext(_options);
-        db.Database.EnsureCreated();
-        return db;
-    }
+    private LibraryDbContext CreateDb() => _factory.CreateDbContext();
 
     private void SeedItem(int malId, MediaType type, int statusId, int? score, string title)
     {
@@ -468,8 +457,8 @@ public class ExportServiceTests : IDisposable
 
     public void Dispose()
     {
+        _factory.Dispose();
         if (File.Exists(_tempFile)) File.Delete(_tempFile);
-        if (Directory.Exists(_paths.CoversPath))
-            Directory.Delete(_paths.CoversPath, recursive: true);
+        if (Directory.Exists(_paths.CoversPath)) Directory.Delete(_paths.CoversPath, recursive: true);
     }
 }

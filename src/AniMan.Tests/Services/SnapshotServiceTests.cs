@@ -5,6 +5,7 @@ using AniMan.Core.Interfaces;
 using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
+using AniMan.Tests.Integration;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,35 +15,20 @@ namespace AniMan.Tests.Services;
 
 public class SnapshotServiceTests : IDisposable
 {
+    private readonly SqliteContextFactory<LibraryDbContext> _libraryFactory;
+    private readonly SqliteContextFactory<CatalogDbContext> _catalogFactory;
     private readonly LibraryDbContext _libraryDb;
     private readonly CatalogDbContext _catalogDb;
-    private readonly IDbContextFactory<LibraryDbContext> _libraryFactory;
-    private readonly IDbContextFactory<CatalogDbContext> _catalogFactory;
     private readonly Mock<ICatalogService> _catalogServiceMock;
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
     private readonly StoragePaths _paths;
 
     public SnapshotServiceTests()
     {
-        var libraryOptions = new DbContextOptionsBuilder<LibraryDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
-        _libraryDb = new LibraryDbContext(libraryOptions);
-        _libraryDb.Database.EnsureCreated();
-
-        var catalogOptions = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
-        _catalogDb = new CatalogDbContext(catalogOptions);
-        _catalogDb.Database.EnsureCreated();
-
-        var libFactory = new Mock<IDbContextFactory<LibraryDbContext>>();
-        libFactory.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new LibraryDbContext(libraryOptions));
-        _libraryFactory = libFactory.Object;
-
-        var catFactory = new Mock<IDbContextFactory<CatalogDbContext>>();
-        catFactory.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new CatalogDbContext(catalogOptions));
-        _catalogFactory = catFactory.Object;
+        _libraryFactory = new SqliteContextFactory<LibraryDbContext>(opts => new LibraryDbContext(opts));
+        _catalogFactory = new SqliteContextFactory<CatalogDbContext>(opts => new CatalogDbContext(opts));
+        _libraryDb = _libraryFactory.CreateDbContext();
+        _catalogDb = _catalogFactory.CreateDbContext();
 
         _catalogServiceMock = new Mock<ICatalogService>();
         _httpClientFactoryMock = new Mock<IHttpClientFactory>();
@@ -51,8 +37,6 @@ public class SnapshotServiceTests : IDisposable
             Path.GetTempPath(),
             Path.Combine(Path.GetTempPath(), $"covers_{Guid.NewGuid()}"));
         Directory.CreateDirectory(_paths.CoversPath);
-
-        // TrackingStatuses are already seeded by LibraryDbContext.HasData via EnsureCreated
     }
 
     private SnapshotService CreateService() => new(
@@ -257,6 +241,8 @@ public class SnapshotServiceTests : IDisposable
     {
         _libraryDb.Dispose();
         _catalogDb.Dispose();
+        _libraryFactory.Dispose();
+        _catalogFactory.Dispose();
         if (Directory.Exists(_paths.CoversPath))
             Directory.Delete(_paths.CoversPath, recursive: true);
     }

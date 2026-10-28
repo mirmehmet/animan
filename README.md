@@ -34,7 +34,7 @@ A modern WPF desktop app for tracking anime and manga, powered by the [Tenrai](h
 
 ## Built With
 
-- **WPF + WPF UI 3** — UI framework and Fluent controls
+- **WPF + WPF UI 4** — UI framework and Fluent controls
 - **CommunityToolkit.Mvvm** — MVVM source generators
 - **Tenrai + AniList** — MyAnimeList metadata over REST, with AniList's GraphQL API standing in when the primary cannot answer
 - **EF Core 9 + SQLite** — Two separate databases: `catalog.db` (disposable API cache) and `library.db` (user data)
@@ -60,7 +60,7 @@ AniMan/
 
 ## Download
 
-Go to **[Releases](https://github.com/mirmehmet/animan/releases)** and grab the latest `AniMan.exe`. No installation or .NET runtime required — just run it.
+Go to **[Releases](https://github.com/mirmehmet/animan/releases)** and grab the latest `AniMan-vX.Y.Z.exe` (or `AniMan.exe`). No installation or .NET runtime required — just run it.
 
 ---
 
@@ -79,7 +79,7 @@ dotnet run --project src/AniMan/AniMan.csproj
 To produce a single self-contained executable:
 
 ```bash
-dotnet publish src/AniMan/AniMan.csproj -c Release -o publish
+dotnet publish src/AniMan/AniMan.csproj -c Release -r win-x64 -o publish
 ```
 
 Output: `publish/AniMan.exe` — no .NET installation needed on the target machine.

@@ -5,6 +5,7 @@ using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Tenrai;
 using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
+using AniMan.Tests.Integration;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,8 +15,8 @@ namespace AniMan.Tests.Services;
 
 public class CatalogServiceTests : IDisposable
 {
+    private readonly SqliteContextFactory<CatalogDbContext> _factory;
     private readonly CatalogDbContext _db;
-    private readonly IDbContextFactory<CatalogDbContext> _factory;
     private readonly Mock<IMediaSourceClient> _sourceMock;
     private readonly Mock<ISettingsService> _settingsMock;
 
@@ -23,16 +24,8 @@ public class CatalogServiceTests : IDisposable
     {
         CatalogService.ClearCaches();
 
-        var options = new DbContextOptionsBuilder<CatalogDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _db = new CatalogDbContext(options);
-        _db.Database.EnsureCreated();
-
-        var factoryMock = new Mock<IDbContextFactory<CatalogDbContext>>();
-        factoryMock.Setup(f => f.CreateDbContextAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new CatalogDbContext(options));
-        _factory = factoryMock.Object;
+        _factory = new SqliteContextFactory<CatalogDbContext>(opts => new CatalogDbContext(opts));
+        _db = _factory.CreateDbContext();
 
         _sourceMock = new Mock<IMediaSourceClient>(MockBehavior.Strict);
 
@@ -206,6 +199,7 @@ public class CatalogServiceTests : IDisposable
     [Fact]
     public async Task GetAnimeStreamingAsync_CacheHit_DoesNotCallTheSource()
     {
+        _db.Anime.Add(MakeCachedAnime(1, daysOld: 0));
         _db.AnimeStreaming.Add(new CachedAnimeStreaming
         {
             AnimeId = 1,
@@ -293,5 +287,9 @@ public class CatalogServiceTests : IDisposable
         Title = $"Test Anime {id}"
     };
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        _factory.Dispose();
+    }
 }
