@@ -11,6 +11,7 @@ public partial class ChapterRowViewModel : ObservableObject
     private readonly ITrackingService _tracking;
     private readonly ILogger _logger;
     private bool _suppress;
+    private bool _isSaving;
 
     public int LibraryItemId { get; init; }
     public int ChapterNumber { get; init; }
@@ -55,31 +56,46 @@ public partial class ChapterRowViewModel : ObservableObject
         ReadAt = read ? readAt : null;
     }
 
-    // Driven by the CheckBox two-way binding. Persists the change, then notifies.
-    // async void semantics: an escaping exception would crash the dispatcher.
+    // Driven by the CheckBox two-way binding. Coalesced per row on the UI thread
+    // so rapid clicks persist the latest checkbox state in order without inverting DB vs UI state.
     async partial void OnIsReadChanged(bool value)
     {
-        if (_suppress) return;
+        if (_suppress || _isSaving) return;
 
+        _isSaving = true;
         try
         {
-            var result = await _tracking.SetChapterReadAsync(LibraryItemId, ChapterNumber, value);
-            if (result.IsSuccess)
+            while (true)
             {
-                ReadAt = value ? DateTime.UtcNow : null;
+                var desired = IsRead;
+                var result = await _tracking.SetChapterReadAsync(LibraryItemId, ChapterNumber, desired);
+                if (!result.IsSuccess)
+                {
+                    _suppress = true;
+                    IsRead = !desired;
+                    _suppress = false;
+                    return;
+                }
+
+                ReadAt = desired ? (ReadAt ?? DateTime.UtcNow) : null;
                 ReadToggled?.Invoke(this, this);
-                return;
+
+                if (IsRead == desired)
+                    return;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Chapter read toggle failed for item {Id} ch {Ch}",
+            _logger.LogError(ex, "Chapter read failed for item {Id} ch {Ch}",
                 LibraryItemId, ChapterNumber);
+            _suppress = true;
+            IsRead = !value;
+            _suppress = false;
         }
-
-        _suppress = true;
-        IsRead = !value;
-        _suppress = false;
+        finally
+        {
+            _isSaving = false;
+        }
     }
 
     [RelayCommand]

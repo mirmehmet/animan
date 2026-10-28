@@ -11,6 +11,7 @@ public partial class EpisodeRowViewModel : ObservableObject
     private readonly ITrackingService _tracking;
     private readonly ILogger _logger;
     private bool _suppress;
+    private bool _isSaving;
 
     public int LibraryItemId { get; init; }
     public int EpisodeNumber { get; init; }
@@ -56,32 +57,46 @@ public partial class EpisodeRowViewModel : ObservableObject
         WatchedAt = watched ? watchedAt : null;
     }
 
-    // Driven by the CheckBox two-way binding. Persists the change, then notifies.
-    // async void semantics: an escaping exception would crash the dispatcher.
+    // Driven by the CheckBox two-way binding. Coalesced per row on the UI thread
+    // so rapid clicks persist the latest checkbox state in order without inverting DB vs UI state.
     async partial void OnIsWatchedChanged(bool value)
     {
-        if (_suppress) return;
+        if (_suppress || _isSaving) return;
 
+        _isSaving = true;
         try
         {
-            var result = await _tracking.SetEpisodeWatchedAsync(LibraryItemId, EpisodeNumber, value);
-            if (result.IsSuccess)
+            while (true)
             {
-                WatchedAt = value ? DateTime.UtcNow : null;
+                var desired = IsWatched;
+                var result = await _tracking.SetEpisodeWatchedAsync(LibraryItemId, EpisodeNumber, desired);
+                if (!result.IsSuccess)
+                {
+                    _suppress = true;
+                    IsWatched = !desired;
+                    _suppress = false;
+                    return;
+                }
+
+                WatchedAt = desired ? (WatchedAt ?? DateTime.UtcNow) : null;
                 WatchedToggled?.Invoke(this, this);
-                return;
+
+                if (IsWatched == desired)
+                    return;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Episode watched toggle failed for item {Id} ep {Ep}",
                 LibraryItemId, EpisodeNumber);
+            _suppress = true;
+            IsWatched = !value;
+            _suppress = false;
         }
-
-        // Revert UI to stay consistent with the database.
-        _suppress = true;
-        IsWatched = !value;
-        _suppress = false;
+        finally
+        {
+            _isSaving = false;
+        }
     }
 
     [RelayCommand]

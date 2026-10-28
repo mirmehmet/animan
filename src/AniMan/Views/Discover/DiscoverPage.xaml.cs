@@ -5,8 +5,8 @@ using AniMan.Core.Domain.Enums;
 using AniMan.Localization;
 using AniMan.Navigation;
 using AniMan.ViewModels.Discover;
+using Microsoft.Extensions.Logging;
 using Wpf.Ui;
-using Wpf.Ui.Controls;
 using SWC = System.Windows.Controls;
 
 namespace AniMan.Views.Discover;
@@ -17,18 +17,23 @@ public partial class DiscoverPage : SWC.UserControl
     private readonly IContentDialogService _dialogService;
     private readonly NavigationBag _bag;
     private readonly INavigationService _navigationService;
+    private readonly ILogger<DiscoverPage> _logger;
 
-    public DiscoverPage(DiscoverViewModel viewModel, IContentDialogService dialogService,
-        NavigationBag bag, INavigationService navigationService)
+    public DiscoverPage(
+        DiscoverViewModel viewModel,
+        IContentDialogService dialogService,
+        NavigationBag bag,
+        INavigationService navigationService,
+        ILogger<DiscoverPage> logger)
     {
         InitializeComponent();
         _vm = viewModel;
         _dialogService = dialogService;
         _bag = bag;
         _navigationService = navigationService;
+        _logger = logger;
         DataContext = viewModel;
-        // The VM is a singleton but this page is transient: subscribe/unsubscribe
-        // per Loaded/Unloaded so dead page instances don't accumulate handlers.
+
         Unloaded += (_, _) =>
         {
             _vm.AddToLibraryRequested -= OnAddToLibraryRequested;
@@ -38,23 +43,32 @@ public partial class DiscoverPage : SWC.UserControl
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _vm.AddToLibraryRequested += OnAddToLibraryRequested;
-        _vm.IsPageActive = true;
-
-        // A nav re-click may have kicked off ResetToInitialAsync already;
-        // don't start a second load on top of it.
-        if (_vm.IsLoading) return;
-
-        if (_vm.Cards.Count > 0)
+        try
         {
-            // Returning to preserved state (e.g. back from a detail page):
-            // keep tab/query/results, just re-sync ✓ markers and scroll position.
-            await _vm.RefreshLibraryFlagsAsync();
-            CardsScrollViewer.ScrollToVerticalOffset(_vm.SavedScrollOffset);
+            // Guard against repeated Loaded events without an intervening Unloaded.
+            _vm.AddToLibraryRequested -= OnAddToLibraryRequested;
+            _vm.AddToLibraryRequested += OnAddToLibraryRequested;
+            _vm.IsPageActive = true;
+
+            // A nav re-click may have kicked off ResetToInitialAsync already;
+            // don't start a second load on top of it.
+            if (_vm.IsLoading) return;
+
+            if (_vm.Cards.Count > 0)
+            {
+                // Returning to preserved state (e.g. back from a detail page):
+                // keep tab/query/results, just re-sync ✓ markers and scroll position.
+                await _vm.RefreshLibraryFlagsAsync();
+                CardsScrollViewer.ScrollToVerticalOffset(_vm.SavedScrollOffset);
+            }
+            else
+            {
+                await _vm.LoadCommand.ExecuteAsync(null);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            await _vm.LoadCommand.ExecuteAsync(null);
+            _logger.LogError(ex, "Discover page load failed");
         }
     }
 
@@ -82,11 +96,18 @@ public partial class DiscoverPage : SWC.UserControl
 
     private async void OnAddToLibraryRequested(object? sender, AddToLibraryEventArgs e)
     {
-        var card = e.Card;
-        var statusId = await Dialogs.AddToLibraryDialog.ShowAsync(
-            _dialogService, card.Title, card.MediaType == MediaType.Manga);
-        if (statusId is null) return;
+        try
+        {
+            var card = e.Card;
+            var statusId = await Dialogs.AddToLibraryDialog.ShowAsync(
+                _dialogService, card.Title, card.MediaType == MediaType.Manga);
+            if (statusId is null) return;
 
-        await _vm.AddToLibraryAsync(card.MalId, card.MediaType, statusId.Value);
+            await _vm.AddToLibraryAsync(card.MalId, card.MediaType, statusId.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Add to library dialog failed from Discover");
+        }
     }
 }

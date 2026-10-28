@@ -21,9 +21,17 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             e.HasMany(a => a.StreamingPlatforms).WithOne(s => s.Anime).HasForeignKey(s => s.AnimeId);
         });
 
-        modelBuilder.Entity<CachedEpisode>(e => e.HasKey(ep => ep.Id));
+        modelBuilder.Entity<CachedEpisode>(e =>
+        {
+            e.HasKey(ep => ep.Id);
+            e.HasIndex(ep => new { ep.AnimeId, ep.EpisodeNumber }).IsUnique();
+        });
 
-        modelBuilder.Entity<CachedAnimeStreaming>(e => e.HasKey(s => s.Id));
+        modelBuilder.Entity<CachedAnimeStreaming>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.HasIndex(s => new { s.AnimeId, s.PlatformName }).IsUnique();
+        });
 
         modelBuilder.Entity<CachedManga>(e => e.HasKey(m => m.Id));
 

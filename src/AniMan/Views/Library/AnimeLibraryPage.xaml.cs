@@ -1,9 +1,10 @@
-using AniMan.Localization;
-using AniMan.Navigation;
-using AniMan.ViewModels.Library;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using AniMan.Localization;
+using AniMan.Navigation;
+using AniMan.ViewModels.Library;
+using Microsoft.Extensions.Logging;
 using Wpf.Ui;
 
 namespace AniMan.Views.Library;
@@ -13,24 +14,38 @@ public partial class AnimeLibraryPage : UserControl
     private readonly AnimeLibraryViewModel _viewModel;
     private readonly NavigationBag _bag;
     private readonly INavigationService _navigationService;
+    private readonly ILogger<AnimeLibraryPage> _logger;
 
-    public AnimeLibraryPage(AnimeLibraryViewModel viewModel, NavigationBag bag,
-        INavigationService navigationService)
+    public AnimeLibraryPage(
+        AnimeLibraryViewModel viewModel,
+        NavigationBag bag,
+        INavigationService navigationService,
+        ILogger<AnimeLibraryPage> logger)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _bag = bag;
         _navigationService = navigationService;
+        _logger = logger;
         DataContext = viewModel;
-        Loaded += async (_, _) =>
+        Loaded += OnLoaded;
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        try
         {
-            await viewModel.LoadCommand.ExecuteAsync(null);
+            await _viewModel.LoadCommand.ExecuteAsync(null);
             if (LibraryNavigationState.PendingAnimeStatusId.HasValue)
             {
-                viewModel.ActiveStatusId = LibraryNavigationState.PendingAnimeStatusId.Value;
+                _viewModel.ActiveStatusId = LibraryNavigationState.PendingAnimeStatusId.Value;
                 LibraryNavigationState.PendingAnimeStatusId = null;
             }
-        };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Anime library page load failed");
+        }
     }
 
     private void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)

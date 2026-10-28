@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using AniMan.Core.Common;
 using AniMan.Core.Domain.Enums;
@@ -25,6 +26,7 @@ public sealed class ExportService(
 
     public async Task<Result> ExportAsync(string filePath, CancellationToken ct = default)
     {
+        var tmpPath = $"{filePath}.{Guid.NewGuid():N}.tmp";
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
@@ -55,8 +57,10 @@ public sealed class ExportService(
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            await using (var stream = File.Create(filePath))
+            await using (var stream = File.Create(tmpPath))
                 await JsonSerializer.SerializeAsync(stream, backup, JsonOptions, ct).ConfigureAwait(false);
+
+            File.Move(tmpPath, filePath, overwrite: true);
 
             await UpsertSettingAsync(db, "LastBackupAt", backup.ExportedAt.ToString("O"), ct).ConfigureAwait(false);
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -64,9 +68,14 @@ public sealed class ExportService(
             logger.LogInformation("Exported {Count} library items to {Path}", backup.Items.Count, filePath);
             return Result.Success();
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException)
+        {
+            TryDeleteTempFile(tmpPath);
+            throw;
+        }
         catch (Exception ex)
         {
+            TryDeleteTempFile(tmpPath);
             logger.LogError(ex, "Export to {Path} failed", filePath);
             return Result.Failure("Export failed. Check the log file for details.");
         }
@@ -95,114 +104,157 @@ public sealed class ExportService(
 
             var backupItems = backup.Items ?? [];
 
-            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-
-            if (mode == ImportMode.Overwrite && backupItems.Count == 0 &&
-                await db.LibraryItems.AnyAsync(ct).ConfigureAwait(false))
-            {
-                return Result.Failure("Backup contains no items; refusing to overwrite a non-empty library.");
-            }
-
-            // Overwrite deletes everything before inserting; a single transaction keeps
-            // the user's library intact if the insert phase fails. The InMemory test
-            // provider doesn't support transactions, so it takes the null path.
-            await using var transaction = db.Database.IsRelational()
-                ? await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false)
-                : null;
-
-            if (mode == ImportMode.Overwrite)
-            {
-                // Cascade delete removes snapshots/progress/notes/overrides with their item.
-                db.LibraryItems.RemoveRange(await db.LibraryItems.ToListAsync(ct).ConfigureAwait(false));
-                var customStatuses = await db.TrackingStatuses
-                    .Where(s => !s.IsDefault)
-                    .ToListAsync(ct).ConfigureAwait(false);
-                if (customStatuses.Count > 0)
-                    db.TrackingStatuses.RemoveRange(customStatuses);
-                await db.SaveChangesAsync(ct).ConfigureAwait(false);
-            }
-
-            var statusMap = await EnsureStatusesAsync(db, backup.Statuses ?? [], ct).ConfigureAwait(false);
-
-            var existingActiveKeys = new HashSet<(int MalId, MediaType MediaType)>();
-            var existingTrashedByKey = new Dictionary<(int MalId, MediaType MediaType), LibraryItem>();
-
-            if (mode == ImportMode.Merge)
-            {
-                var localItems = await db.LibraryItems.ToListAsync(ct).ConfigureAwait(false);
-                foreach (var local in localItems)
-                {
-                    if (local.DeletedAt is null)
-                        existingActiveKeys.Add((local.MalId, local.MediaType));
-                    else
-                        existingTrashedByKey[(local.MalId, local.MediaType)] = local;
-                }
-            }
-
-            var seenKeys = new HashSet<(int MalId, MediaType MediaType)>(existingActiveKeys);
             var referencedCovers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var pendingCoverDownloads = new List<(LibraryItem Entity, int MalId, MediaType MediaType, string Url)>();
             var imported = 0;
             var skipped = 0;
 
-            foreach (var dto in backupItems)
+            await using (var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
             {
-                if (dto.MalId <= 0)
+                if (mode == ImportMode.Overwrite && backupItems.Count == 0 &&
+                    await db.LibraryItems.AnyAsync(ct).ConfigureAwait(false))
                 {
-                    skipped++;
-                    logger.LogWarning("Skipping backup item with invalid MalId {MalId}", dto.MalId);
-                    continue;
+                    return Result.Failure("Backup contains no items; refusing to overwrite a non-empty library.");
                 }
 
-                if (!Enum.TryParse<MediaType>(dto.MediaType, ignoreCase: true, out var mediaType))
+                // Overwrite deletes everything before inserting; a single fast DB-only transaction
+                // keeps the user's library intact if the insert phase fails, without holding
+                // SQLite write locks during network cover downloads.
+                await using var transaction = db.Database.IsRelational()
+                    ? await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false)
+                    : null;
+
+                if (mode == ImportMode.Overwrite)
                 {
-                    skipped++;
-                    logger.LogWarning(
-                        "Skipping backup item {MalId}: unknown media type '{MediaType}'",
-                        dto.MalId, dto.MediaType);
-                    continue;
+                    // Cascade delete removes snapshots/progress/notes/overrides with their item.
+                    db.LibraryItems.RemoveRange(await db.LibraryItems.ToListAsync(ct).ConfigureAwait(false));
+                    var customStatuses = await db.TrackingStatuses
+                        .Where(s => !s.IsDefault)
+                        .ToListAsync(ct).ConfigureAwait(false);
+                    if (customStatuses.Count > 0)
+                        db.TrackingStatuses.RemoveRange(customStatuses);
+                    await db.SaveChangesAsync(ct).ConfigureAwait(false);
                 }
 
-                var key = (dto.MalId, mediaType);
+                var statusMap = await EnsureStatusesAsync(db, backup.Statuses ?? [], ct).ConfigureAwait(false);
+
+                var existingActiveKeys = new HashSet<(int MalId, MediaType MediaType)>();
+                var existingTrashedByKey = new Dictionary<(int MalId, MediaType MediaType), LibraryItem>();
+
                 if (mode == ImportMode.Merge)
                 {
-                    if (!seenKeys.Add(key))
+                    var localItems = await db.LibraryItems.ToListAsync(ct).ConfigureAwait(false);
+                    foreach (var local in localItems)
+                    {
+                        if (local.DeletedAt is null)
+                            existingActiveKeys.Add((local.MalId, local.MediaType));
+                        else
+                            existingTrashedByKey[(local.MalId, local.MediaType)] = local;
+                    }
+                }
+
+                var seenKeys = new HashSet<(int MalId, MediaType MediaType)>(existingActiveKeys);
+
+                foreach (var dto in backupItems)
+                {
+                    if (dto.MalId <= 0)
                     {
                         skipped++;
+                        logger.LogWarning("Skipping backup item with invalid MalId {MalId}", dto.MalId);
                         continue;
                     }
 
-                    if (existingTrashedByKey.TryGetValue(key, out var trashedLocal))
+                    if (!Enum.TryParse<MediaType>(dto.MediaType, ignoreCase: true, out var mediaType))
                     {
-                        if (dto.DeletedAt is not null)
-                            continue;
-
-                        db.LibraryItems.Remove(trashedLocal);
-                        await db.SaveChangesAsync(ct).ConfigureAwait(false);
-                        existingTrashedByKey.Remove(key);
+                        skipped++;
+                        logger.LogWarning(
+                            "Skipping backup item {MalId}: unknown media type '{MediaType}'",
+                            dto.MalId, dto.MediaType);
+                        continue;
                     }
+
+                    var key = (dto.MalId, mediaType);
+                    if (mode == ImportMode.Merge)
+                    {
+                        if (!seenKeys.Add(key))
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        if (existingTrashedByKey.TryGetValue(key, out var trashedLocal))
+                        {
+                            if (dto.DeletedAt is not null)
+                                continue;
+
+                            db.LibraryItems.Remove(trashedLocal);
+                            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+                            existingTrashedByKey.Remove(key);
+                        }
+                    }
+
+                    var entity = BuildEntity(dto, mediaType, statusMap);
+
+                    // Never trust a CoverLocalPath from the backup file. Point directly to
+                    // this machine's canonical cover file if already on disk; otherwise queue
+                    // the remote download to run AFTER the SQLite transaction commits.
+                    if (entity.Snapshot is { } snap)
+                    {
+                        var existingLocal = coverStore.GetExistingLocalPath(dto.MalId, mediaType);
+                        if (existingLocal is not null)
+                        {
+                            snap.CoverLocalPath = existingLocal;
+                            referencedCovers.Add(Path.GetFullPath(existingLocal));
+                        }
+                        else if (!string.IsNullOrWhiteSpace(snap.CoverOriginalUrl))
+                        {
+                            pendingCoverDownloads.Add((entity, dto.MalId, mediaType, snap.CoverOriginalUrl));
+                        }
+                    }
+
+                    db.LibraryItems.Add(entity);
+                    imported++;
                 }
 
-                var entity = BuildEntity(dto, mediaType, statusMap);
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-                // The backup stores an absolute CoverLocalPath from the exporting
-                // machine — never trust it. Re-point to this machine's covers folder,
-                // re-downloading from CoverOriginalUrl when the file is gone.
-                if (entity.Snapshot is { } snap)
-                {
-                    snap.CoverLocalPath = await coverStore.EnsureAsync(
-                        dto.MalId, mediaType, snap.CoverOriginalUrl, ct).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(snap.CoverLocalPath))
-                        referencedCovers.Add(Path.GetFullPath(snap.CoverLocalPath));
-                }
-
-                db.LibraryItems.Add(entity);
-                imported++;
+                if (transaction is not null)
+                    await transaction.CommitAsync(ct).ConfigureAwait(false);
             }
 
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            if (pendingCoverDownloads.Count > 0)
+            {
+                var downloaded = new ConcurrentBag<(int LibraryItemId, string Path)>();
+                await Parallel.ForEachAsync(
+                    pendingCoverDownloads,
+                    new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+                    async (work, token) =>
+                    {
+                        var path = await coverStore.EnsureAsync(work.MalId, work.MediaType, work.Url, token)
+                            .ConfigureAwait(false);
+                        if (!string.IsNullOrWhiteSpace(path))
+                            downloaded.Add((work.Entity.Id, path));
+                    }).ConfigureAwait(false);
 
-            if (transaction is not null)
-                await transaction.CommitAsync(ct).ConfigureAwait(false);
+                if (!downloaded.IsEmpty)
+                {
+                    var byItemId = downloaded.ToDictionary(d => d.LibraryItemId, d => d.Path);
+                    foreach (var path in byItemId.Values)
+                        referencedCovers.Add(Path.GetFullPath(path));
+
+                    await using var coverDb = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+                    var itemIds = byItemId.Keys.ToList();
+                    var snapshots = await coverDb.Snapshots
+                        .Where(s => itemIds.Contains(s.LibraryItemId))
+                        .ToListAsync(ct).ConfigureAwait(false);
+                    foreach (var snap in snapshots)
+                    {
+                        if (byItemId.TryGetValue(snap.LibraryItemId, out var resolvedPath))
+                            snap.CoverLocalPath = resolvedPath;
+                    }
+                    await coverDb.SaveChangesAsync(ct).ConfigureAwait(false);
+                }
+            }
 
             if (mode == ImportMode.Overwrite)
                 coverStore.SweepUnreferenced(referencedCovers);
@@ -316,11 +368,12 @@ public sealed class ExportService(
                     UpdatedAt = n.UpdatedAt == default ? DateTime.UtcNow : n.UpdatedAt
                 }).ToList(),
             StreamingOverrides = (dto.StreamingOverrides ?? [])
-                .Where(o => !string.IsNullOrWhiteSpace(o.PlatformName))
+                .Where(o => !string.IsNullOrWhiteSpace(o.PlatformName)
+                            && (string.IsNullOrWhiteSpace(o.Url) || HttpUrlGuard.IsAllowedWebUrl(o.Url, out _)))
                 .Select(o => new UserStreamingOverride
                 {
-                    PlatformName = o.PlatformName,
-                    Url = o.Url ?? string.Empty,
+                    PlatformName = o.PlatformName.Trim(),
+                    Url = HttpUrlGuard.SanitizeWebUrl(o.Url),
                     AddedAt = o.AddedAt == default ? DateTime.UtcNow : o.AddedAt
                 }).ToList()
         };
@@ -345,7 +398,7 @@ public sealed class ExportService(
                 MalScore = s.MalScore,
                 Genres = string.IsNullOrWhiteSpace(s.Genres) ? "[]" : s.Genres,
                 CoverLocalPath = null,
-                CoverOriginalUrl = s.CoverOriginalUrl,
+                CoverOriginalUrl = HttpUrlGuard.SanitizeWebUrl(s.CoverOriginalUrl),
                 StreamingPlatforms = s.StreamingPlatforms,
                 SnapshotAt = s.SnapshotAt == default ? DateTime.UtcNow : s.SnapshotAt
             };
@@ -374,7 +427,7 @@ public sealed class ExportService(
             i.Snapshot.Status, i.Snapshot.Studio,
             i.Snapshot.TotalEpisodes, i.Snapshot.TotalChapters, i.Snapshot.TotalVolumes,
             i.Snapshot.AiringStart, i.Snapshot.AiringEnd, i.Snapshot.Season, i.Snapshot.Year,
-            i.Snapshot.MalScore, i.Snapshot.Genres, i.Snapshot.CoverLocalPath,
+            i.Snapshot.MalScore, i.Snapshot.Genres, CoverLocalPath: null,
             i.Snapshot.CoverOriginalUrl, i.Snapshot.StreamingPlatforms, i.Snapshot.SnapshotAt),
         Episodes = i.EpisodeProgress
             .Select(e => new EpisodeDto(e.EpisodeNumber, e.IsWatched, e.WatchedAt)).ToList(),
@@ -394,5 +447,18 @@ public sealed class ExportService(
             db.Settings.Add(new AppSetting { Key = key, Value = value });
         else
             existing.Value = value;
+    }
+
+    private static void TryDeleteTempFile(string tmpPath)
+    {
+        try
+        {
+            if (File.Exists(tmpPath))
+                File.Delete(tmpPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort cleanup of incomplete temporary export file.
+        }
     }
 }

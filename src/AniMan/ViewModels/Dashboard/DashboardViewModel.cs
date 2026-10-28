@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Net.Http;
 using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
-using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -9,10 +9,12 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AniMan.ViewModels.Dashboard;
 
-public partial class DashboardViewModel : ObservableObject
+public partial class DashboardViewModel : ObservableObject, IDisposable
 {
     private readonly ITrackingService _tracking;
     private readonly ICatalogService _catalog;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private CancellationTokenSource? _seasonCoverCts;
 
     [ObservableProperty] private int _totalAnime;
     [ObservableProperty] private int _totalManga;
@@ -24,7 +26,7 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueItems = [];
     [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueWatchingItems = [];
     [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueReadingItems = [];
-    [ObservableProperty] private ObservableCollection<CachedAnime> _thisSeasonItems = [];
+    [ObservableProperty] private ObservableCollection<SeasonCardViewModel> _thisSeasonItems = [];
 
     public bool HasContinueWatchingItems => ContinueWatchingItems.Count > 0;
     public bool HasContinueReadingItems => ContinueReadingItems.Count > 0;
@@ -39,10 +41,14 @@ public partial class DashboardViewModel : ObservableObject
     public event EventHandler<int>? NavigateToLibraryItemRequested;
     public event EventHandler? NavigateToDiscoverRequested;
 
-    public DashboardViewModel(ITrackingService tracking, ICatalogService catalog)
+    public DashboardViewModel(
+        ITrackingService tracking,
+        ICatalogService catalog,
+        IHttpClientFactory httpClientFactory)
     {
         _tracking = tracking;
         _catalog = catalog;
+        _httpClientFactory = httpClientFactory;
     }
 
     [RelayCommand]
@@ -74,9 +80,19 @@ public partial class DashboardViewModel : ObservableObject
             var result = await _catalog.GetCurrentSeasonAsync();
             if (result.IsSuccess)
             {
-                ThisSeasonItems = new ObservableCollection<CachedAnime>(
-                    result.Value!.Take(10));
+                var cards = result.Value!
+                    .Take(10)
+                    .Select(a => new SeasonCardViewModel
+                    {
+                        Id = a.Id,
+                        Title = a.Title,
+                        CoverUrl = a.CoverMediumUrl ?? a.CoverLargeUrl
+                    })
+                    .ToList();
+
+                ThisSeasonItems = new ObservableCollection<SeasonCardViewModel>(cards);
                 OnPropertyChanged(nameof(HasSeasonItems));
+                _ = LoadSeasonCoversAsync(cards);
             }
             else
             {
@@ -85,6 +101,27 @@ public partial class DashboardViewModel : ObservableObject
             }
         }
         finally { IsLoadingSeason = false; }
+    }
+
+    private async Task LoadSeasonCoversAsync(IReadOnlyList<SeasonCardViewModel> cards)
+    {
+        var previous = _seasonCoverCts;
+        previous?.Cancel();
+        previous?.Dispose();
+        var cts = _seasonCoverCts = new CancellationTokenSource();
+        var ct = cts.Token;
+
+        using var gate = new SemaphoreSlim(4);
+        var tasks = cards.Select(async card =>
+        {
+            await gate.WaitAsync(ct);
+            try { await card.LoadCoverAsync(_httpClientFactory, ct); }
+            catch (OperationCanceledException) { }
+            finally { gate.Release(); }
+        });
+
+        try { await Task.WhenAll(tasks); }
+        catch (OperationCanceledException) { }
     }
 
     private async Task LoadLibraryAsync()
@@ -147,6 +184,13 @@ public partial class DashboardViewModel : ObservableObject
 
     partial void OnSeasonErrorMessageChanged(string? value) =>
         OnPropertyChanged(nameof(HasSeasonError));
+
+    public void Dispose()
+    {
+        _seasonCoverCts?.Cancel();
+        _seasonCoverCts?.Dispose();
+        _seasonCoverCts = null;
+    }
 }
 
 public class LibraryItemSummary

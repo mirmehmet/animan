@@ -300,7 +300,7 @@
                                     <Grid>
                                         <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
                                         <Border CornerRadius="{StaticResource CornerMd}" ClipToBounds="True">
-                                            <Image Source="{Binding CoverMediumUrl}"
+                                            <Image Source="{Binding CoverImage}"
                                                    Stretch="UniformToFill"/>
                                         </Border>
                                         <Border VerticalAlignment="Bottom"

@@ -58,7 +58,7 @@ public sealed class SnapshotService(
             // Load genres from catalog
             snapshot.Genres = await LoadGenresJsonAsync(malId, mediaType == MediaType.Anime ? "anime" : "manga", ct).ConfigureAwait(false);
 
-            // Download cover; fall back to any existing on-disk cover if offline
+            // Download cover; fall back to any existing valid on-disk cover if offline
             var downloadedCover = await coverStore.DownloadAsync(malId, mediaType, coverUrl, ct).ConfigureAwait(false);
             snapshot.CoverLocalPath = downloadedCover ?? ResolveExistingCoverOnDisk(existing?.Snapshot?.CoverLocalPath, malId, mediaType);
             snapshot.CoverOriginalUrl = coverUrl;
@@ -217,11 +217,13 @@ public sealed class SnapshotService(
 
     private string? ResolveExistingCoverOnDisk(string? previousPath, int malId, MediaType mediaType)
     {
-        if (!string.IsNullOrWhiteSpace(previousPath) && File.Exists(previousPath))
+        if (!string.IsNullOrWhiteSpace(previousPath) &&
+            new FileInfo(previousPath) is { Exists: true, Length: > 0 })
+        {
             return previousPath;
+        }
 
-        var canonical = coverStore.GetLocalPath(malId, mediaType);
-        return File.Exists(canonical) ? canonical : null;
+        return coverStore.GetExistingLocalPath(malId, mediaType);
     }
 
     private async Task<string> LoadGenresJsonAsync(int malId, string mediaType, CancellationToken ct)

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -96,6 +97,74 @@ public class ExportServiceTests : IDisposable
         item.Snapshot!.Title.Should().Be("Original");
         item.EpisodeProgress.Should().ContainSingle().Which.IsWatched.Should().BeTrue();
         item.Notes.Should().ContainSingle().Which.Content.Should().Be("note");
+    }
+
+    [Fact]
+    public async Task Export_OmitsCoverLocalPathFromBackupJson()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Privacy Check");
+        using (var db = CreateDb())
+        {
+            var snap = db.Snapshots.Single();
+            snap.CoverLocalPath = @"C:\Users\SecretUsername\AppData\Roaming\AniMan\covers\100_anime.jpg";
+            snap.CoverOriginalUrl = "https://cdn.myanimelist.net/images/anime/1/100.jpg";
+            db.SaveChanges();
+        }
+
+        var result = await Create().ExportAsync(_tempFile);
+
+        result.IsSuccess.Should().BeTrue();
+        var rawJson = await File.ReadAllTextAsync(_tempFile);
+        rawJson.Should().NotContain("SecretUsername");
+        var root = JsonNode.Parse(rawJson)!;
+        root["items"]![0]!["snapshot"]!["coverLocalPath"].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Import_FiltersUnsafeStreamingOverrideUrls()
+    {
+        await File.WriteAllTextAsync(_tempFile, """
+        {
+          "schemaVersion": 1,
+          "exportedAt": "2026-10-28T12:00:00Z",
+          "statuses": [],
+          "items": [
+            {
+              "malId": 100,
+              "mediaType": "Anime",
+              "statusName": "Watching",
+              "snapshot": {
+                "title": "URL Sanitization",
+                "coverOriginalUrl": "file:///C:/Windows/win.ini",
+                "genres": "[]",
+                "snapshotAt": "2026-10-28T12:00:00Z"
+              },
+              "streamingOverrides": [
+                { "platformName": "MaliciousJs", "url": "javascript:alert(1)" },
+                { "platformName": "MaliciousFile", "url": "file:///C:/Windows/System32/calc.exe" },
+                { "platformName": "Netflix", "url": null },
+                { "platformName": "Crunchyroll", "url": "https://www.crunchyroll.com/watch/123" }
+              ]
+            }
+          ]
+        }
+        """);
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeTrue();
+        using var verify = CreateDb();
+        var item = verify.LibraryItems
+            .Include(i => i.Snapshot)
+            .Include(i => i.StreamingOverrides)
+            .Single();
+
+        item.Snapshot!.CoverOriginalUrl.Should().BeNull();
+        item.StreamingOverrides.Should().NotContain(o => o.PlatformName == "MaliciousJs");
+        item.StreamingOverrides.Should().NotContain(o => o.PlatformName == "MaliciousFile");
+        item.StreamingOverrides.Should().Contain(o => o.PlatformName == "Netflix" && o.Url == null);
+        item.StreamingOverrides.Should().Contain(o =>
+            o.PlatformName == "Crunchyroll" && o.Url == "https://www.crunchyroll.com/watch/123");
     }
 
     [Fact]

@@ -36,7 +36,12 @@ public sealed class TenraiClient : IMediaSourceClient
                 MaxRetryAttempts = 3,
                 Delay = TimeSpan.FromSeconds(1),
                 BackoffType = DelayBackoffType.Exponential,
-                ShouldHandle = args => ValueTask.FromResult(IsTransient(args.Outcome))
+                ShouldHandle = args => ValueTask.FromResult(IsTransient(args.Outcome)),
+                OnRetry = args =>
+                {
+                    args.Outcome.Result?.Dispose();
+                    return default;
+                }
             })
             .Build();
     }
@@ -94,48 +99,54 @@ public sealed class TenraiClient : IMediaSourceClient
     {
         try
         {
-            return await _rateLimiter.ExecuteAsync(async () =>
+            using var response = await _pipeline.ExecuteAsync(
+                async token => await _rateLimiter.ExecuteAsync(
+                    async () =>
+                    {
+                        _logger.LogDebug("GET {Url}", relativeUrl);
+                        return await _http.GetAsync(relativeUrl, token).ConfigureAwait(false);
+                    }, token).ConfigureAwait(false),
+                ct).ConfigureAwait(false);
+
+            // A 404/400 is a real answer (unknown MAL id, bad query) — don't let it
+            // fall through to the generic "could not reach the API" handler below.
+            if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
             {
-                _logger.LogDebug("GET {Url}", relativeUrl);
+                _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
+                return Result<T>.Failure("Not found on MyAnimeList.");
+            }
 
-                using var response = await _pipeline.ExecuteAsync(
-                    async token => await _http.GetAsync(relativeUrl, token).ConfigureAwait(false), ct).ConfigureAwait(false);
+            // Retries are exhausted at this point — turn the final status into a
+            // message that tells the user whose side the problem is on.
+            if ((int)response.StatusCode >= 500)
+            {
+                _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
+                return Result<T>.Failure("The MyAnimeList data service is not responding right now. Please try again later.");
+            }
 
-                // A 404/400 is a real answer (unknown MAL id, bad query) — don't let it
-                // fall through to the generic "could not reach the API" handler below.
-                if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
-                {
-                    _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
-                    return Result<T>.Failure("Not found on MyAnimeList.");
-                }
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
+                return Result<T>.Failure("Too many requests — please wait a moment and try again.");
+            }
 
-                // Retries are exhausted at this point — turn the final status into a
-                // message that tells the user whose side the problem is on.
-                if ((int)response.StatusCode >= 500)
-                {
-                    _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
-                    return Result<T>.Failure("The MyAnimeList data service is not responding right now. Please try again later.");
-                }
+            response.EnsureSuccessStatusCode();
 
-                if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                {
-                    _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
-                    return Result<T>.Failure("Too many requests — please wait a moment and try again.");
-                }
+            var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            var dto = await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, ct).ConfigureAwait(false);
 
-                response.EnsureSuccessStatusCode();
-
-                var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-                var dto = await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, ct).ConfigureAwait(false);
-
-                return dto is null
-                    ? Result<T>.Failure($"Null response from Tenrai: {relativeUrl}")
-                    : Result<T>.Success(dto);
-            }, ct).ConfigureAwait(false);
+            return dto is null
+                ? Result<T>.Failure($"Null response from Tenrai: {relativeUrl}")
+                : Result<T>.Success(dto);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (OperationCanceledException)
         {
-            return Result<T>.Failure("Request cancelled");
+            _logger.LogWarning("Tenrai request timed out: {Url}", relativeUrl);
+            return Result<T>.Failure("The request timed out. Please try again.");
         }
         catch (Exception ex)
         {

@@ -6,10 +6,14 @@ using Microsoft.Extensions.Logging;
 
 namespace AniMan.Infrastructure.Services;
 
-public class SettingsService(
+public sealed class SettingsService(
     IDbContextFactory<LibraryDbContext> dbFactory,
-    ILogger<SettingsService> logger) : ISettingsService
+    ILogger<SettingsService> logger) : ISettingsService, IDisposable
 {
+    private const int DefaultCacheRefreshDays = 7;
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private int? _cachedRefreshDays;
+
     public async Task<string> GetAsync(string key, string defaultValue = "", CancellationToken ct = default)
     {
         // Read failures fall back to the default — settings reads run during
@@ -30,27 +34,51 @@ public class SettingsService(
 
     public async Task SetAsync(string key, string value, CancellationToken ct = default)
     {
-        await using var db = await dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-        var existing = await db.Settings.FindAsync([key], ct).ConfigureAwait(false);
-        if (existing is null)
-            db.Settings.Add(new AppSetting { Key = key, Value = value });
-        else
-            existing.Value = value;
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await _writeLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var existing = await db.Settings.FindAsync([key], ct).ConfigureAwait(false);
+            if (existing is null)
+                db.Settings.Add(new AppSetting { Key = key, Value = value });
+            else
+                existing.Value = value;
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            if (string.Equals(key, "CacheRefreshDays", StringComparison.Ordinal))
+                _cachedRefreshDays = ParseAndClampRefreshDays(value);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
     }
+
+    public void InvalidateCache() => _cachedRefreshDays = null;
 
     public Task<string> GetThemeAsync(CancellationToken ct = default) => GetAsync("Theme", "system", ct);
     public Task SetThemeAsync(string theme, CancellationToken ct = default) => SetAsync("Theme", theme, ct);
     public Task<string> GetLanguageAsync(CancellationToken ct = default) => GetAsync("Language", "en", ct);
     public Task SetLanguageAsync(string language, CancellationToken ct = default) => SetAsync("Language", language, ct);
+
     public async Task<int> GetCacheRefreshDaysAsync(CancellationToken ct = default)
     {
-        var val = await GetAsync("CacheRefreshDays", "7", ct).ConfigureAwait(false);
-        return int.TryParse(val, out var days) ? days : 7;
+        if (_cachedRefreshDays is { } cached)
+            return cached;
+
+        var val = await GetAsync("CacheRefreshDays", DefaultCacheRefreshDays.ToString(), ct).ConfigureAwait(false);
+        var days = ParseAndClampRefreshDays(val);
+        _cachedRefreshDays = days;
+        return days;
     }
 
     public Task<string> GetStartupPageAsync(CancellationToken ct = default) => GetAsync("StartupPage", "Dashboard", ct);
     public Task SetStartupPageAsync(string page, CancellationToken ct = default) => SetAsync("StartupPage", page, ct);
     public Task<string> GetFontAsync(CancellationToken ct = default) => GetAsync("FontFamily", "Segoe UI", ct);
     public Task SetFontAsync(string fontFamily, CancellationToken ct = default) => SetAsync("FontFamily", fontFamily, ct);
+
+    public void Dispose() => _writeLock.Dispose();
+
+    private static int ParseAndClampRefreshDays(string? value) =>
+        int.TryParse(value, out var days) ? Math.Clamp(days, 1, 365) : DefaultCacheRefreshDays;
 }

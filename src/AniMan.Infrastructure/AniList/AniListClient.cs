@@ -1,9 +1,10 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AniMan.Core.Common;
 using AniMan.Infrastructure.AniList.Dtos;
-using AniMan.Infrastructure.Tenrai;
 using AniMan.Infrastructure.MediaSource.Dtos;
+using AniMan.Infrastructure.Tenrai;
 using Microsoft.Extensions.Logging;
 
 namespace AniMan.Infrastructure.AniList;
@@ -295,6 +296,24 @@ public sealed class AniListClient(
                     .PostAsJsonAsync((Uri?)null, new { query, variables }, ct)
                     .ConfigureAwait(false);
 
+                if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
+                {
+                    logger.LogWarning("AniList returned {Status}", response.StatusCode);
+                    return Result<T>.Failure("Not found on AniList.");
+                }
+
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    logger.LogWarning("AniList returned {Status}", response.StatusCode);
+                    return Result<T>.Failure("Too many requests — please wait a moment and try again.");
+                }
+
+                if ((int)response.StatusCode >= 500)
+                {
+                    logger.LogWarning("AniList returned {Status}", response.StatusCode);
+                    return Result<T>.Failure("AniList is not responding right now. Please try again later.");
+                }
+
                 response.EnsureSuccessStatusCode();
 
                 var payload = await response.Content
@@ -315,7 +334,15 @@ public sealed class AniListClient(
                     : Result<T>.Failure("AniList returned no data");
             }, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogWarning("AniList request timed out");
+            return Result<T>.Failure("The request timed out. Please try again.");
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "AniList request failed");

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
+using AniMan.Core.Common;
 using AniMan.Infrastructure.AniList.Dtos;
 using AniMan.Infrastructure.MediaSource.Dtos;
 
@@ -75,15 +76,20 @@ internal static partial class AniListMapper
         // Serializations: AniList has no equivalent.
     };
 
-    /// <summary>Keeps only the links AniList marks as streaming services.</summary>
+    /// <summary>Keeps only the links AniList marks as streaming services with valid http(s) URLs.</summary>
     public static IReadOnlyList<StreamingDto> ToStreamingDtos(
         IReadOnlyList<AniListExternalLink>? links) =>
         links is null
             ? []
             : [.. links
                 .Where(l => string.Equals(l.Type, "STREAMING", StringComparison.OrdinalIgnoreCase)
-                            && !string.IsNullOrWhiteSpace(l.Site))
-                .Select(l => new StreamingDto { Name = l.Site!, Url = l.Url })];
+                            && !string.IsNullOrWhiteSpace(l.Site)
+                            && (l.Url is null || HttpUrlGuard.IsAllowedWebUrl(l.Url, out _)))
+                .Select(l => new StreamingDto
+                {
+                    Name = l.Site!,
+                    Url = HttpUrlGuard.SanitizeWebUrl(l.Url)
+                })];
 
     // ── Field translation ─────────────────────────────────────────────────────
 
@@ -155,15 +161,22 @@ internal static partial class AniListMapper
         }
     }
 
-    private static ImagesDto? ToImages(AniListCoverImage? cover) =>
-        cover is null ? null : new ImagesDto
+    private static ImagesDto? ToImages(AniListCoverImage? cover)
+    {
+        if (cover is null) return null;
+
+        var medium = HttpUrlGuard.SanitizeExternalWebUrl(cover.Medium);
+        var large = HttpUrlGuard.SanitizeExternalWebUrl(cover.Large);
+
+        return new ImagesDto
         {
             Jpg = new ImageVariantsDto
             {
-                ImageUrl = cover.Medium ?? cover.Large,
-                LargeImageUrl = cover.Large ?? cover.Medium
+                ImageUrl = medium ?? large,
+                LargeImageUrl = large ?? medium
             }
         };
+    }
 
     /// <summary>
     /// AniList genres are bare strings with no id. They are emitted with

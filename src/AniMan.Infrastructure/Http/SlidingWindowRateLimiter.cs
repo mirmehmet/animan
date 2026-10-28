@@ -38,6 +38,8 @@ public sealed class SlidingWindowRateLimiter : IDisposable
 
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> request, CancellationToken ct = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         var held = 0;
         try
         {
@@ -46,10 +48,19 @@ public sealed class SlidingWindowRateLimiter : IDisposable
         }
         catch
         {
-            // Cancelled part-way through acquisition — hand back the permits already
-            // taken, otherwise they stay lost for the lifetime of the process.
+            // Cancelled or disposed part-way through acquisition — hand back the permits
+            // already taken without masking the original exception if Dispose ran concurrently.
             for (var i = 0; i < held; i++)
-                _windows[i].Gate.Release();
+            {
+                try
+                {
+                    if (!_disposed)
+                        _windows[i].Gate.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
             throw;
         }
 

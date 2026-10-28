@@ -23,14 +23,14 @@ public static class CoverImageLoader
             : null;
     }
 
-    /// <summary>Loads a cover from a local file; returns null when missing or unreadable.</summary>
+    /// <summary>Loads a cover from a local file; returns null when missing, empty, or unreadable.</summary>
     public static BitmapImage? FromFile(string? path, int decodePixelWidth = 200)
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
         try
         {
             var info = new FileInfo(path);
-            if (!info.Exists) return null;
+            if (!info.Exists || info.Length <= 0) return null;
 
             var key = (info.FullName, decodePixelWidth, info.LastWriteTimeUtc.Ticks);
             if (Cache.TryGetValue(key, out var weakRef) && weakRef.TryGetTarget(out var cached))
@@ -54,26 +54,36 @@ public static class CoverImageLoader
     }
 
     /// <summary>Builds a cover from downloaded bytes. Must run on the UI (STA) thread.</summary>
-    public static BitmapImage FromBytes(byte[] bytes, int decodePixelWidth, string? urlKey = null)
+    public static BitmapImage? FromBytes(byte[] bytes, int decodePixelWidth, string? urlKey = null)
     {
+        if (bytes.Length == 0)
+            return null;
+
         if (!string.IsNullOrWhiteSpace(urlKey))
         {
             var cached = TryGetFromUrlCache(urlKey, decodePixelWidth);
             if (cached is not null) return cached;
         }
 
-        using var stream = new MemoryStream(bytes, writable: false);
-        var img = new BitmapImage();
-        img.BeginInit();
-        img.CacheOption = BitmapCacheOption.OnLoad; // set before StreamSource
-        img.StreamSource = stream;
-        img.DecodePixelWidth = decodePixelWidth;
-        img.EndInit();
-        img.Freeze();
+        try
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            var img = new BitmapImage();
+            img.BeginInit();
+            img.CacheOption = BitmapCacheOption.OnLoad; // set before StreamSource
+            img.StreamSource = stream;
+            img.DecodePixelWidth = decodePixelWidth;
+            img.EndInit();
+            img.Freeze();
 
-        if (!string.IsNullOrWhiteSpace(urlKey))
-            UrlCache[(urlKey, decodePixelWidth)] = new WeakReference<BitmapImage>(img);
+            if (!string.IsNullOrWhiteSpace(urlKey))
+                UrlCache[(urlKey, decodePixelWidth)] = new WeakReference<BitmapImage>(img);
 
-        return img;
+            return img;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

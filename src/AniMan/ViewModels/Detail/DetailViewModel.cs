@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
@@ -18,11 +16,15 @@ namespace AniMan.ViewModels.Detail;
 
 public partial class DetailViewModel : ObservableObject
 {
+    private const int MaxCoverBytes = 10 * 1024 * 1024;
+    private const int PreviewDecodeWidth = 200;
+
     private readonly ITrackingService _tracking;
     private readonly ISnapshotService _snapshot;
     private readonly ICatalogService _catalog;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<DetailViewModel> _logger;
+    private Task? _activeNoteSave;
 
     private int _previewMalId;
     private MediaType _previewMediaType;
@@ -48,6 +50,7 @@ public partial class DetailViewModel : ObservableObject
     [ObservableProperty] private IReadOnlyList<string> _genres = [];
     [ObservableProperty] private ObservableCollection<StreamingBadgeViewModel> _streamingPlatforms = [];
 
+    public bool HasUnsavedSeriesNote => !IsPreviewMode && LibraryItemId > 0 && SeriesNote != _lastSavedSeriesNote;
     public bool HasStreamingPlatforms => StreamingPlatforms.Count > 0;
     public bool HasProgress => TotalCount > 0;
     public bool HasEpisodes => !IsManga && TotalCount > 0;
@@ -196,12 +199,37 @@ public partial class DetailViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveSeriesNoteAsync()
     {
+        if (_activeNoteSave is not null)
+            await _activeNoteSave;
+
         if (IsPreviewMode || LibraryItemId <= 0 || SeriesNote == _lastSavedSeriesNote)
             return;
 
-        var result = await _tracking.SaveNoteAsync(LibraryItemId, null, null, SeriesNote);
-        if (result.IsSuccess)
-            _lastSavedSeriesNote = SeriesNote;
+        var saveTask = RunSaveSeriesNoteLoopAsync();
+        _activeNoteSave = saveTask;
+        try
+        {
+            await saveTask;
+        }
+        finally
+        {
+            if (ReferenceEquals(_activeNoteSave, saveTask))
+                _activeNoteSave = null;
+        }
+    }
+
+    private async Task RunSaveSeriesNoteLoopAsync()
+    {
+        while (!IsPreviewMode && LibraryItemId > 0 && SeriesNote != _lastSavedSeriesNote)
+        {
+            var itemId = LibraryItemId;
+            var snapshot = SeriesNote;
+            var result = await _tracking.SaveNoteAsync(itemId, null, null, snapshot);
+            if (!result.IsSuccess)
+                break;
+
+            _lastSavedSeriesNote = snapshot;
+        }
     }
 
     [RelayCommand]
@@ -306,9 +334,8 @@ public partial class DetailViewModel : ObservableObject
     {
         var type = IsManga ? "manga" : "anime";
         var id = IsPreviewMode ? _previewMalId : Item?.MalId;
-        if (id is null) return;
-        Process.Start(new ProcessStartInfo($"https://myanimelist.net/{type}/{id}")
-            { UseShellExecute = true });
+        if (id is null or <= 0) return;
+        SafeBrowserLauncher.TryOpen($"https://myanimelist.net/{type}/{id}");
     }
 
     private static IReadOnlyList<string> DeserializeGenres(string? json)
@@ -329,15 +356,60 @@ public partial class DetailViewModel : ObservableObject
         StreamingPlatforms.Clear();
         OnPropertyChanged(nameof(HasStreamingPlatforms));
 
-        var result = await _catalog.GetAnimeStreamingAsync(malId, force);
-        if (!result.IsSuccess || result.Value!.Count == 0) return;
-        StreamingPlatforms = new ObservableCollection<StreamingBadgeViewModel>(
-            result.Value!.Select(s => new StreamingBadgeViewModel
+        var badges = new List<StreamingBadgeViewModel>();
+        var seenPlatforms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!IsPreviewMode && Item?.StreamingOverrides is { Count: > 0 } overrides)
+        {
+            foreach (var o in overrides)
             {
-                Name = s.PlatformName,
-                Url = s.Url,
-                Background = StreamingPlatformColors.GetBrush(s.PlatformName)
-            }));
+                if (string.IsNullOrWhiteSpace(o.PlatformName))
+                    continue;
+
+                var safeUrl = HttpUrlGuard.SanitizeWebUrl(o.Url);
+                if (!string.IsNullOrWhiteSpace(o.Url) && safeUrl is null)
+                    continue;
+
+                var name = o.PlatformName.Trim();
+                if (seenPlatforms.Add(name))
+                {
+                    badges.Add(new StreamingBadgeViewModel
+                    {
+                        Name = name,
+                        Url = safeUrl,
+                        Background = StreamingPlatformColors.GetBrush(name)
+                    });
+                }
+            }
+        }
+
+        var result = await _catalog.GetAnimeStreamingAsync(malId, force);
+        if (result.IsSuccess && result.Value is { Count: > 0 } catalogPlatforms)
+        {
+            foreach (var s in catalogPlatforms)
+            {
+                if (string.IsNullOrWhiteSpace(s.PlatformName))
+                    continue;
+
+                var safeUrl = HttpUrlGuard.SanitizeWebUrl(s.Url);
+                if (!string.IsNullOrWhiteSpace(s.Url) && safeUrl is null)
+                    continue;
+
+                if (seenPlatforms.Add(s.PlatformName))
+                {
+                    badges.Add(new StreamingBadgeViewModel
+                    {
+                        Name = s.PlatformName,
+                        Url = safeUrl,
+                        Background = StreamingPlatformColors.GetBrush(s.PlatformName)
+                    });
+                }
+            }
+        }
+
+        if (badges.Count == 0) return;
+
+        StreamingPlatforms = new ObservableCollection<StreamingBadgeViewModel>(badges);
         OnPropertyChanged(nameof(HasStreamingPlatforms));
     }
 
@@ -349,13 +421,33 @@ public partial class DetailViewModel : ObservableObject
 
     private async Task LoadCoverFromUrlAsync(string? url)
     {
-        if (string.IsNullOrEmpty(url)) return;
+        if (!HttpUrlGuard.IsAllowedWebUrl(url, out var uri) ||
+            !HttpUrlGuard.IsSafeExternalHost(uri))
+        {
+            return;
+        }
+
+        var cacheKey = uri.AbsoluteUri;
+        var cached = Imaging.CoverImageLoader.TryGetFromUrlCache(cacheKey, PreviewDecodeWidth);
+        if (cached is not null)
+        {
+            CoverImage = cached;
+            return;
+        }
+
         try
         {
             var http = _httpClientFactory.CreateClient("covers");
-            var bytes = await http.GetByteArrayAsync(url);
-            await Application.Current.Dispatcher.InvokeAsync(() =>
-                CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, 200));
+            var bytes = await http.GetByteArrayAsync(uri);
+            if (bytes.Length == 0 || bytes.Length > MaxCoverBytes)
+                return;
+
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.HasShutdownStarted)
+                return;
+
+            await dispatcher.InvokeAsync(() =>
+                CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, PreviewDecodeWidth, cacheKey));
         }
         catch (Exception ex)
         {
@@ -424,9 +516,9 @@ public partial class DetailViewModel : ObservableObject
         Episodes = new ObservableCollection<EpisodeRowViewModel>(rows);
     }
 
-    private async Task LoadChaptersAsync()
+    private Task LoadChaptersAsync()
     {
-        if (Item?.Snapshot is null) return;
+        if (Item?.Snapshot is null) return Task.CompletedTask;
 
         var chapterProgress = Item.ChapterProgress
             .GroupBy(cp => cp.ChapterNumber)
@@ -457,6 +549,7 @@ public partial class DetailViewModel : ObservableObject
         }
 
         Chapters = new ObservableCollection<ChapterRowViewModel>(rows);
+        return Task.CompletedTask;
     }
 
     // ── Episode handlers ──────────────────────────────────────────────────────

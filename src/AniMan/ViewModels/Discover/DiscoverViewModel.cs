@@ -15,9 +15,13 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
     private readonly ISnapshotService _snapshot;
     private readonly ITrackingService _tracking;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly SemaphoreSlim _coverGate = new(6, 6);
 
     private HashSet<(int MalId, MediaType MediaType)> _librarySet = [];
+    private CancellationTokenSource? _queryCts;
     private CancellationTokenSource? _coverCts;
+    private int _queryVersion;
+    private bool _disposed;
 
     private int _currentPage = 1;
     private bool _hasMorePages = true;
@@ -31,7 +35,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string? _errorMessage;
 
     /// <summary>Scroll offset saved when leaving for a detail page; the page instance
-    /// is transient, so the position must survive here on the singleton VM.</summary>
+    /// is singleton, and preserving offset here keeps navigation state unified.</summary>
     public double SavedScrollOffset { get; set; }
 
     /// <summary>True while a DiscoverPage instance is loaded — lets MainWindow tell a
@@ -79,33 +83,69 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
     public async Task LoadAsync()
     {
         _isSearchMode = false;
-        await LoadLibrarySetAsync();
-        await LoadTabFirstPageAsync();
+        var ct = BeginNewQuery(out var version);
+        IsLoadingMore = false;
+        ErrorMessage = null;
+        IsLoading = true;
+        try
+        {
+            await LoadLibrarySetAsync(ct);
+            if (version != _queryVersion) return;
+
+            await LoadTabFirstPageCoreAsync(version, ct);
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (version == _queryVersion)
+                IsLoading = false;
+        }
     }
 
     [RelayCommand]
     private async Task SwitchTabAsync(DiscoverTab tab)
     {
-        if (ActiveTab == tab && !_isSearchMode) return;
+        if (ActiveTab == tab && !_isSearchMode && !HasError) return;
         ActiveTab = tab;
         _isSearchMode = false;
         SearchQuery = string.Empty;
-        await LoadTabFirstPageAsync();
+
+        var ct = BeginNewQuery(out var version);
+        IsLoadingMore = false;
+        ErrorMessage = null;
+        IsLoading = true;
+        Cards = [];
+        try
+        {
+            await LoadTabFirstPageCoreAsync(version, ct);
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (version == _queryVersion)
+                IsLoading = false;
+        }
     }
 
     [RelayCommand]
     private async Task SearchAsync()
     {
         if (string.IsNullOrWhiteSpace(SearchQuery)) return;
+        var query = SearchQuery.Trim();
+
         _isSearchMode = true;
         _hasMorePages = false;
+        var ct = BeginNewQuery(out var version);
+        IsLoadingMore = false;
         ErrorMessage = null;
         IsLoading = true;
         try
         {
             if (ActiveTab == DiscoverTab.Manga)
             {
-                var result = await _catalog.SearchMangaAsync(SearchQuery);
+                var result = await _catalog.SearchMangaAsync(query, ct);
+                if (version != _queryVersion) return;
+
                 if (result.IsSuccess)
                     SetCards(result.Value!.Select(m => new DiscoverCardViewModel
                     {
@@ -119,7 +159,9 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
             }
             else
             {
-                var result = await _catalog.SearchAnimeAsync(SearchQuery);
+                var result = await _catalog.SearchAnimeAsync(query, ct);
+                if (version != _queryVersion) return;
+
                 if (result.IsSuccess)
                     SetCards(result.Value!.Select(a => new DiscoverCardViewModel
                     {
@@ -132,22 +174,34 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
                     ErrorMessage = result.Error;
             }
         }
-        finally { IsLoading = false; }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (version == _queryVersion)
+                IsLoading = false;
+        }
     }
 
     [RelayCommand]
     private async Task LoadMoreAsync()
     {
         if (!_hasMorePages || IsLoading || IsLoadingMore || _isSearchMode) return;
+
+        var version = _queryVersion;
+        var ct = (_queryCts ??= new CancellationTokenSource()).Token;
+        var nextPage = _currentPage + 1;
+
         IsLoadingMore = true;
         try
         {
-            _currentPage++;
             if (ActiveTab == DiscoverTab.Manga)
             {
-                var result = await _catalog.GetTopMangaAsync(_currentPage);
+                var result = await _catalog.GetTopMangaAsync(nextPage, ct);
+                if (version != _queryVersion) return;
+
                 if (result.IsSuccess && result.Value!.Count > 0)
                 {
+                    _currentPage = nextPage;
                     var newCards = result.Value!.Select(m => new DiscoverCardViewModel
                     {
                         MalId = m.Id, Title = m.Title,
@@ -158,18 +212,22 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
 
                     foreach (var card in newCards) Cards.Add(card);
                     _hasMorePages = result.Value!.Count >= 25;
-                    _ = LoadCoversAsync(newCards);
+                    _ = LoadCoversAsync(newCards, resetExisting: false);
                 }
-                else
+                else if (result.IsSuccess)
                 {
+                    _currentPage = nextPage;
                     _hasMorePages = false;
                 }
             }
             else
             {
-                var result = await _catalog.GetTopAnimeAsync(_currentPage);
+                var result = await _catalog.GetTopAnimeAsync(nextPage, ct);
+                if (version != _queryVersion) return;
+
                 if (result.IsSuccess && result.Value!.Count > 0)
                 {
+                    _currentPage = nextPage;
                     var newCards = result.Value!.Select(a => new DiscoverCardViewModel
                     {
                         MalId = a.Id, Title = a.Title,
@@ -180,15 +238,21 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
 
                     foreach (var card in newCards) Cards.Add(card);
                     _hasMorePages = result.Value!.Count >= 25;
-                    _ = LoadCoversAsync(newCards);
+                    _ = LoadCoversAsync(newCards, resetExisting: false);
                 }
-                else
+                else if (result.IsSuccess)
                 {
+                    _currentPage = nextPage;
                     _hasMorePages = false;
                 }
             }
         }
-        finally { IsLoadingMore = false; }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (version == _queryVersion)
+                IsLoadingMore = false;
+        }
     }
 
     /// <summary>Re-syncs the ✓ markers on existing cards without reloading the list —
@@ -196,7 +260,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
     /// to the library from the detail page in the meantime).</summary>
     public async Task RefreshLibraryFlagsAsync()
     {
-        await LoadLibrarySetAsync();
+        await LoadLibrarySetAsync(CancellationToken.None);
         foreach (var card in Cards)
             card.IsInLibrary = _librarySet.Contains((card.MalId, card.MediaType));
     }
@@ -219,93 +283,118 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task LoadTabFirstPageAsync()
+    private CancellationToken BeginNewQuery(out int version)
+    {
+        var previous = _queryCts;
+        previous?.Cancel();
+        previous?.Dispose();
+        var cts = _queryCts = new CancellationTokenSource();
+        version = ++_queryVersion;
+        return cts.Token;
+    }
+
+    private async Task LoadTabFirstPageCoreAsync(int version, CancellationToken ct)
     {
         _currentPage = 1;
         _hasMorePages = true;
-        ErrorMessage = null;
-        IsLoading = true;
         Cards = [];
-        try
+
+        if (ActiveTab == DiscoverTab.Manga)
         {
-            if (ActiveTab == DiscoverTab.Manga)
+            var result = await _catalog.GetTopMangaAsync(1, ct);
+            if (version != _queryVersion) return;
+
+            if (result.IsSuccess)
             {
-                var result = await _catalog.GetTopMangaAsync(1);
-                if (result.IsSuccess)
+                SetCards(result.Value!.Select(m => new DiscoverCardViewModel
                 {
-                    SetCards(result.Value!.Select(m => new DiscoverCardViewModel
-                    {
-                        MalId = m.Id, Title = m.Title,
-                        CoverUrl = m.CoverMediumUrl ?? m.CoverLargeUrl, Score = m.Score,
-                        Type = m.Type, MediaType = MediaType.Manga,
-                        IsInLibrary = _librarySet.Contains((m.Id, MediaType.Manga))
-                    }));
-                    _hasMorePages = result.Value!.Count >= 25;
-                }
-                else
-                {
-                    ErrorMessage = result.Error;
-                }
+                    MalId = m.Id, Title = m.Title,
+                    CoverUrl = m.CoverMediumUrl ?? m.CoverLargeUrl, Score = m.Score,
+                    Type = m.Type, MediaType = MediaType.Manga,
+                    IsInLibrary = _librarySet.Contains((m.Id, MediaType.Manga))
+                }));
+                _hasMorePages = result.Value!.Count >= 25;
             }
             else
             {
-                var result = await _catalog.GetTopAnimeAsync(1);
-                if (result.IsSuccess)
-                {
-                    SetCards(result.Value!.Select(a => new DiscoverCardViewModel
-                    {
-                        MalId = a.Id, Title = a.Title,
-                        CoverUrl = a.CoverMediumUrl ?? a.CoverLargeUrl, Score = a.Score,
-                        Type = a.Type, MediaType = MediaType.Anime,
-                        IsInLibrary = _librarySet.Contains((a.Id, MediaType.Anime))
-                    }));
-                    _hasMorePages = result.Value!.Count >= 25;
-                }
-                else
-                {
-                    ErrorMessage = result.Error;
-                }
+                ErrorMessage = result.Error;
             }
         }
-        finally { IsLoading = false; }
+        else
+        {
+            var result = await _catalog.GetTopAnimeAsync(1, ct);
+            if (version != _queryVersion) return;
+
+            if (result.IsSuccess)
+            {
+                SetCards(result.Value!.Select(a => new DiscoverCardViewModel
+                {
+                    MalId = a.Id, Title = a.Title,
+                    CoverUrl = a.CoverMediumUrl ?? a.CoverLargeUrl, Score = a.Score,
+                    Type = a.Type, MediaType = MediaType.Anime,
+                    IsInLibrary = _librarySet.Contains((a.Id, MediaType.Anime))
+                }));
+                _hasMorePages = result.Value!.Count >= 25;
+            }
+            else
+            {
+                ErrorMessage = result.Error;
+            }
+        }
     }
 
-    private async Task LoadLibrarySetAsync()
+    private async Task LoadLibrarySetAsync(CancellationToken ct)
     {
-        var anime = await _tracking.GetLibraryAsync("anime");
-        var manga = await _tracking.GetLibraryAsync("manga");
+        var anime = await _tracking.GetLibraryAsync("anime", ct: ct);
+        var manga = await _tracking.GetLibraryAsync("manga", ct: ct);
 
-        _librarySet = [];
+        var set = new HashSet<(int MalId, MediaType MediaType)>();
         if (anime.IsSuccess)
             foreach (var item in anime.Value!)
-                _librarySet.Add((item.MalId, MediaType.Anime));
+                set.Add((item.MalId, MediaType.Anime));
         if (manga.IsSuccess)
             foreach (var item in manga.Value!)
-                _librarySet.Add((item.MalId, MediaType.Manga));
+                set.Add((item.MalId, MediaType.Manga));
+
+        _librarySet = set;
     }
 
     private void SetCards(IEnumerable<DiscoverCardViewModel> source)
     {
         var list = source.ToList();
         Cards = new ObservableCollection<DiscoverCardViewModel>(list);
-        _ = LoadCoversAsync(list);
+        _ = LoadCoversAsync(list, resetExisting: true);
     }
 
-    private async Task LoadCoversAsync(IReadOnlyList<DiscoverCardViewModel> cards)
+    private async Task LoadCoversAsync(IReadOnlyList<DiscoverCardViewModel> cards, bool resetExisting)
     {
-        var previous = _coverCts;
-        previous?.Cancel();
-        previous?.Dispose();
-        var cts = _coverCts = new CancellationTokenSource();
-        var ct = cts.Token;
+        if (_disposed || cards.Count == 0) return;
 
-        using var gate = new SemaphoreSlim(6);
+        CancellationToken ct;
+        if (resetExisting)
+        {
+            var previous = _coverCts;
+            previous?.Cancel();
+            previous?.Dispose();
+            var cts = _coverCts = new CancellationTokenSource();
+            ct = cts.Token;
+        }
+        else
+        {
+            var cts = _coverCts ??= new CancellationTokenSource();
+            ct = cts.Token;
+        }
+
         var tasks = cards.Select(async card =>
         {
-            await gate.WaitAsync(ct);
-            try { await card.LoadCoverAsync(_httpClientFactory, ct); }
+            try
+            {
+                await _coverGate.WaitAsync(ct);
+                try { await card.LoadCoverAsync(_httpClientFactory, ct); }
+                finally { _coverGate.Release(); }
+            }
             catch (OperationCanceledException) { }
-            finally { gate.Release(); }
+            catch (ObjectDisposedException) { }
         });
 
         try { await Task.WhenAll(tasks); }
@@ -315,9 +404,18 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
     // Singleton VM: disposed with the service provider on shutdown.
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
+        _queryCts?.Cancel();
+        _queryCts?.Dispose();
+        _queryCts = null;
+
         _coverCts?.Cancel();
         _coverCts?.Dispose();
         _coverCts = null;
+
+        _coverGate.Dispose();
     }
 }
 

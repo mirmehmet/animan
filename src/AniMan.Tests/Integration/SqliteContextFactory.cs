@@ -6,8 +6,8 @@ namespace AniMan.Tests.Integration;
 /// <summary>
 /// An <see cref="IDbContextFactory{TContext}"/> backed by a single, kept-open
 /// in-memory SQLite connection. Unlike the EF Core InMemory provider this exercises
-/// real relational behaviour: foreign keys, unique indexes and cascade deletes.
-/// The shared connection lives until <see cref="Dispose"/>; the schema is created once.
+/// real relational behaviour: foreign keys, unique indexes, SQL triggers, and cascade deletes.
+/// The shared connection lives until <see cref="Dispose"/>; migrations run once at construction.
 /// </summary>
 internal sealed class SqliteContextFactory<TContext> : IDbContextFactory<TContext>, IDisposable
     where TContext : DbContext
@@ -18,11 +18,17 @@ internal sealed class SqliteContextFactory<TContext> : IDbContextFactory<TContex
     public SqliteContextFactory(Func<DbContextOptions<TContext>, TContext> ctor)
     {
         _ctor = ctor;
-        _connection = new SqliteConnection("DataSource=:memory:");
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = ":memory:",
+            ForeignKeys = true
+        }.ToString();
+
+        _connection = new SqliteConnection(connectionString);
         _connection.Open();
 
         using var ctx = CreateDbContext();
-        ctx.Database.EnsureCreated();
+        ctx.Database.Migrate();
     }
 
     public TContext CreateDbContext()

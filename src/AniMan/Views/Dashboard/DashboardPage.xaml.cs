@@ -1,8 +1,8 @@
 using AniMan.Core.Domain.Enums;
-using AniMan.Core.Domain.Models;
 using AniMan.Localization;
 using AniMan.Navigation;
 using AniMan.ViewModels.Dashboard;
+using Microsoft.Extensions.Logging;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,26 +15,43 @@ public partial class DashboardPage : UserControl
     private readonly DashboardViewModel _viewModel;
     private readonly NavigationBag _bag;
     private readonly INavigationService _navigationService;
+    private readonly ILogger<DashboardPage> _logger;
 
-    public DashboardPage(DashboardViewModel viewModel, NavigationBag bag,
-        INavigationService navigationService)
+    public DashboardPage(
+        DashboardViewModel viewModel,
+        NavigationBag bag,
+        INavigationService navigationService,
+        ILogger<DashboardPage> logger)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _bag = bag;
         _navigationService = navigationService;
+        _logger = logger;
         DataContext = viewModel;
 
         viewModel.NavigateToLibraryItemRequested += OnNavigateToLibraryItemRequested;
         viewModel.NavigateToDiscoverRequested += OnNavigateToDiscoverRequested;
 
-        Loaded += async (_, _) => await viewModel.LoadCommand.ExecuteAsync(null);
+        Loaded += OnLoaded;
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await _viewModel.LoadCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dashboard page load failed");
+        }
     }
 
     private void OnNavigateToLibraryItemRequested(object? sender, int libraryItemId)
     {
         var backLabel = LocalizationManager.Get("Nav_Dashboard");
-        _bag.Put(new DetailNavigationArgs(0, Core.Domain.Enums.MediaType.Anime, libraryItemId, backLabel));
+        _bag.Put(new DetailNavigationArgs(0, MediaType.Anime, libraryItemId, backLabel));
         _navigationService.Navigate(typeof(Detail.DetailPage));
     }
 
@@ -49,7 +66,7 @@ public partial class DashboardPage : UserControl
 
     private void OnSeasonItemClicked(object sender, MouseButtonEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not CachedAnime anime) return;
+        if ((sender as FrameworkElement)?.DataContext is not SeasonCardViewModel anime) return;
         var backLabel = LocalizationManager.Get("Nav_Dashboard");
         _bag.Put(new DetailNavigationArgs(anime.Id, MediaType.Anime, null, backLabel));
         _navigationService.Navigate(typeof(Detail.DetailPage));

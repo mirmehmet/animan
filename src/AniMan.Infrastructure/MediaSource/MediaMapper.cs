@@ -1,3 +1,4 @@
+using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
 using AniMan.Infrastructure.MediaSource.Dtos;
 
@@ -21,8 +22,8 @@ internal static class MediaMapper
         Score = dto.Score,
         Rank = dto.Rank,
         Popularity = dto.Popularity,
-        CoverMediumUrl = dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl,
-        CoverLargeUrl = dto.Images?.Jpg?.LargeImageUrl,
+        CoverMediumUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl),
+        CoverLargeUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.LargeImageUrl),
         Studios = dto.Studios is { Count: > 0 } s ? string.Join(", ", s.Select(x => x.Name)) : null,
         FetchedAt = DateTime.UtcNow
     };
@@ -42,8 +43,8 @@ internal static class MediaMapper
         Score = dto.Score,
         Rank = dto.Rank,
         Popularity = dto.Popularity,
-        CoverMediumUrl = dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl,
-        CoverLargeUrl = dto.Images?.Jpg?.LargeImageUrl,
+        CoverMediumUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl),
+        CoverLargeUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.LargeImageUrl),
         Serializations = dto.Serializations is { Count: > 0 } x ? string.Join(", ", x.Select(e => e.Name)) : null,
         FetchedAt = DateTime.UtcNow
     };
@@ -68,7 +69,7 @@ internal static class MediaMapper
     {
         AnimeId = animeId,
         PlatformName = dto.Name,
-        Url = dto.Url
+        Url = HttpUrlGuard.SanitizeWebUrl(dto.Url)
     };
 
     public static IReadOnlyList<CachedGenre> ExtractAnimeGenres(AnimeDto dto) =>
@@ -86,5 +87,4 @@ internal static class MediaMapper
             MediaType = "manga",
             Name = g.Name
         }).ToList() ?? [];
-
 }

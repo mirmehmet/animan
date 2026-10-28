@@ -3,8 +3,8 @@ using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Tenrai;
 using AniMan.Infrastructure.MediaSource.Dtos;
+using AniMan.Infrastructure.Tenrai;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -295,12 +295,11 @@ public sealed class CatalogService(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private int? _cacheRefreshDays;
-
-    // The service is registered transient — the in-flight set must be static to
-    // deduplicate refreshes across instances (e.g. rapid re-navigation).
+    // The service is registered transient — the in-flight set and write gate must be
+    // static to deduplicate refreshes and serialize catalog writes across instances.
     private static readonly ConcurrentDictionary<(string Kind, int MalId), byte> InFlightRefreshes = new();
     private static readonly ConcurrentDictionary<int, DateTime> NegativeStreamingCache = new();
+    private static readonly SemaphoreSlim WriteGate = new(1, 1);
 
     /// <summary>
     /// Runs a fire-and-forget cache refresh at most once per (kind, id) at a time,
@@ -349,8 +348,8 @@ public sealed class CatalogService(
 
     private async Task<bool> IsStaleAsync(DateTime fetchedAt, CancellationToken ct)
     {
-        _cacheRefreshDays ??= await settingsService.GetCacheRefreshDaysAsync(ct).ConfigureAwait(false);
-        return fetchedAt.AddDays(_cacheRefreshDays.Value) < DateTime.UtcNow;
+        var refreshDays = await settingsService.GetCacheRefreshDaysAsync(ct).ConfigureAwait(false);
+        return fetchedAt.AddDays(refreshDays) < DateTime.UtcNow;
     }
 
     private async Task<Result<CachedAnime>> FetchAndCacheAnimeAsync(
@@ -448,19 +447,27 @@ public sealed class CatalogService(
 
         await TryCacheAsync($"episodes for anime {malId}", async () =>
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            if (!await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false))
+            await WriteGate.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
-                logger.LogDebug("Skipping episode cache write for anime {Id}: parent anime not in catalog", malId);
-                return;
+                await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+                if (!await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false))
+                {
+                    logger.LogDebug("Skipping episode cache write for anime {Id}: parent anime not in catalog", malId);
+                    return;
+                }
+
+                var existing = db.Episodes.Where(e => e.AnimeId == malId);
+                db.Episodes.RemoveRange(existing);
+                db.Episodes.AddRange(allEpisodes);
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                logger.LogInformation("Cached {Count} episodes for anime {Id}", allEpisodes.Count, malId);
             }
-
-            var existing = db.Episodes.Where(e => e.AnimeId == malId);
-            db.Episodes.RemoveRange(existing);
-            db.Episodes.AddRange(allEpisodes);
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
-
-            logger.LogInformation("Cached {Count} episodes for anime {Id}", allEpisodes.Count, malId);
+            finally
+            {
+                WriteGate.Release();
+            }
         }).ConfigureAwait(false);
 
         return Result<IReadOnlyList<CachedEpisode>>.Success(allEpisodes);
@@ -468,35 +475,51 @@ public sealed class CatalogService(
 
     private async Task UpsertAnimeAsync(CachedAnime anime, AnimeDto dto, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+        await WriteGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-        var existing = await db.Anime.FindAsync([anime.Id], ct).ConfigureAwait(false);
-        if (existing is null)
-            db.Anime.Add(anime);
-        else
-            db.Entry(existing).CurrentValues.SetValues(anime);
+            var existing = await db.Anime.FindAsync([anime.Id], ct).ConfigureAwait(false);
+            if (existing is null)
+                db.Anime.Add(anime);
+            else
+                db.Entry(existing).CurrentValues.SetValues(anime);
 
-        await UpsertGenresAsync(db, [(anime.Id, MediaMapper.ExtractAnimeGenres(dto))], "anime", ct).ConfigureAwait(false);
+            await UpsertGenresAsync(db, [(anime.Id, MediaMapper.ExtractAnimeGenres(dto))], "anime", ct).ConfigureAwait(false);
 
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
 
-        // Fetch streaming info
+        // Fetch streaming info outside WriteGate so background tasks never block or re-enter.
         QueueBackgroundRefresh("streaming", anime.Id,
             () => FetchAndCacheStreamingAsync(anime.Id, CancellationToken.None));
     }
 
     private async Task UpsertMangaAsync(CachedManga manga, MangaDto dto, CancellationToken ct)
     {
-        await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+        await WriteGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-        var existing = await db.Manga.FindAsync([manga.Id], ct).ConfigureAwait(false);
-        if (existing is null)
-            db.Manga.Add(manga);
-        else
-            db.Entry(existing).CurrentValues.SetValues(manga);
+            var existing = await db.Manga.FindAsync([manga.Id], ct).ConfigureAwait(false);
+            if (existing is null)
+                db.Manga.Add(manga);
+            else
+                db.Entry(existing).CurrentValues.SetValues(manga);
 
-        await UpsertGenresAsync(db, [(manga.Id, MediaMapper.ExtractMangaGenres(dto))], "manga", ct).ConfigureAwait(false);
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await UpsertGenresAsync(db, [(manga.Id, MediaMapper.ExtractMangaGenres(dto))], "manga", ct).ConfigureAwait(false);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
     }
 
     /// <summary>
@@ -666,26 +689,34 @@ public sealed class CatalogService(
         // failure cannot discard results the API already returned successfully.
         await TryCacheAsync("anime list", async () =>
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-
-            var ids = mapped.Select(a => a.Id).ToList();
-            var existingMap = await db.Anime
-                .Where(a => ids.Contains(a.Id))
-                .ToDictionaryAsync(a => a.Id, ct).ConfigureAwait(false);
-
-            foreach (var anime in mapped)
+            await WriteGate.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
-                if (existingMap.TryGetValue(anime.Id, out var existing))
-                    db.Entry(existing).CurrentValues.SetValues(anime);
-                else
-                    db.Anime.Add(anime);
+                await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+                var ids = mapped.Select(a => a.Id).ToList();
+                var existingMap = await db.Anime
+                    .Where(a => ids.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, ct).ConfigureAwait(false);
+
+                foreach (var anime in mapped)
+                {
+                    if (existingMap.TryGetValue(anime.Id, out var existing))
+                        db.Entry(existing).CurrentValues.SetValues(anime);
+                    else
+                        db.Anime.Add(anime);
+                }
+
+                await UpsertGenresAsync(db,
+                    mapped.Zip(uniqueDtos, (a, d) => (a.Id, MediaMapper.ExtractAnimeGenres(d))).ToList(),
+                    "anime", ct).ConfigureAwait(false);
+
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
-
-            await UpsertGenresAsync(db,
-                mapped.Zip(uniqueDtos, (a, d) => (a.Id, MediaMapper.ExtractAnimeGenres(d))).ToList(),
-                "anime", ct).ConfigureAwait(false);
-
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            finally
+            {
+                WriteGate.Release();
+            }
         }).ConfigureAwait(false);
 
         return mapped;
@@ -705,26 +736,34 @@ public sealed class CatalogService(
 
         await TryCacheAsync("manga list", async () =>
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-
-            var ids = mapped.Select(m => m.Id).ToList();
-            var existingMap = await db.Manga
-                .Where(m => ids.Contains(m.Id))
-                .ToDictionaryAsync(m => m.Id, ct).ConfigureAwait(false);
-
-            foreach (var manga in mapped)
+            await WriteGate.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
-                if (existingMap.TryGetValue(manga.Id, out var existing))
-                    db.Entry(existing).CurrentValues.SetValues(manga);
-                else
-                    db.Manga.Add(manga);
+                await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+                var ids = mapped.Select(m => m.Id).ToList();
+                var existingMap = await db.Manga
+                    .Where(m => ids.Contains(m.Id))
+                    .ToDictionaryAsync(m => m.Id, ct).ConfigureAwait(false);
+
+                foreach (var manga in mapped)
+                {
+                    if (existingMap.TryGetValue(manga.Id, out var existing))
+                        db.Entry(existing).CurrentValues.SetValues(manga);
+                    else
+                        db.Manga.Add(manga);
+                }
+
+                await UpsertGenresAsync(db,
+                    mapped.Zip(uniqueDtos, (m, d) => (m.Id, MediaMapper.ExtractMangaGenres(d))).ToList(),
+                    "manga", ct).ConfigureAwait(false);
+
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
-
-            await UpsertGenresAsync(db,
-                mapped.Zip(uniqueDtos, (m, d) => (m.Id, MediaMapper.ExtractMangaGenres(d))).ToList(),
-                "manga", ct).ConfigureAwait(false);
-
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            finally
+            {
+                WriteGate.Release();
+            }
         }).ConfigureAwait(false);
 
         return mapped;
@@ -755,25 +794,43 @@ public sealed class CatalogService(
 
         await TryCacheAsync($"streaming for anime {malId}", async () =>
         {
-            await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var hasParent = await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false);
+            // Ensure parent anime exists BEFORE taking WriteGate so GetAnimeAsync -> UpsertAnimeAsync
+            // never deadlocks on WriteGate.
+            bool hasParent;
+            await using (var checkDb = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
+            {
+                hasParent = await checkDb.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false);
+            }
+
             if (!hasParent)
             {
                 var parentResult = await GetAnimeAsync(malId, force: false, ct).ConfigureAwait(false);
-                hasParent = parentResult.IsSuccess &&
-                            await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false);
+                if (!parentResult.IsSuccess)
+                {
+                    logger.LogDebug("Skipping streaming cache write for anime {Id}: parent anime not in catalog", malId);
+                    return;
+                }
             }
 
-            if (!hasParent)
+            await WriteGate.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
-                logger.LogDebug("Skipping streaming cache write for anime {Id}: parent anime not in catalog", malId);
-                return;
-            }
+                await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+                if (!await db.Anime.AnyAsync(a => a.Id == malId, ct).ConfigureAwait(false))
+                {
+                    logger.LogDebug("Skipping streaming cache write for anime {Id}: parent anime not in catalog", malId);
+                    return;
+                }
 
-            var existing = db.AnimeStreaming.Where(s => s.AnimeId == malId);
-            db.AnimeStreaming.RemoveRange(existing);
-            db.AnimeStreaming.AddRange(streaming);
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+                var existing = db.AnimeStreaming.Where(s => s.AnimeId == malId);
+                db.AnimeStreaming.RemoveRange(existing);
+                db.AnimeStreaming.AddRange(streaming);
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                WriteGate.Release();
+            }
         }).ConfigureAwait(false);
 
         return Result<IReadOnlyList<CachedAnimeStreaming>>.Success(streaming);

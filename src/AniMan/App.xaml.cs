@@ -1,21 +1,22 @@
+using System.Diagnostics;
+using System.IO;
+using System.Windows;
+using System.Windows.Markup;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure;
-using AniMan.Navigation;
 using AniMan.Infrastructure.Data;
 using AniMan.Localization;
+using AniMan.Navigation;
 using AniMan.ViewModels;
 using AniMan.ViewModels.Dashboard;
 using AniMan.ViewModels.Detail;
 using AniMan.ViewModels.Library;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
-using System.IO;
-using System.Windows;
-using System.Windows.Markup;
 using Wpf.Ui;
-using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
 namespace AniMan;
@@ -23,6 +24,7 @@ namespace AniMan;
 public partial class App : Application
 {
     private static bool _languageMetadataOverridden;
+    private static bool _restartRequested;
 
     public static IServiceProvider Services { get; private set; } = null!;
 
@@ -30,6 +32,12 @@ public partial class App : Application
 
     private static string AppDataPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AniMan");
+
+    public static void RequestRestart()
+    {
+        _restartRequested = true;
+        Current?.Shutdown();
+    }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -199,6 +207,7 @@ public partial class App : Application
                 retainedFileCountLimit: 7,
                 fileSizeLimitBytes: maxFileSizeBytes,
                 rollOnFileSizeLimit: true,
+                shared: true,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
     }
@@ -208,9 +217,34 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        AppLogger.Information("AniMan shutting down");
+        AppLogger.Information("AniMan shutting down (restart: {Restart})", _restartRequested);
+        try
+        {
+            (Services as IDisposable)?.Dispose();
+            SqliteConnection.ClearAllPools();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warning(ex, "Error while disposing services during shutdown");
+        }
+
         Log.CloseAndFlush();
         base.OnExit(e);
+
+        if (_restartRequested && Environment.ProcessPath is { Length: > 0 } exePath)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(exePath)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                // Logger is already closed; avoid throwing during final process exit.
+            }
+        }
     }
 
     private sealed class ServiceProviderPageProvider : Wpf.Ui.Abstractions.INavigationViewPageProvider

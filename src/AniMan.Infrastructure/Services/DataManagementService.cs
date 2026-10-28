@@ -10,10 +10,11 @@ public sealed class DataManagementService(
     IDbContextFactory<LibraryDbContext> libraryFactory,
     IDbContextFactory<CatalogDbContext> catalogFactory,
     StoragePaths storagePaths,
-    ILogger<DataManagementService> logger) : IDataManagementService
+    ILogger<DataManagementService> logger,
+    ISettingsService? settingsService = null) : IDataManagementService
 {
     private static readonly string[] PreservedSettingKeys =
-        ["Theme", "Language", "Font", "StartupPage", "CacheRefreshDays"];
+        ["Theme", "Language", "FontFamily", "Font", "StartupPage", "CacheRefreshDays"];
 
     public async Task<Result> ResetAllDataAsync(CancellationToken ct = default)
     {
@@ -60,6 +61,7 @@ public sealed class DataManagementService(
             }
 
             CatalogService.ClearCaches();
+            (settingsService as SettingsService)?.InvalidateCache();
 
             if (Directory.Exists(storagePaths.CoversPath))
             {

@@ -1,15 +1,15 @@
-using System.Diagnostics;
-using AniMan.Core.Domain;
-using AniMan.Core.Domain.Enums;
-using AniMan.Localization;
-using AniMan.Navigation;
-using AniMan.ViewModels.Detail;
-using AniMan.Views.Library;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using AniMan.Core.Common;
+using AniMan.Core.Domain;
+using AniMan.Core.Domain.Enums;
+using AniMan.Localization;
+using AniMan.Navigation;
+using AniMan.ViewModels.Detail;
+using Microsoft.Extensions.Logging;
 using Wpf.Ui;
 using Wpf.Ui.Abstractions.Controls;
 using Wpf.Ui.Controls;
@@ -19,27 +19,68 @@ namespace AniMan.Views.Detail;
 
 public partial class DetailPage : UserControl, INavigationAware
 {
+    internal static WeakReference<DetailPage>? ActiveInstance { get; private set; }
+
     private readonly IContentDialogService _dialogService;
     private readonly INavigationService _navigationService;
     private readonly NavigationBag _navigationBag;
+    private readonly ILogger<DetailPage> _logger;
 
-    public DetailPage(DetailViewModel viewModel, IContentDialogService dialogService,
-        NavigationBag navigationBag, INavigationService navigationService)
+    public DetailPage(
+        DetailViewModel viewModel,
+        IContentDialogService dialogService,
+        NavigationBag navigationBag,
+        INavigationService navigationService,
+        ILogger<DetailPage> logger)
     {
         InitializeComponent();
         _dialogService = dialogService;
         _navigationService = navigationService;
         _navigationBag = navigationBag;
+        _logger = logger;
         DataContext = viewModel;
         viewModel.AutoCompleteRequested += OnAutoCompleteRequested;
         viewModel.AddToLibraryFromPreviewRequested += OnAddToLibraryFromPreviewRequested;
         viewModel.NoteEditRequested += OnNoteEditRequested;
         viewModel.SoftDeleteCompleted += OnSoftDeleteCompleted;
+        Unloaded += (_, _) =>
+        {
+            if (ActiveInstance?.TryGetTarget(out var active) == true && ReferenceEquals(active, this))
+                ActiveInstance = null;
+        };
+    }
+
+    internal bool HasPendingEdits
+    {
+        get
+        {
+            if (DataContext is not DetailViewModel vm || vm.IsPreviewMode || vm.LibraryItemId <= 0)
+                return false;
+
+            if (vm.HasUnsavedSeriesNote)
+                return true;
+
+            return RatingTextBox.IsKeyboardFocusWithin &&
+                   RatingParser.TryParse(RatingTextBox.Text, out var parsed) &&
+                   parsed != vm.UserRating;
+        }
+    }
+
+    internal async Task FlushPendingEditsAsync()
+    {
+        if (DataContext is not DetailViewModel vm || vm.IsPreviewMode || vm.LibraryItemId <= 0)
+            return;
+
+        if (RatingParser.TryParse(RatingTextBox.Text, out var parsed) && parsed != vm.UserRating)
+            await CommitRatingAsync(RatingTextBox);
+
+        await vm.SaveSeriesNoteCommand.ExecuteAsync(null);
     }
 
     // Fires on every navigation to this page (robust against page caching).
     public async Task OnNavigatedToAsync()
     {
+        ActiveInstance = new WeakReference<DetailPage>(this);
         var args = _navigationBag.Consume<DetailNavigationArgs>();
         if (args is not null)
             await ((DetailViewModel)DataContext).InitializeFromArgsAsync(args);
@@ -47,8 +88,10 @@ public partial class DetailPage : UserControl, INavigationAware
 
     public async Task OnNavigatedFromAsync()
     {
-        if (DataContext is DetailViewModel vm)
-            await vm.SaveSeriesNoteCommand.ExecuteAsync(null);
+        if (ActiveInstance?.TryGetTarget(out var active) == true && ReferenceEquals(active, this))
+            ActiveInstance = null;
+
+        await FlushPendingEditsAsync();
     }
 
     private void OnGoBackClicked(object sender, RoutedEventArgs e) =>
@@ -57,72 +100,87 @@ public partial class DetailPage : UserControl, INavigationAware
     private void OnStreamingPlatformClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not SWC.Button { Tag: string url }) return;
-
-        // Streaming URLs come from the API and user overrides — only launch http(s).
-        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        SafeBrowserLauncher.TryOpen(url);
     }
 
     private async void OnNoteEditRequested(object? sender, NoteEditEventArgs e)
     {
-        var textBox = new SWC.TextBox
+        try
         {
-            Text = e.CurrentText,
-            AcceptsReturn = true,
-            MinHeight = 100,
-            MinWidth = 320,
-            TextWrapping = TextWrapping.Wrap,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
+            var textBox = new SWC.TextBox
+            {
+                Text = e.CurrentText,
+                AcceptsReturn = true,
+                MinHeight = 100,
+                MinWidth = 320,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
 
-        var dialog = new ContentDialog
+            var dialog = new ContentDialog
+            {
+                Title = LocalizationManager.Get("Detail_NoteDialogTitle"),
+                Content = textBox,
+                PrimaryButtonText = LocalizationManager.Get("Common_Save"),
+                CloseButtonText = LocalizationManager.Get("Common_Cancel")
+            };
+
+            var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
+            if (result != ContentDialogResult.Primary) return;
+
+            var vm = (DetailViewModel)DataContext;
+            await vm.SaveItemNoteAsync(e.EpisodeNumber, e.ChapterNumber, textBox.Text);
+        }
+        catch (Exception ex)
         {
-            Title = LocalizationManager.Get("Detail_NoteDialogTitle"),
-            Content = textBox,
-            PrimaryButtonText = LocalizationManager.Get("Common_Save"),
-            CloseButtonText = LocalizationManager.Get("Common_Cancel")
-        };
-
-        var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
-        if (result != ContentDialogResult.Primary) return;
-
-        var vm = (DetailViewModel)DataContext;
-        await vm.SaveItemNoteAsync(e.EpisodeNumber, e.ChapterNumber, textBox.Text);
+            _logger.LogError(ex, "Episode/chapter note dialog failed");
+        }
     }
 
     private async void OnAddToLibraryFromPreviewRequested(object? sender, (int MalId, MediaType MediaType) e)
     {
-        var vm = (DetailViewModel)DataContext;
-        var statusId = await Dialogs.AddToLibraryDialog.ShowAsync(
-            _dialogService, vm.MediaSnapshot?.Title ?? string.Empty, e.MediaType == MediaType.Manga);
-        if (statusId is null) return;
+        try
+        {
+            var vm = (DetailViewModel)DataContext;
+            var statusId = await Dialogs.AddToLibraryDialog.ShowAsync(
+                _dialogService, vm.MediaSnapshot?.Title ?? string.Empty, e.MediaType == MediaType.Manga);
+            if (statusId is null) return;
 
-        await vm.AddToLibraryAndReloadAsync(e.MalId, e.MediaType, statusId.Value);
+            await vm.AddToLibraryAndReloadAsync(e.MalId, e.MediaType, statusId.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Add to library from preview failed for {MalId}", e.MalId);
+        }
     }
 
     private async void OnAutoCompleteRequested(object? sender, TrackingAutoCompleteEventArgs e)
     {
-        var titleKey = e.IsManga ? "Detail_AutoCompleteTitleManga" : "Detail_AutoCompleteTitle";
-        var contentKey = e.IsManga ? "Detail_AutoCompleteContentManga" : "Detail_AutoCompleteContent";
-
-        var dialog = new ContentDialog
+        try
         {
-            Title = LocalizationManager.Get(titleKey),
-            Content = LocalizationManager.Get(contentKey),
-            PrimaryButtonText = LocalizationManager.Get("Detail_AutoCompletePrimary"),
-            CloseButtonText = LocalizationManager.Get("Detail_AutoCompleteClose")
-        };
+            var titleKey = e.IsManga ? "Detail_AutoCompleteTitleManga" : "Detail_AutoCompleteTitle";
+            var contentKey = e.IsManga ? "Detail_AutoCompleteContentManga" : "Detail_AutoCompleteContent";
 
-        var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
-        if (result == ContentDialogResult.Primary)
+            var dialog = new ContentDialog
+            {
+                Title = LocalizationManager.Get(titleKey),
+                Content = LocalizationManager.Get(contentKey),
+                PrimaryButtonText = LocalizationManager.Get("Detail_AutoCompletePrimary"),
+                CloseButtonText = LocalizationManager.Get("Detail_AutoCompleteClose")
+            };
+
+            var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
+            if (result == ContentDialogResult.Primary)
+            {
+                var vm = (DetailViewModel)DataContext;
+                await vm.UpdateStatusCommand.ExecuteAsync(TrackingStatusIds.Completed);
+            }
+        }
+        catch (Exception ex)
         {
-            var vm = (DetailViewModel)DataContext;
-            await vm.UpdateStatusCommand.ExecuteAsync(TrackingStatusIds.Completed);
+            _logger.LogError(ex, "Auto-complete prompt failed for item {Id}", e.LibraryItemId);
         }
     }
-
-    // ── New handlers ──────────────────────────────────────────────────────────
 
     private void OnSoftDeleteCompleted(object? sender, EventArgs e) =>
         _navigationService.GoBack();
@@ -138,31 +196,45 @@ public partial class DetailPage : UserControl, INavigationAware
 
     private async void OnDeleteClicked(object sender, RoutedEventArgs e)
     {
-        var vm = (DetailViewModel)DataContext;
-        var title = vm.MediaSnapshot?.Title ?? string.Empty;
-
-        var dialog = new ContentDialog
+        try
         {
-            Title = string.Format(LocalizationManager.Get("Detail_DeleteTitle"), title),
-            Content = LocalizationManager.Get("Detail_DeleteContent"),
-            PrimaryButtonText = LocalizationManager.Get("Detail_DeleteConfirm"),
-            CloseButtonText = LocalizationManager.Get("Common_Cancel")
-        };
+            var vm = (DetailViewModel)DataContext;
+            var title = vm.MediaSnapshot?.Title ?? string.Empty;
 
-        var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
-        if (result == ContentDialogResult.Primary)
-            vm.SoftDeleteCommand.Execute(null);
+            var dialog = new ContentDialog
+            {
+                Title = string.Format(LocalizationManager.Get("Detail_DeleteTitle"), title),
+                Content = LocalizationManager.Get("Detail_DeleteContent"),
+                PrimaryButtonText = LocalizationManager.Get("Detail_DeleteConfirm"),
+                CloseButtonText = LocalizationManager.Get("Common_Cancel")
+            };
+
+            var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
+            if (result == ContentDialogResult.Primary)
+                await vm.SoftDeleteCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Soft delete confirmation failed");
+        }
     }
 
     private async void OnRatingKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter || sender is not SWC.TextBox tb)
-            return;
+        try
+        {
+            if (e.Key != Key.Enter || sender is not SWC.TextBox tb)
+                return;
 
-        e.Handled = true;
-        var moved = tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
-        if (!moved)
-            await CommitRatingAsync(tb);
+            e.Handled = true;
+            var moved = tb.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            if (!moved)
+                await CommitRatingAsync(tb);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Rating key commit failed");
+        }
     }
 
     private async void OnRatingLostFocus(object sender, RoutedEventArgs e)
@@ -183,14 +255,21 @@ public partial class DetailPage : UserControl, INavigationAware
         }
         catch (Exception ex)
         {
-            Serilog.Log.ForContext<DetailPage>().Error(ex, "Rating commit failed");
+            _logger.LogError(ex, "Rating commit failed");
         }
     }
 
     private async void OnSeriesNoteLostFocus(object sender, RoutedEventArgs e)
     {
-        if (DataContext is DetailViewModel vm)
-            await vm.SaveSeriesNoteCommand.ExecuteAsync(null);
+        try
+        {
+            if (DataContext is DetailViewModel vm)
+                await vm.SaveSeriesNoteCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Series note save on lost focus failed");
+        }
     }
 
     private void OnPagePreviewMouseDown(object sender, MouseButtonEventArgs e)
