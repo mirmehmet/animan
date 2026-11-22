@@ -22,10 +22,18 @@ public partial class MainWindow : FluentWindow
         IContentDialogService contentDialogService,
         ISettingsService settingsService,
         DiscoverViewModel discoverViewModel,
+        BusyOverlayViewModel busyOverlay,
         ILogger<MainWindow> logger)
     {
         InitializeComponent();
         DataContext = viewModel;
+        BusyOverlay.DataContext = busyOverlay;
+        // The overlay blocks the mouse; disabling navigation also stops keyboard access behind it.
+        busyOverlay.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BusyOverlayViewModel.IsBusy))
+                RootNavigation.IsEnabled = !busyOverlay.IsBusy;
+        };
         _navigationService = navigationService;
         _settingsService = settingsService;
         _discoverViewModel = discoverViewModel;
