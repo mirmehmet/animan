@@ -17,7 +17,7 @@ using SWC = System.Windows.Controls;
 
 namespace AniMan.Views.Detail;
 
-public partial class DetailPage : UserControl, INavigationAware
+public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls.ITransientPage
 {
     internal static WeakReference<DetailPage>? ActiveInstance { get; private set; }
 

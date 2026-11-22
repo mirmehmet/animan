@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:loc="clr-namespace:AniMan.Localization"
+        xmlns:ctrl="clr-namespace:AniMan.Controls"
         mc:Ignorable="d"
         Title="AniMan"
         Icon="Assets/animan.ico"
@@ -26,7 +27,9 @@
                      Grid.Row="0"
                      Title="AniMan"/>
 
-        <ui:NavigationView x:Name="RootNavigation"
+        <!-- AppNavigationView: WPF-UI NavigationView that releases visited transient pages (DetailPage) -->
+        <ctrl:AppNavigationView x:Name="RootNavigation"
+                           Style="{StaticResource {x:Type ui:NavigationView}}"
                            Grid.Row="1"
                            PaneDisplayMode="LeftFluent"
                            ItemTemplate="{StaticResource LeftFluentNavigationViewItemTemplate}"
@@ -34,7 +37,7 @@
                            IsBackButtonVisible="Collapsed"
                            IsPaneOpen="False">
 
-            <ui:NavigationView.MenuItems>
+            <ctrl:AppNavigationView.MenuItems>
                 <ui:NavigationViewItem Content="{loc:Loc Nav_Dashboard}"
                                        TargetPageType="{x:Type dashViews:DashboardPage}"
                                        xmlns:dashViews="clr-namespace:AniMan.Views.Dashboard">
@@ -75,9 +78,9 @@
                         <ui:SymbolIcon Symbol="DataHistogram24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-            </ui:NavigationView.MenuItems>
+            </ctrl:AppNavigationView.MenuItems>
 
-            <ui:NavigationView.FooterMenuItems>
+            <ctrl:AppNavigationView.FooterMenuItems>
                 <ui:NavigationViewItem Content="{loc:Loc Nav_Settings}"
                                        TargetPageType="{x:Type views:SettingsPage}"
                                        xmlns:views="clr-namespace:AniMan.Views.Settings">
@@ -85,9 +88,9 @@
                         <ui:SymbolIcon Symbol="Settings24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-            </ui:NavigationView.FooterMenuItems>
+            </ctrl:AppNavigationView.FooterMenuItems>
 
-        </ui:NavigationView>
+        </ctrl:AppNavigationView>
 
         <!-- Window-wide progress overlay (backup import). Covers the content but not the title
              bar; blocks clicks via its background. DataContext is BusyOverlayViewModel (set in code). -->
