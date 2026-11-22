@@ -52,7 +52,7 @@
                         <!-- Year range + my rating -->
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="140"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -84,12 +84,34 @@
                                     <Grid Margin="0,0,0,4"
                                           Visibility="{Binding HasChips, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="140"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Header}" FontSize="12" Margin="0,5,0,0"
-                                                   VerticalAlignment="Top"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        <StackPanel VerticalAlignment="Top" Margin="0,5,8,0">
+                                            <TextBlock Text="{Binding Header}" FontSize="12"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                            <!-- All / Any switch: only once 2+ values are picked (1 gives the same result either way).
+                                                 No GroupName: the two radios group by their shared parent, so rows don't interfere. -->
+                                            <Border Margin="0,6,0,0" HorizontalAlignment="Left"
+                                                    CornerRadius="4" ClipToBounds="True"
+                                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1"
+                                                    Visibility="{Binding ShowMatchMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <RadioButton Style="{StaticResource SegmentRadioButton}"
+                                                                 Padding="8,2" FontSize="11"
+                                                                 Content="{loc:Loc Library_MatchAll}"
+                                                                 ToolTip="{loc:Loc Library_MatchAllTip}"
+                                                                 IsChecked="{Binding MatchAll, Mode=OneWay}"
+                                                                 Command="{Binding SetMatchAllCommand}"/>
+                                                    <RadioButton Style="{StaticResource SegmentRadioButton}"
+                                                                 Padding="8,2" FontSize="11"
+                                                                 Content="{loc:Loc Library_MatchAny}"
+                                                                 ToolTip="{loc:Loc Library_MatchAnyTip}"
+                                                                 IsChecked="{Binding MatchAny, Mode=OneWay}"
+                                                                 Command="{Binding SetMatchAnyCommand}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
                                         <ItemsControl Grid.Column="1" ItemsSource="{Binding Chips}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>

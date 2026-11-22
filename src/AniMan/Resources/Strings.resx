@@ -207,6 +207,10 @@
   <data name="Library_FilterSource" xml:space="preserve"><value>Source</value></data>
   <data name="Library_FilterAgeRating" xml:space="preserve"><value>Age rating</value></data>
   <data name="Library_FilterMyRating" xml:space="preserve"><value>My rating</value></data>
+  <data name="Library_MatchAll" xml:space="preserve"><value>All</value></data>
+  <data name="Library_MatchAny" xml:space="preserve"><value>Any</value></data>
+  <data name="Library_MatchAllTip" xml:space="preserve"><value>Show items that have every selected value</value></data>
+  <data name="Library_MatchAnyTip" xml:space="preserve"><value>Show items that have at least one selected value</value></data>
   <data name="Library_AnyYear" xml:space="preserve"><value>Any</value></data>
   <data name="Library_RatingAny" xml:space="preserve"><value>Any</value></data>
   <data name="Library_RatingUnrated" xml:space="preserve"><value>Unrated</value></data>

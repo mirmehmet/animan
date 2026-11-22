@@ -207,6 +207,10 @@
   <data name="Library_FilterSource" xml:space="preserve"><value>Kaynak</value></data>
   <data name="Library_FilterAgeRating" xml:space="preserve"><value>Yaş sınırı</value></data>
   <data name="Library_FilterMyRating" xml:space="preserve"><value>Puanım</value></data>
+  <data name="Library_MatchAll" xml:space="preserve"><value>Hepsi</value></data>
+  <data name="Library_MatchAny" xml:space="preserve"><value>Herhangi biri</value></data>
+  <data name="Library_MatchAllTip" xml:space="preserve"><value>Seçilenlerin hepsine sahip olanları göster</value></data>
+  <data name="Library_MatchAnyTip" xml:space="preserve"><value>Seçilenlerden en az birine sahip olanları göster</value></data>
   <data name="Library_AnyYear" xml:space="preserve"><value>Tümü</value></data>
   <data name="Library_RatingAny" xml:space="preserve"><value>Hepsi</value></data>
   <data name="Library_RatingUnrated" xml:space="preserve"><value>Puansız</value></data>

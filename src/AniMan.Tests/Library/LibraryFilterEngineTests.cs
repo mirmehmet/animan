@@ -83,6 +83,35 @@ public class LibraryFilterEngineTests
     }
 
     [Fact]
+    public void Genres_MatchAny_NeedOnlyOne()
+    {
+        var f = new LibraryFilter { GenresMatchAny = true };
+        f.Genres.UnionWith(["Romance", "Fantasy"]);
+
+        Run(f).Should().BeEquivalentTo("Kimi no Na wa.", "Sousou no Frieren");
+    }
+
+    [Fact]
+    public void Themes_MatchAny_StillExcludesItemsWithoutThemes()
+    {
+        var f = new LibraryFilter { ThemesMatchAny = true };
+        f.Themes.UnionWith(["Military", "School"]);
+
+        Run(f).Should().Equal("Shingeki no Kyojin");
+    }
+
+    [Fact]
+    public void MatchModes_ArePerGroup()
+    {
+        // Genres: any of Romance/Action. Themes: all of Military+Gore.
+        var f = new LibraryFilter { GenresMatchAny = true, ThemesMatchAny = false };
+        f.Genres.UnionWith(["Romance", "Action"]);
+        f.Themes.UnionWith(["Military", "Gore"]);
+
+        Run(f).Should().Equal("Shingeki no Kyojin");
+    }
+
+    [Fact]
     public void GenreMatching_IgnoresCase()
     {
         var f = new LibraryFilter();

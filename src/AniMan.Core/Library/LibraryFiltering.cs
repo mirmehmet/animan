@@ -27,8 +27,9 @@ public enum LibrarySort { RecentlyUpdated, Title, MyRating, MalScore, Year, Rece
 public enum RatingFilter { Any, AtLeast9, AtLeast8, AtLeast7, AtLeast6, Unrated }
 
 /// <summary>
-/// The user's current filter selection. Within a group values are alternatives (TV or Movie),
-/// except genres and themes, which must all be present; groups combine with AND.
+/// The user's current filter selection. Within a group values are alternatives (TV or Movie).
+/// Genres and themes default to "must have all", switchable per group to "any of them"
+/// (<see cref="GenresMatchAny"/>, <see cref="ThemesMatchAny"/>). Groups combine with AND.
 /// An empty group or <see cref="RatingFilter.Any"/>/0 year means "no restriction".
 /// </summary>
 public sealed class LibraryFilter
@@ -48,6 +49,12 @@ public sealed class LibraryFilter
     public int YearTo { get; set; }
 
     public RatingFilter Rating { get; set; }
+
+    /// <summary>False: an item needs every selected genre. True: at least one.</summary>
+    public bool GenresMatchAny { get; set; }
+
+    /// <summary>False: an item needs every selected theme. True: at least one.</summary>
+    public bool ThemesMatchAny { get; set; }
 
     public bool HasYearRange => YearFrom > 0 || YearTo > 0;
 
@@ -91,8 +98,8 @@ public static class LibraryFilterEngine
             if (f.YearTo > 0 && year > f.YearTo) return false;
         }
 
-        if (!ContainsAll(e.Genres, f.Genres)) return false;
-        if (!ContainsAll(e.Themes, f.Themes)) return false;
+        if (!Contains(e.Genres, f.Genres, f.GenresMatchAny)) return false;
+        if (!Contains(e.Themes, f.Themes, f.ThemesMatchAny)) return false;
         if (!ContainsAny(e.Demographics, f.Demographics)) return false;
 
         if (f.ReleaseStatuses.Count > 0 && (e.ReleaseStatus is null || !f.ReleaseStatuses.Contains(e.ReleaseStatus)))
@@ -148,6 +155,9 @@ public static class LibraryFilterEngine
             .OrderByDescending(o => o.Count)
             .ThenBy(o => o.Value, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static bool Contains(IReadOnlyList<string> have, HashSet<string> wanted, bool matchAny) =>
+        matchAny ? ContainsAny(have, wanted) : ContainsAll(have, wanted);
 
     private static bool ContainsAll(IReadOnlyList<string> have, HashSet<string> wanted) =>
         wanted.Count == 0 || wanted.All(w => have.Contains(w, StringComparer.OrdinalIgnoreCase));

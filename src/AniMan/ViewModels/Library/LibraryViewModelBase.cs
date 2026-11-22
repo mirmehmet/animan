@@ -89,8 +89,8 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     ];
 
     private readonly FilterGroupViewModel _formatGroup = new(LocalizationManager.Get("Library_FilterFormat"));
-    private readonly FilterGroupViewModel _genreGroup = new(LocalizationManager.Get("Library_FilterGenre"));
-    private readonly FilterGroupViewModel _themeGroup = new(LocalizationManager.Get("Library_FilterTheme"));
+    private readonly FilterGroupViewModel _genreGroup;
+    private readonly FilterGroupViewModel _themeGroup;
     private readonly FilterGroupViewModel _demographicGroup = new(LocalizationManager.Get("Library_FilterDemographic"));
     private readonly FilterGroupViewModel _statusGroup = new(LocalizationManager.Get("Library_FilterStatus"));
     private readonly FilterGroupViewModel _sourceGroup = new(LocalizationManager.Get("Library_FilterSource"));
@@ -127,6 +127,9 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         _tracking = tracking;
         _settings = settings;
         _mediaType = mediaType;
+        // Genres and themes can match "all selected" (default) or "any selected".
+        _genreGroup = new(LocalizationManager.Get("Library_FilterGenre"), supportsMatchMode: true, OnFilterChanged);
+        _themeGroup = new(LocalizationManager.Get("Library_FilterTheme"), supportsMatchMode: true, OnFilterChanged);
         FilterGroups =
         [
             _formatGroup, _genreGroup, _themeGroup, _demographicGroup,
@@ -175,6 +178,8 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         {
             foreach (var chip in FilterGroups.SelectMany(g => g.Chips))
                 chip.IsSelected = false;
+            foreach (var group in FilterGroups)
+                group.MatchAny = false;
             YearFrom = 0;
             YearTo = 0;
             RatingFilter = RatingFilter.Any;
@@ -313,7 +318,9 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             // Either order works: picking "2023 – 2015" means the same range as "2015 – 2023".
             YearFrom = YearFrom > 0 && YearTo > 0 ? Math.Min(YearFrom, YearTo) : YearFrom,
             YearTo = YearFrom > 0 && YearTo > 0 ? Math.Max(YearFrom, YearTo) : YearTo,
-            Rating = RatingFilter
+            Rating = RatingFilter,
+            GenresMatchAny = _genreGroup.MatchAny,
+            ThemesMatchAny = _themeGroup.MatchAny
         };
         filter.Formats.UnionWith(_formatGroup.SelectedValues);
         filter.Genres.UnionWith(_genreGroup.SelectedValues);
@@ -343,6 +350,8 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             filtered = filtered.Where(c => LibraryFilterEngine.Matches(c, filter));
 
         Items = new ObservableCollection<LibraryCardViewModel>(LibraryFilterEngine.Sort(filtered, SortMode));
+        foreach (var group in FilterGroups)
+            group.RefreshSelectionState();
         RebuildActiveFilters(filter);
         OnStateChanged();
     }
@@ -351,8 +360,23 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     {
         ActiveFilters.Clear();
 
-        foreach (var chip in FilterGroups.SelectMany(g => g.Chips).Where(c => c.IsSelected))
-            ActiveFilters.Add(new ActiveFilterViewModel(chip.Label, () => chip.IsSelected = false));
+        foreach (var group in FilterGroups)
+        {
+            var selected = group.Chips.Where(c => c.IsSelected).ToList();
+
+            // "Any of" selections read as one alternative set: a single "Action / Drama" chip
+            // whose ✕ clears the whole set. "All of" selections stay one chip per value.
+            if (group.MatchAny && selected.Count >= 2)
+            {
+                ActiveFilters.Add(new ActiveFilterViewModel(
+                    string.Join(" / ", selected.Select(c => c.Label)),
+                    () => DeselectAll(selected)));
+                continue;
+            }
+
+            foreach (var chip in selected)
+                ActiveFilters.Add(new ActiveFilterViewModel(chip.Label, () => chip.IsSelected = false));
+        }
 
         if (filter.HasYearRange)
         {
@@ -385,6 +409,21 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(ShowActiveFilterBar));
         OnPropertyChanged(nameof(FilterButtonText));
+    }
+
+    private void DeselectAll(IEnumerable<FilterChipViewModel> chips)
+    {
+        _suppressFilter = true;
+        try
+        {
+            foreach (var chip in chips)
+                chip.IsSelected = false;
+        }
+        finally
+        {
+            _suppressFilter = false;
+        }
+        ApplyFilter();
     }
 
     private void OnStateChanged()
