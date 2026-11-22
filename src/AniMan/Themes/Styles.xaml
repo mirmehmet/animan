@@ -133,6 +133,45 @@
         <Setter Property="Margin"          Value="0,0,6,6"/>
     </Style>
 
+    <!-- Library filter value chip: outlined when off, accent-tinted when selected -->
+    <Style x:Key="FilterChip" TargetType="ToggleButton">
+        <Setter Property="FontFamily"       Value="{DynamicResource AppFontFamily}"/>
+        <Setter Property="FontSize"         Value="12"/>
+        <Setter Property="Foreground"       Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        <Setter Property="Background"       Value="Transparent"/>
+        <Setter Property="BorderBrush"      Value="{DynamicResource DividerStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="Padding"          Value="10,4"/>
+        <Setter Property="Margin"           Value="0,0,6,6"/>
+        <Setter Property="Cursor"           Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}"
+                            CornerRadius="{StaticResource CornerTag}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource TextFillColorTertiaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Background"  Value="{StaticResource GenreTagBackgroundBrush}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}"/>
+                            <Setter Property="Foreground"  Value="{StaticResource BrandAccentBrush}"/>
+                            <Setter Property="FontWeight"  Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Themes (Military, School, …): genre pill shape without the tinted fill -->
     <Style x:Key="ThemePill" TargetType="Border" BasedOn="{StaticResource GenrePill}">
         <Setter Property="Background"  Value="Transparent"/>

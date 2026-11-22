@@ -14,6 +14,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -22,15 +23,31 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0" Text="{loc:Loc Nav_Anime}"
-                       Style="{StaticResource PageTitleText}"/>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <TextBlock Text="{loc:Loc Nav_Anime}"
+                           Style="{StaticResource PageTitleText}"/>
+                <!-- "42 / 180" while filters or search narrow the list -->
+                <TextBlock Text="{Binding ResultCountText}" Margin="12,0,0,0"
+                           VerticalAlignment="Center" FontSize="13"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                           Visibility="{Binding HasTotalItems, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </StackPanel>
 
             <ui:TextBox Grid.Column="1" Width="240"
                         PlaceholderText="{loc:Loc Library_SearchAnime}"
                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                         Icon="{ui:SymbolIcon Symbol=Search24}"/>
+
+            <ui:Button Grid.Column="2" Margin="8,0,0,0" Appearance="Secondary"
+                       Command="{Binding ToggleFilterPanelCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Filter24" FontSize="16" Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding FilterButtonText}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </ui:Button>
         </Grid>
 
         <!-- Status filter tabs (PillTab) -->
@@ -68,23 +85,23 @@
                                  Content="{loc:Loc Status_Ratings}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=98, Converter={StaticResource EqualityConverter}}"/>
                 </StackPanel>
-                <ComboBox Grid.Column="1" Margin="8,4,0,4" MinWidth="200"
-                          SelectedIndex="{Binding RatingSortIndex}"
-                          Visibility="{Binding IsRatingsTab, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <ComboBoxItem Content="{loc:Loc Ratings_SortHighToLow}"/>
-                    <ComboBoxItem Content="{loc:Loc Ratings_SortLowToHigh}"/>
-                    <ComboBoxItem Content="{loc:Loc Ratings_SortMalHighToLow}"/>
-                    <ComboBoxItem Content="{loc:Loc Ratings_SortAlpha}"/>
-                </ComboBox>
+                <!-- Sort: applies on every tab; remembered per page -->
+                <ComboBox Grid.Column="1" Margin="8,4,0,4" MinWidth="180"
+                          ToolTip="{loc:Loc Library_Sort}"
+                          ItemsSource="{Binding SortOptions}" DisplayMemberPath="Label"
+                          SelectedValuePath="Value" SelectedValue="{Binding SortMode}"/>
             </Grid>
         </Border>
 
+        <!-- Filter panel / active filter chips -->
+        <ctrl:LibraryFilterBar Grid.Row="2"/>
+
         <!-- Loading bar -->
-        <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="2"
+        <ProgressBar Grid.Row="3" IsIndeterminate="True" Height="2"
                      Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
         <!-- Content -->
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <!-- Empty state -->
             <ctrl:EmptyStateControl
                 Icon="MoviesAndTv24"

@@ -2,12 +2,13 @@ using System.Collections.Concurrent;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using AniMan.Core.Domain.Enums;
+using AniMan.Core.Library;
 using AniMan.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AniMan.ViewModels.Library;
 
-public partial class LibraryCardViewModel : ObservableObject
+public partial class LibraryCardViewModel : ObservableObject, ILibraryEntry
 {
     private static readonly ConcurrentDictionary<(string Hex, double Factor), SolidColorBrush> BrushCache = new();
 
@@ -43,6 +44,18 @@ public partial class LibraryCardViewModel : ObservableObject
     public bool IsFavorite { get; init; }
     public int ProgressWatched { get; init; }
     public int? ProgressTotal { get; init; }
+
+    // Filter / sort data (see ILibraryEntry), taken from the snapshot.
+    public string? Format { get; init; }
+    public int? Year { get; init; }
+    public IReadOnlyList<string> Genres { get; init; } = [];
+    public IReadOnlyList<string> Themes { get; init; } = [];
+    public IReadOnlyList<string> Demographics { get; init; } = [];
+    public string? ReleaseStatus { get; init; }
+    public string? Source { get; init; }
+    public string? AgeRating { get; init; }
+    public DateTime AddedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
 
     [ObservableProperty]
     private BitmapImage? _coverImage;

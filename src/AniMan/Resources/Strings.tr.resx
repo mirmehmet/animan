@@ -195,10 +195,31 @@
   <data name="Discover_NextPage" xml:space="preserve"><value>Sonraki</value></data>
   <data name="Discover_PageLabel" xml:space="preserve"><value>Sayfa {0}</value></data>
 
-  <data name="Ratings_SortHighToLow" xml:space="preserve"><value>Puanım: Yüksekten Düşüğe</value></data>
-  <data name="Ratings_SortLowToHigh" xml:space="preserve"><value>Puanım: Düşükten Yükseğe</value></data>
-  <data name="Ratings_SortMalHighToLow" xml:space="preserve"><value>MAL Puanı: Yüksekten Düşüğe</value></data>
-  <data name="Ratings_SortAlpha" xml:space="preserve"><value>Alfabetik (A→Z)</value></data>
+  <data name="Library_Filters" xml:space="preserve"><value>Filtreler</value></data>
+  <data name="Library_FiltersWithCount" xml:space="preserve"><value>Filtreler ({0})</value></data>
+  <data name="Library_ClearFilters" xml:space="preserve"><value>Tümünü temizle</value></data>
+  <data name="Library_FilterFormat" xml:space="preserve"><value>Format</value></data>
+  <data name="Library_FilterYear" xml:space="preserve"><value>Yıl</value></data>
+  <data name="Library_FilterGenre" xml:space="preserve"><value>Türler</value></data>
+  <data name="Library_FilterTheme" xml:space="preserve"><value>Temalar</value></data>
+  <data name="Library_FilterDemographic" xml:space="preserve"><value>Demografi</value></data>
+  <data name="Library_FilterStatus" xml:space="preserve"><value>Yayın durumu</value></data>
+  <data name="Library_FilterSource" xml:space="preserve"><value>Kaynak</value></data>
+  <data name="Library_FilterAgeRating" xml:space="preserve"><value>Yaş sınırı</value></data>
+  <data name="Library_FilterMyRating" xml:space="preserve"><value>Puanım</value></data>
+  <data name="Library_AnyYear" xml:space="preserve"><value>Tümü</value></data>
+  <data name="Library_RatingAny" xml:space="preserve"><value>Hepsi</value></data>
+  <data name="Library_RatingUnrated" xml:space="preserve"><value>Puansız</value></data>
+  <data name="Library_MyRatingChip" xml:space="preserve"><value>Puanım: {0}</value></data>
+  <data name="Library_ResultCount" xml:space="preserve"><value>{0} / {1}</value></data>
+  <data name="Library_Sort" xml:space="preserve"><value>Sırala</value></data>
+  <data name="Library_SortRecentlyUpdated" xml:space="preserve"><value>Son güncellenen</value></data>
+  <data name="Library_SortTitle" xml:space="preserve"><value>Ad (A–Z)</value></data>
+  <data name="Library_SortMyRating" xml:space="preserve"><value>Puanım</value></data>
+  <data name="Library_SortMalScore" xml:space="preserve"><value>MAL puanı</value></data>
+  <data name="Library_SortYear" xml:space="preserve"><value>Yıl (yeniden eskiye)</value></data>
+  <data name="Library_SortRecentlyAdded" xml:space="preserve"><value>Eklenme tarihi</value></data>
+  <data name="Library_SortProgress" xml:space="preserve"><value>İlerleme</value></data>
 
   <data name="Settings_About" xml:space="preserve"><value>Hakkında</value></data>
   <data name="Settings_DataSource" xml:space="preserve"><value>Veri Kaynağı</value></data>
