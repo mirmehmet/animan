@@ -5,6 +5,7 @@ using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Core.Library;
+using AniMan.Imaging;
 using AniMan.Localization;
 using AniMan.Navigation;
 using AniMan.ViewModels.Detail;
@@ -32,6 +33,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     private readonly ISettingsService _settings;
     private readonly MediaType _mediaType;
     private List<LibraryCardViewModel> _allItems = [];
+    private int _coverLoadVersion;
     private bool _sortLoaded;
 
     // Set while chips/years are rebuilt or cleared in bulk, so that one change does not
@@ -123,11 +125,17 @@ public abstract partial class LibraryViewModelBase : ObservableObject
 
     private string SortSettingKey => $"LibrarySort.{_mediaType}";
 
-    protected LibraryViewModelBase(ITrackingService tracking, ISettingsService settings, MediaType mediaType)
+    /// <summary>Cover-size slider state, shared by the anime and manga pages.</summary>
+    public LibraryLayoutViewModel Layout { get; }
+
+    protected LibraryViewModelBase(
+        ITrackingService tracking, ISettingsService settings, LibraryLayoutViewModel layout, MediaType mediaType)
     {
         _tracking = tracking;
         _settings = settings;
         _mediaType = mediaType;
+        Layout = layout;
+        Layout.CoverResolutionChanged += (_, width) => _ = LoadCoversAsync(width);
         // Genres and themes can match "all selected" (default) or "any selected".
         _genreGroup = new(LocalizationManager.Get("Library_FilterGenre"), supportsMatchMode: true, OnFilterChanged);
         _themeGroup = new(LocalizationManager.Get("Library_FilterTheme"), supportsMatchMode: true, OnFilterChanged);
@@ -149,14 +157,14 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         try
         {
             await LoadSortPreferenceOnceAsync();
+            await Layout.EnsureLoadedAsync();
 
             var result = await _tracking.GetLibraryAsync(_mediaType.ToString().ToLowerInvariant());
             if (!result.IsSuccess) return;
 
             _allItems = result.Value!.Select(ToCard).ToList();
 
-            foreach (var card in _allItems)
-                card.LoadCoverImage();
+            _ = LoadCoversAsync(Layout.CoverDecodeWidth);
 
             RebuildFilterOptions();
             ApplyFilter();
@@ -450,6 +458,29 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(ShowActiveFilterBar));
         OnPropertyChanged(nameof(FilterButtonText));
+    }
+
+    /// <summary>
+    /// Decodes covers off the UI thread, a batch at a time, at the given pixel width. Runs on
+    /// load and again when the cover-size slider settles; a newer request abandons an older one.
+    /// Frozen bitmaps (see CoverImageLoader) are safe to hand back to the UI thread.
+    /// </summary>
+    private async Task LoadCoversAsync(int decodeWidth)
+    {
+        var version = ++_coverLoadVersion;
+        foreach (var batch in _allItems.ToList().Chunk(24))
+        {
+            var decoded = await Task.Run(() => batch
+                .Select(card => (Card: card, Image: CoverImageLoader.FromFile(card.CoverLocalPath, decodeWidth)))
+                .ToList());
+
+            if (version != _coverLoadVersion) return;
+            foreach (var (card, image) in decoded)
+            {
+                if (image is not null)
+                    card.CoverImage = image;
+            }
+        }
     }
 
     private void DeselectAll(IEnumerable<FilterChipViewModel> chips)

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using AniMan.Core.Library;
 
 namespace AniMan.Controls;
 
@@ -113,6 +114,64 @@ public partial class LibraryMediaCard : System.Windows.Controls.UserControl
     {
         get => (string)GetValue(UserRatingTextProperty);
         set => SetValue(UserRatingTextProperty, value);
+    }
+
+    // ── Size (library cover-size slider) ──────────────────────────────────────
+
+    public static readonly DependencyProperty CardWidthProperty =
+        DependencyProperty.Register(nameof(CardWidth), typeof(double),
+            typeof(LibraryMediaCard), new PropertyMetadata(150.0));
+
+    public static readonly DependencyProperty CoverHeightProperty =
+        DependencyProperty.Register(nameof(CoverHeight), typeof(double),
+            typeof(LibraryMediaCard), new PropertyMetadata(200.0));
+
+    public static readonly DependencyProperty DetailProperty =
+        DependencyProperty.Register(nameof(Detail), typeof(CardDetail),
+            typeof(LibraryMediaCard), new PropertyMetadata(CardDetail.Standard, OnDetailChanged));
+
+    private static readonly DependencyPropertyKey IsCompactKey =
+        DependencyProperty.RegisterReadOnly(nameof(IsCompact), typeof(bool),
+            typeof(LibraryMediaCard), new PropertyMetadata(false));
+
+    private static readonly DependencyPropertyKey IsDetailedKey =
+        DependencyProperty.RegisterReadOnly(nameof(IsDetailed), typeof(bool),
+            typeof(LibraryMediaCard), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty IsCompactProperty = IsCompactKey.DependencyProperty;
+    public static readonly DependencyProperty IsDetailedProperty = IsDetailedKey.DependencyProperty;
+
+    public double CardWidth
+    {
+        get => (double)GetValue(CardWidthProperty);
+        set => SetValue(CardWidthProperty, value);
+    }
+
+    public double CoverHeight
+    {
+        get => (double)GetValue(CoverHeightProperty);
+        set => SetValue(CoverHeightProperty, value);
+    }
+
+    /// <summary>How much the card shows besides the cover; drives <see cref="IsCompact"/>/<see cref="IsDetailed"/>.</summary>
+    public CardDetail Detail
+    {
+        get => (CardDetail)GetValue(DetailProperty);
+        set => SetValue(DetailProperty, value);
+    }
+
+    /// <summary>Cover only (title/status appear on hover).</summary>
+    public bool IsCompact => (bool)GetValue(IsCompactProperty);
+
+    /// <summary>Two-line title and MAL score in the footer.</summary>
+    public bool IsDetailed => (bool)GetValue(IsDetailedProperty);
+
+    private static void OnDetailChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var card = (LibraryMediaCard)d;
+        var detail = (CardDetail)e.NewValue;
+        card.SetValue(IsCompactKey, detail == CardDetail.Compact);
+        card.SetValue(IsDetailedKey, detail == CardDetail.Detailed);
     }
 
     public LibraryMediaCard()

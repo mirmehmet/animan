@@ -178,6 +178,7 @@ public partial class App : Application
         services.AddSingleton<ViewModels.Settings.SettingsViewModel>();
         services.AddSingleton<AnimeLibraryViewModel>();
         services.AddSingleton<MangaLibraryViewModel>();
+        services.AddSingleton<LibraryLayoutViewModel>(); // cover size, shared by both library pages
         services.AddSingleton<ViewModels.Stats.StatsViewModel>();
         services.AddSingleton<ViewModels.Discover.DiscoverViewModel>();
         services.AddTransient<DetailViewModel>();

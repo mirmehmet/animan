@@ -4,8 +4,8 @@ using AniMan.Core.Interfaces;
 
 namespace AniMan.ViewModels.Library;
 
-public sealed class MangaLibraryViewModel(ITrackingService tracking, ISettingsService settings)
-    : LibraryViewModelBase(tracking, settings, MediaType.Manga)
+public sealed class MangaLibraryViewModel(ITrackingService tracking, ISettingsService settings, LibraryLayoutViewModel layout)
+    : LibraryViewModelBase(tracking, settings, layout, MediaType.Manga)
 {
     protected override (int Watched, int? Total) GetProgress(LibraryItem item) =>
         (item.ChapterProgress?.Count(c => c.IsRead) ?? 0, item.Snapshot?.TotalChapters);

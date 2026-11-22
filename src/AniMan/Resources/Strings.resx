@@ -246,6 +246,7 @@
   <data name="Library_MyRatingChip" xml:space="preserve"><value>My rating: {0}</value></data>
   <data name="Library_ResultCount" xml:space="preserve"><value>{0} / {1}</value></data>
   <data name="Library_Sort" xml:space="preserve"><value>Sort</value></data>
+  <data name="Library_CoverSize" xml:space="preserve"><value>Cover size</value></data>
   <data name="Library_SortRecentlyUpdated" xml:space="preserve"><value>Recently updated</value></data>
   <data name="Library_SortTitle" xml:space="preserve"><value>Title (A–Z)</value></data>
   <data name="Library_SortMyRating" xml:space="preserve"><value>My rating</value></data>

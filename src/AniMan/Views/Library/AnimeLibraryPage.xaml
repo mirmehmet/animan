@@ -85,11 +85,25 @@
                                  Content="{loc:Loc Status_Ratings}"
                                  IsChecked="{Binding ActiveStatusId, ConverterParameter=98, Converter={StaticResource EqualityConverter}}"/>
                 </StackPanel>
-                <!-- Sort: applies on every tab; remembered per page -->
-                <ComboBox Grid.Column="1" Margin="8,4,0,4" MinWidth="180"
-                          ToolTip="{loc:Loc Library_Sort}"
-                          ItemsSource="{Binding SortOptions}" DisplayMemberPath="Label"
-                          SelectedValuePath="Value" SelectedValue="{Binding SortMode}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Cover size (Steam-style): snaps to steps, shared by both library pages -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,12,0"
+                                ToolTip="{loc:Loc Library_CoverSize}">
+                        <ui:SymbolIcon Symbol="Grid16" FontSize="14" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <Slider Width="110" Margin="8,0" VerticalAlignment="Center"
+                                Minimum="0" Maximum="{Binding Layout.MaxStep}"
+                                TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1"
+                                Value="{Binding Layout.SizeStep}"/>
+                        <ui:SymbolIcon Symbol="Square20" FontSize="16" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                    <!-- Sort: applies on every tab; remembered per page -->
+                    <ComboBox Margin="0,4,0,4" MinWidth="180"
+                              ToolTip="{loc:Loc Library_Sort}"
+                              ItemsSource="{Binding SortOptions}" DisplayMemberPath="Label"
+                              SelectedValuePath="Value" SelectedValue="{Binding SortMode}"/>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -119,16 +133,22 @@
             <!-- Cards -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding HasContent, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <ItemsControl ItemsSource="{Binding Items}" Margin="18,12,18,24">
+                <ItemsControl ItemsSource="{Binding Items}" Margin="24,12,24,24">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel/>
+                            <!-- Spans the full width with even gaps (no ragged right edge) -->
+                            <ctrl:JustifiedWrapPanel MinGap="12" RowGap="16"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:LibraryCardViewModel}">
                             <ctrl:LibraryMediaCard
-                                Margin="{StaticResource CardMargin}"
+                                CardWidth="{Binding DataContext.Layout.CardWidth,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CoverHeight="{Binding DataContext.Layout.CoverHeight,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                Detail="{Binding DataContext.Layout.Detail,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 CoverSource="{Binding CoverImage}"
                                 Title="{Binding Title}"
                                 StatusName="{Binding StatusName}"

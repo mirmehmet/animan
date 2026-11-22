@@ -104,11 +104,6 @@ public partial class LibraryCardViewModel : ObservableObject, ILibraryEntry
             _      => AccStatusDef
         };
 
-    public void LoadCoverImage()
-    {
-        var bmp = CoverImageLoader.FromFile(CoverLocalPath);
-        if (bmp is not null) CoverImage = bmp;
-    }
 
     // ── Color helpers ─────────────────────────────────────────────────────────
 

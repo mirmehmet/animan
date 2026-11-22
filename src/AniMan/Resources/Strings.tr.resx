@@ -246,6 +246,7 @@
   <data name="Library_MyRatingChip" xml:space="preserve"><value>Puanım: {0}</value></data>
   <data name="Library_ResultCount" xml:space="preserve"><value>{0} / {1}</value></data>
   <data name="Library_Sort" xml:space="preserve"><value>Sırala</value></data>
+  <data name="Library_CoverSize" xml:space="preserve"><value>Kapak boyutu</value></data>
   <data name="Library_SortRecentlyUpdated" xml:space="preserve"><value>Son güncellenen</value></data>
   <data name="Library_SortTitle" xml:space="preserve"><value>Ad (A–Z)</value></data>
   <data name="Library_SortMyRating" xml:space="preserve"><value>Puanım</value></data>
