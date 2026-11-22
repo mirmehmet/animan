@@ -1,7 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                    xmlns:conv="clr-namespace:AniMan.Converters">
+                    xmlns:conv="clr-namespace:AniMan.Converters"
+                    xmlns:ctrl="clr-namespace:AniMan.Controls">
 
     <!-- ═══════════════════════════════════════════════════════════════════════
          GLOBAL TEXTBLOCK DEFAULT
@@ -75,6 +76,8 @@
         <Setter Property="BorderBrush"           Value="{DynamicResource HairlineBorderBrush}"/>
         <Setter Property="BorderThickness"       Value="1"/>
         <Setter Property="Cursor"                Value="Hand"/>
+        <!-- Release without a press on the card (e.g. title-bar double-click maximize) is not a click -->
+        <Setter Property="ctrl:ClickGuard.IsEnabled" Value="True"/>
         <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
         <Setter Property="RenderTransform">
             <Setter.Value>
