@@ -31,9 +31,9 @@ public partial class EpisodeRowViewModel : ObservableObject
     [ObservableProperty]
     private DateTime? _watchedAt;
 
-    /// <summary>Short, culture-aware local date shown next to watched episodes.</summary>
+    /// <summary>Short local date in the UI language (not the Windows region) shown next to watched episodes.</summary>
     public string WatchedAtDisplay => WatchedAt is { } d
-        ? DateTime.SpecifyKind(d, DateTimeKind.Utc).ToLocalTime().ToString("d")
+        ? DateTime.SpecifyKind(d, DateTimeKind.Utc).ToLocalTime().ToString("d", LocalizationManager.Culture)
         : string.Empty;
 
     partial void OnWatchedAtChanged(DateTime? value) => OnPropertyChanged(nameof(WatchedAtDisplay));

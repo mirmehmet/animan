@@ -30,9 +30,9 @@ public partial class ChapterRowViewModel : ObservableObject
     [ObservableProperty]
     private DateTime? _readAt;
 
-    /// <summary>Short, culture-aware local date shown next to read chapters.</summary>
+    /// <summary>Short local date in the UI language (not the Windows region) shown next to read chapters.</summary>
     public string ReadAtDisplay => ReadAt is { } d
-        ? DateTime.SpecifyKind(d, DateTimeKind.Utc).ToLocalTime().ToString("d")
+        ? DateTime.SpecifyKind(d, DateTimeKind.Utc).ToLocalTime().ToString("d", LocalizationManager.Culture)
         : string.Empty;
 
     partial void OnReadAtChanged(DateTime? value) => OnPropertyChanged(nameof(ReadAtDisplay));
