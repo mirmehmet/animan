@@ -41,6 +41,10 @@ public partial class MangaLibraryPage : UserControl
                 _viewModel.ActiveStatusId = LibraryNavigationState.PendingMangaStatusId.Value;
                 LibraryNavigationState.PendingMangaStatusId = null;
             }
+
+            // Arriving from Stats with a filter (e.g. a clicked genre or year).
+            if (LibraryNavigationState.TakeFilter(Core.Domain.Enums.MediaType.Manga) is { } request)
+                _viewModel.ApplyExternalFilter(request);
         }
         catch (Exception ex)
         {

@@ -41,6 +41,10 @@ public partial class AnimeLibraryPage : UserControl
                 _viewModel.ActiveStatusId = LibraryNavigationState.PendingAnimeStatusId.Value;
                 LibraryNavigationState.PendingAnimeStatusId = null;
             }
+
+            // Arriving from Stats with a filter (e.g. a clicked genre or year).
+            if (LibraryNavigationState.TakeFilter(Core.Domain.Enums.MediaType.Anime) is { } request)
+                _viewModel.ApplyExternalFilter(request);
         }
         catch (Exception ex)
         {

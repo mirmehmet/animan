@@ -6,6 +6,7 @@ using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Core.Library;
 using AniMan.Localization;
+using AniMan.Navigation;
 using AniMan.ViewModels.Detail;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -117,7 +118,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
 
     /// <summary>"42 / 180" while something narrows the list, otherwise just the total.</summary>
     public string ResultCountText => Items.Count == _allItems.Count
-        ? _allItems.Count.ToString(CultureInfo.CurrentCulture)
+        ? _allItems.Count.ToString(LocalizationManager.Culture)
         : string.Format(LocalizationManager.Get("Library_ResultCount"), Items.Count, _allItems.Count);
 
     private string SortSettingKey => $"LibrarySort.{_mediaType}";
@@ -191,12 +192,52 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         ApplyFilter();
     }
 
-    partial void OnSearchQueryChanged(string value) => ApplyFilter();
+    /// <summary>
+    /// Replaces the current tab, search and filters with a request from another page
+    /// (Stats → "show me my Action titles"). Call after the library has loaded so the
+    /// requested chip exists. The panel stays closed; the active-filter chips show what applies.
+    /// </summary>
+    public void ApplyExternalFilter(LibraryFilterRequest request)
+    {
+        _suppressFilter = true;
+        try
+        {
+            foreach (var chip in FilterGroups.SelectMany(g => g.Chips))
+                chip.IsSelected = false;
+            foreach (var group in FilterGroups)
+                group.MatchAny = false;
+            RatingFilter = RatingFilter.Any;
+            YearFrom = request.YearFrom;
+            YearTo = request.YearTo;
+            SearchQuery = string.Empty;
+            IsFilterPanelOpen = false;
+
+            if (request.Genre is { } genre &&
+                _genreGroup.Chips.FirstOrDefault(c => string.Equals(c.Value, genre, StringComparison.OrdinalIgnoreCase)) is { } match)
+            {
+                match.IsSelected = true;
+            }
+
+            ActiveStatusId = request.StatusId;
+        }
+        finally
+        {
+            _suppressFilter = false;
+        }
+        ApplyFilter();
+    }
+
+    partial void OnSearchQueryChanged(string value)
+    {
+        if (!_suppressFilter)
+            ApplyFilter();
+    }
 
     partial void OnActiveStatusIdChanged(int value)
     {
         OnPropertyChanged(nameof(IsRatingsTab));
-        ApplyFilter();
+        if (!_suppressFilter)
+            ApplyFilter();
     }
 
     partial void OnSortModeChanged(LibrarySort value)
@@ -441,7 +482,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>Season year when known; otherwise the year the title started airing/publishing.</summary>
-    private static int? ResolveYear(MediaSnapshot? snap)
+    internal static int? ResolveYear(MediaSnapshot? snap)
     {
         if (snap?.Year is > 0) return snap.Year;
         var start = snap?.AiringStart;
@@ -452,7 +493,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             : null;
     }
 
-    private static IReadOnlyList<string> ParseNames(string? json)
+    internal static IReadOnlyList<string> ParseNames(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return [];
         try
