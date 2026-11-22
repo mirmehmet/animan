@@ -3,213 +3,475 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:vm="clr-namespace:AniMan.ViewModels.Stats"
+             xmlns:enums="clr-namespace:AniMan.Core.Domain.Enums;assembly=AniMan.Core"
+             xmlns:charts="clr-namespace:AniMan.Controls.Charts"
+             xmlns:ctrl="clr-namespace:AniMan.Controls"
              xmlns:loc="clr-namespace:AniMan.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="900" d:DesignWidth="900"
+             d:DesignHeight="900" d:DesignWidth="1000"
              Loaded="OnLoaded">
+
+    <UserControl.Resources>
+        <!-- A dashboard card: one chart or figure group per card -->
+        <Style x:Key="StatCard" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource HairlineBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource CornerMd}"/>
+            <Setter Property="Padding" Value="18,14"/>
+            <Setter Property="Margin" Value="6"/>
+        </Style>
+
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+
+        <Style x:Key="ChartCaption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+
+        <!-- Invisible clickable wrapper for chart marks: hand cursor, slight dim on hover -->
+        <Style x:Key="ChartHit" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="150"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="0.82"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="{StaticResource PageMargin}">
 
-            <!-- Header -->
-            <TextBlock Text="{loc:Loc Stats_Title}"
-                       Style="{StaticResource PageTitleText}"
-                       Margin="0,0,0,20"/>
+            <!-- Header: title + Anime | Manga -->
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{loc:Loc Stats_Title}" Style="{StaticResource PageTitleText}"/>
+                <Border Grid.Column="1" VerticalAlignment="Center" CornerRadius="6" ClipToBounds="True"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Style="{StaticResource SegmentRadioButton}"
+                                     Content="{loc:Loc Nav_Anime}"
+                                     IsChecked="{Binding IsAnime, Mode=OneWay}"
+                                     Command="{Binding SwitchMediaCommand}"
+                                     CommandParameter="{x:Static enums:MediaType.Anime}"/>
+                        <RadioButton Style="{StaticResource SegmentRadioButton}"
+                                     Content="{loc:Loc Nav_Manga}"
+                                     IsChecked="{Binding IsManga, Mode=OneWay}"
+                                     Command="{Binding SwitchMediaCommand}"
+                                     CommandParameter="{x:Static enums:MediaType.Manga}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
 
-            <!-- Loading bar -->
-            <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,16"
+            <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,8"
                          Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-            <!-- Summary cards -->
-            <WrapPanel Margin="0,0,0,24">
-                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
-                    <ui:CardControl.Header>
-                        <StackPanel>
-                            <TextBlock Text="{Binding TotalEpisodes}"
-                                       FontSize="32" FontWeight="Bold"/>
-                            <TextBlock Text="{loc:Loc Stats_EpisodesWatched}" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:SymbolIcon Symbol="Tv24" FontSize="28"
-                                   Foreground="{StaticResource BrandAccentBrush}"/>
-                </ui:CardControl>
+            <ctrl:EmptyStateControl Icon="DataHistogram24" Margin="0,48,0,0"
+                                    Title="{loc:Loc Stats_EmptyTitle}"
+                                    Subtitle="{loc:Loc Stats_EmptyMessage}"
+                                    Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
-                    <ui:CardControl.Header>
-                        <StackPanel>
-                            <TextBlock Text="{Binding WatchTimeText}"
-                                       FontSize="32" FontWeight="Bold"/>
-                            <TextBlock Text="{loc:Loc Stats_WatchTime}" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:SymbolIcon Symbol="Clock24" FontSize="28"
-                                   Foreground="{StaticResource BrandAccentBrush}"/>
-                </ui:CardControl>
+            <!-- Dashboard (cards sit in a -6 margin so their own 6px margins line up with the page edge) -->
+            <StackPanel Margin="-6,0"
+                        Visibility="{Binding HasData, Converter={StaticResource BooleanToVisibilityConverter}}">
 
-                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
-                    <ui:CardControl.Header>
-                        <StackPanel>
-                            <TextBlock Text="{Binding TotalChapters}"
-                                       FontSize="32" FontWeight="Bold"/>
-                            <TextBlock Text="{loc:Loc Stats_ChaptersRead}" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:SymbolIcon Symbol="BookOpen24" FontSize="28"
-                                   Foreground="{StaticResource BrandAccentBrush}"/>
-                </ui:CardControl>
+                <!-- ── Headline figures ──────────────────────────────────────── -->
+                <ItemsControl ItemsSource="{Binding Tiles}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:StatTileViewModel}">
+                            <Border Style="{StaticResource StatCard}" Padding="18,16">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Label}" FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding Value}" FontSize="30" FontWeight="SemiBold"
+                                               Margin="0,4,0,0"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding Sub}" FontSize="11" Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                               Visibility="{Binding HasSub, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-                <ui:CardControl Margin="0,0,12,12" Padding="20,14" MinWidth="180">
-                    <ui:CardControl.Header>
+                <!-- ── Status + scores ───────────────────────────────────────── -->
+                <UniformGrid Columns="2">
+                    <!-- Status: one whole split by status (segmented bar + legend) -->
+                    <Border Style="{StaticResource StatCard}">
                         <StackPanel>
-                            <TextBlock Text="{Binding CompletedCount}"
-                                       FontSize="32" FontWeight="Bold"/>
-                            <TextBlock Text="{loc:Loc Dashboard_Completed}" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{loc:Loc Stats_StatusBreakdown}" Style="{StaticResource CardTitle}"/>
+                            <ItemsControl ItemsSource="{Binding StatusSegments}" Height="30">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><charts:ProportionalPanel Gap="2"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="charts:ProportionalPanel.Weight" Value="{Binding Weight}"/>
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:StatusSegmentViewModel}">
+                                        <Button Style="{StaticResource ChartHit}" ToolTip="{Binding Tooltip}"
+                                                Command="{Binding DataContext.OpenStatusCommand,
+                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Border Background="{Binding Brush}" CornerRadius="4"/>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- Legend: identity never by color alone -->
+                            <ItemsControl ItemsSource="{Binding StatusSegments}" Margin="0,12,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:StatusSegmentViewModel}">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                                            <Border Width="10" Height="10" CornerRadius="2"
+                                                    Background="{Binding Brush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Name}" FontSize="12" Margin="6,0,4,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{Binding Count}" FontSize="12" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="28"
-                                   Foreground="{StaticResource BrandAccentBrush}"/>
-                </ui:CardControl>
+                    </Border>
 
-                <ui:CardControl Margin="0,0,0,12" Padding="20,14" MinWidth="180">
-                    <ui:CardControl.Header>
+                    <!-- Scores: columns 1–10; the column holding the mean is emphasised -->
+                    <Border Style="{StaticResource StatCard}">
                         <StackPanel>
-                            <TextBlock Text="{Binding MeanScoreText}"
-                                       FontSize="32" FontWeight="Bold"/>
-                            <TextBlock Text="{loc:Loc Stats_MeanScore}" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{loc:Loc Stats_ScoreDistribution}" Style="{StaticResource CardTitle}"/>
+                            <TextBlock Text="{loc:Loc Stats_NoRatings}" Style="{StaticResource ChartCaption}"
+                                       Visibility="{Binding HasScores, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            <ItemsControl ItemsSource="{Binding ScoreColumns}"
+                                          Visibility="{Binding HasScores, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ColumnViewModel}">
+                                        <StackPanel Background="Transparent" ToolTip="{Binding Tooltip}"
+                                                    ToolTipService.InitialShowDelay="150">
+                                            <Grid Height="{x:Static vm:StatsViewModel.ScoreChartHeight}">
+                                                <Border VerticalAlignment="Bottom" Height="{Binding BarHeight}"
+                                                        Margin="4,0" CornerRadius="4,4,0,0"
+                                                        Background="{StaticResource BrandAccentBrush}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Opacity" Value="0.45"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsEmphasis}" Value="True">
+                                                                    <Setter Property="Opacity" Value="1"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                            </Grid>
+                                            <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}"/>
+                                            <TextBlock Text="{Binding Label}" HorizontalAlignment="Center" Margin="0,4,0,0"
+                                                       Style="{StaticResource ChartCaption}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
-                    </ui:CardControl.Header>
-                    <ui:SymbolIcon Symbol="Star24" FontSize="28"
-                                   Foreground="{StaticResource BrandAccentBrush}"/>
-                </ui:CardControl>
-            </WrapPanel>
+                    </Border>
+                </UniformGrid>
 
-            <!-- Status Breakdown -->
-            <TextBlock Text="{loc:Loc Stats_StatusBreakdown}"
-                       Style="{StaticResource SectionHeaderText}"
-                       Visibility="{Binding StatusBreakdown.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
-            <ItemsControl ItemsSource="{Binding StatusBreakdown}"
-                          Margin="0,0,0,24"
-                          Visibility="{Binding StatusBreakdown.Count, Converter={StaticResource CountToVisibilityConverter}}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:StatusBarViewModel}">
-                        <Grid Margin="0,0,0,8">
+                <!-- ── Activity calendar + period summary ────────────────────── -->
+                <Border Style="{StaticResource StatCard}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                       VerticalAlignment="Center"/>
-                            <ProgressBar Grid.Column="1" Style="{StaticResource BrandProgressBar}"
-                                         Foreground="{Binding Brush}"
-                                         Value="{Binding Fraction}" Maximum="1"
-                                         VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="2" Text="{Binding Count}"
-                                       VerticalAlignment="Center" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{loc:Loc Stats_Activity}" Style="{StaticResource CardTitle}"
+                                       Margin="0" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" MinWidth="140"
+                                      ItemsSource="{Binding PeriodOptions}" DisplayMemberPath="Label"
+                                      SelectedItem="{Binding SelectedPeriod}"/>
                         </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
 
-            <!-- Score Histogram -->
-            <TextBlock Text="{loc:Loc Stats_ScoreDistribution}"
-                       Style="{StaticResource SectionHeaderText}"
-                       Visibility="{Binding ScoreHistogram.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
-            <ItemsControl ItemsSource="{Binding ScoreHistogram}"
-                          Margin="0,0,0,24"
-                          Visibility="{Binding ScoreHistogram.Count, Converter={StaticResource CountToVisibilityConverter}}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:ScoreBarViewModel}">
-                        <StackPanel Width="44" Margin="2,0" HorizontalAlignment="Center">
-                            <TextBlock Text="{Binding Count}" FontSize="11"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                            <ProgressBar Style="{StaticResource BrandProgressBar}"
-                                         Value="{Binding Fraction}" Maximum="1"
-                                         Width="80" Height="8" Margin="0,6"
-                                         HorizontalAlignment="Center">
-                                <ProgressBar.LayoutTransform>
-                                    <RotateTransform Angle="-90"/>
-                                </ProgressBar.LayoutTransform>
-                            </ProgressBar>
-                            <TextBlock Text="{Binding Score}" FontSize="12"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <!-- Fixed-size calendar (it never scales with the window) with the period
+                             summary beside it; on a narrow window the summary wraps underneath. -->
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,48,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="32"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="16"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Weekday labels (Mon / Wed / Fri rows) -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0">
+                                        <TextBlock Text="{loc:Loc Stats_DayMon}" Height="13" FontSize="9" Style="{StaticResource ChartCaption}"/>
+                                        <TextBlock Height="13"/>
+                                        <TextBlock Text="{loc:Loc Stats_DayWed}" Height="13" FontSize="9" Style="{StaticResource ChartCaption}"/>
+                                        <TextBlock Height="13"/>
+                                        <TextBlock Text="{loc:Loc Stats_DayFri}" Height="13" FontSize="9" Style="{StaticResource ChartCaption}"/>
+                                    </StackPanel>
+
+                                    <!-- Month labels, one slot per week column -->
+                                    <ItemsControl Grid.Row="0" Grid.Column="1" ItemsSource="{Binding HeatWeeks}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:HeatWeekViewModel}">
+                                                <Canvas Width="13" Height="16">
+                                                    <TextBlock Text="{Binding MonthLabel}" FontSize="10"
+                                                               Style="{StaticResource ChartCaption}"/>
+                                                </Canvas>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- The grid: weeks left→right, days top→bottom -->
+                                    <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding HeatWeeks}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:HeatWeekViewModel}">
+                                                <ItemsControl ItemsSource="{Binding Days}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:HeatDayViewModel}">
+                                                            <Border Width="11" Height="11" Margin="1" CornerRadius="2"
+                                                                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                                                    Opacity="{Binding CellOpacity}"
+                                                                    IsHitTestVisible="{Binding IsInRange}"
+                                                                    ToolTip="{Binding Tooltip}"
+                                                                    ToolTipService.InitialShowDelay="100">
+                                                                <Border CornerRadius="2" Opacity="{Binding Opacity}"
+                                                                        Background="{StaticResource BrandAccentBrush}"/>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+
+                                <!-- Legend: less → more -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                    <TextBlock Text="{loc:Loc Stats_Less}" Style="{StaticResource ChartCaption}"
+                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <Border Width="11" Height="11" Margin="1" CornerRadius="2" Background="{DynamicResource ControlFillColorDefaultBrush}"/>
+                                    <Border Width="11" Height="11" Margin="1" CornerRadius="2" Background="{DynamicResource ControlFillColorDefaultBrush}">
+                                        <Border CornerRadius="2" Opacity="0.3" Background="{StaticResource BrandAccentBrush}"/>
+                                    </Border>
+                                    <Border Width="11" Height="11" Margin="1" CornerRadius="2" Background="{DynamicResource ControlFillColorDefaultBrush}">
+                                        <Border CornerRadius="2" Opacity="0.5" Background="{StaticResource BrandAccentBrush}"/>
+                                    </Border>
+                                    <Border Width="11" Height="11" Margin="1" CornerRadius="2" Background="{DynamicResource ControlFillColorDefaultBrush}">
+                                        <Border CornerRadius="2" Opacity="0.75" Background="{StaticResource BrandAccentBrush}"/>
+                                    </Border>
+                                    <Border Width="11" Height="11" Margin="1" CornerRadius="2" Background="{StaticResource BrandAccentBrush}"/>
+                                    <TextBlock Text="{loc:Loc Stats_More}" Style="{StaticResource ChartCaption}"
+                                               VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Period summary: two columns of figures -->
+                            <ItemsControl ItemsSource="{Binding PeriodFigures}" Width="360"
+                                          VerticalAlignment="Center" Margin="0,8,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:PeriodFigureViewModel}">
+                                        <StackPanel Margin="0,0,16,12">
+                                            <TextBlock Text="{Binding Label}" Style="{StaticResource ChartCaption}"/>
+                                            <TextBlock Text="{Binding Value}" FontSize="15" FontWeight="SemiBold"
+                                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Genres + taste ────────────────────────────────────────── -->
+                <UniformGrid Columns="2">
+                    <!-- Top genres: ranked thin bars -->
+                    <Border Style="{StaticResource StatCard}">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Loc Stats_TopGenres}" Style="{StaticResource CardTitle}"/>
+                            <ItemsControl ItemsSource="{Binding TopGenres}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:RankedBarViewModel}">
+                                        <Button Style="{StaticResource ChartHit}" ToolTip="{Binding Tooltip}" Margin="0,0,0,8"
+                                                Command="{Binding DataContext.OpenGenreCommand,
+                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding Name}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="110"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="36"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                <Grid Grid.Column="1" Height="8" VerticalAlignment="Center" Margin="8,0">
+                                                    <Border CornerRadius="4" Background="{DynamicResource ControlFillColorDefaultBrush}"/>
+                                                    <charts:ProportionalPanel>
+                                                        <Border charts:ProportionalPanel.Weight="{Binding Fill}"
+                                                                CornerRadius="4" Background="{StaticResource BrandAccentBrush}"/>
+                                                        <Border charts:ProportionalPanel.Weight="{Binding Rest}"/>
+                                                    </charts:ProportionalPanel>
+                                                </Grid>
+                                                <TextBlock Grid.Column="2" Text="{Binding Count}" FontSize="12"
+                                                           HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                    </Border>
 
-            <!-- Top Genres -->
-            <TextBlock Text="{loc:Loc Stats_TopGenres}"
-                       Style="{StaticResource SectionHeaderText}"
-                       Visibility="{Binding TopGenres.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
-            <ItemsControl ItemsSource="{Binding TopGenres}"
-                          Margin="0,0,0,24"
-                          Visibility="{Binding TopGenres.Count, Converter={StaticResource CountToVisibilityConverter}}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:GenreBarViewModel}">
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="40"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                       VerticalAlignment="Center"/>
-                            <ProgressBar Grid.Column="1" Style="{StaticResource BrandProgressBar}"
-                                         Value="{Binding Fraction}" Maximum="1"
-                                         VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="2" Text="{Binding Count}"
-                                       VerticalAlignment="Center" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                    <!-- Taste: your mean (●) vs MAL's mean (○) per genre -->
+                    <Border Style="{StaticResource StatCard}">
+                        <StackPanel>
+                            <Grid>
+                                <TextBlock Text="{loc:Loc Stats_Taste}" Style="{StaticResource CardTitle}"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                    <Ellipse Width="9" Height="9" Fill="{StaticResource BrandAccentBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Stats_TasteYou}" Style="{StaticResource ChartCaption}" Margin="4,0,12,0"/>
+                                    <Ellipse Width="9" Height="9" Stroke="{StaticResource BrandAccentBrush}" StrokeThickness="2"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="MAL" Style="{StaticResource ChartCaption}" Margin="4,0,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="{loc:Loc Stats_TasteEmpty}" Style="{StaticResource ChartCaption}" TextWrapping="Wrap"
+                                       Visibility="{Binding HasTaste, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            <StackPanel Visibility="{Binding HasTaste, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl ItemsSource="{Binding TasteRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:TasteRowViewModel}">
+                                            <Button Style="{StaticResource ChartHit}" ToolTip="{Binding Tooltip}" Margin="0,0,0,8"
+                                                    Command="{Binding DataContext.OpenGenreCommand,
+                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding Genre}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="110"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="36"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Genre}" FontSize="12" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    <charts:DumbbellTrack Grid.Column="1" Margin="8,0"
+                                                                          Minimum="{Binding AxisMin}" Maximum="{Binding AxisMax}"
+                                                                          Value="{Binding You}" Reference="{Binding Mal}"
+                                                                          AccentBrush="{StaticResource BrandAccentBrush}"
+                                                                          TrackBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                                                                          SurfaceBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding YouText}" FontSize="12" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <!-- Axis ends -->
+                                <Grid Margin="118,0,44,0">
+                                    <TextBlock Text="{Binding TasteAxisMin}" Style="{StaticResource ChartCaption}"/>
+                                    <TextBlock Text="10" Style="{StaticResource ChartCaption}" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
 
-            <!-- Monthly Activity -->
-            <TextBlock Text="{loc:Loc Stats_MonthlyActivity}"
-                       Style="{StaticResource SectionHeaderText}"
-                       Visibility="{Binding MonthlyActivity.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
-            <ItemsControl ItemsSource="{Binding MonthlyActivity}"
-                          Margin="0,0,0,8"
-                          Visibility="{Binding MonthlyActivity.Count, Converter={StaticResource CountToVisibilityConverter}}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:MonthBarViewModel}">
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="50"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="11"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                            <ProgressBar Grid.Column="1" Style="{StaticResource BrandProgressBar}"
-                                         Value="{Binding Fraction}" Maximum="1"
-                                         VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="2" Text="{Binding Count}"
-                                       VerticalAlignment="Center" FontSize="12"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
+                <!-- ── Release years ─────────────────────────────────────────── -->
+                <Border Style="{StaticResource StatCard}"
+                        Visibility="{Binding HasYears, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Loc Stats_ReleaseYears}" Style="{StaticResource CardTitle}"/>
+                        <ItemsControl ItemsSource="{Binding YearColumns}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:ColumnViewModel}">
+                                    <Button Style="{StaticResource ChartHit}" ToolTip="{Binding Tooltip}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            IsEnabled="{Binding IsClickable}"
+                                            Command="{Binding DataContext.OpenYearsCommand,
+                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel>
+                                            <Grid Height="{x:Static vm:StatsViewModel.YearChartHeight}">
+                                                <Border VerticalAlignment="Bottom" Height="{Binding BarHeight}"
+                                                        Margin="2,0" CornerRadius="3,3,0,0"
+                                                        Background="{StaticResource BrandAccentBrush}"/>
+                                            </Grid>
+                                            <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}"/>
+                                            <Canvas Height="16">
+                                                <TextBlock Text="{Binding Label}" Margin="0,3,0,0" Style="{StaticResource ChartCaption}"/>
+                                            </Canvas>
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

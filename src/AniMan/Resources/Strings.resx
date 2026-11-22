@@ -88,11 +88,40 @@
   <data name="Stats_EpisodesWatched" xml:space="preserve"><value>Episodes watched</value></data>
   <data name="Stats_WatchTime" xml:space="preserve"><value>Watch time</value></data>
   <data name="Stats_ChaptersRead" xml:space="preserve"><value>Chapters read</value></data>
-  <data name="Stats_MeanScore" xml:space="preserve"><value>Mean score</value></data>
-  <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Status Breakdown</value></data>
-  <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Score Distribution</value></data>
-  <data name="Stats_TopGenres" xml:space="preserve"><value>Top Genres</value></data>
-  <data name="Stats_MonthlyActivity" xml:space="preserve"><value>Monthly Activity (last 12 months)</value></data>
+  <data name="Stats_MeanScore" xml:space="preserve"><value>Your mean score</value></data>
+  <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Status</value></data>
+  <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Your scores</value></data>
+  <data name="Stats_TopGenres" xml:space="preserve"><value>Top genres</value></data>
+  <data name="Stats_Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Stats_ReadingNow" xml:space="preserve"><value>Reading now</value></data>
+  <data name="Stats_OfTitlesFormat" xml:space="preserve"><value>of {0} titles</value></data>
+  <data name="Stats_HoursFormat" xml:space="preserve"><value>{0} h</value></data>
+  <data name="Stats_DaysFormat" xml:space="preserve"><value>{0} days</value></data>
+  <data name="Stats_NoRatings" xml:space="preserve"><value>No scores yet</value></data>
+  <data name="Stats_MalSame" xml:space="preserve"><value>Same as MAL on average</value></data>
+  <data name="Stats_MalMoreGenerous" xml:space="preserve"><value>{0} above MAL on average</value></data>
+  <data name="Stats_MalHarsher" xml:space="preserve"><value>{0} below MAL on average</value></data>
+  <data name="Stats_ClickToOpen" xml:space="preserve"><value>Click to see them in your library</value></data>
+  <data name="Stats_TipScore" xml:space="preserve"><value>Score {0}: {1} titles</value></data>
+  <data name="Stats_TipTitles" xml:space="preserve"><value>{0}: {1} titles</value></data>
+  <data name="Stats_TipTaste" xml:space="preserve"><value>{0}: you {1} · MAL {2} · {3} titles</value></data>
+  <data name="Stats_TipEpisodesOnDay" xml:space="preserve"><value>{0}: {1} episodes</value></data>
+  <data name="Stats_TipChaptersOnDay" xml:space="preserve"><value>{0}: {1} chapters</value></data>
+  <data name="Stats_Activity" xml:space="preserve"><value>Activity</value></data>
+  <data name="Stats_PeriodLast12" xml:space="preserve"><value>Last 12 months</value></data>
+  <data name="Stats_PeriodTopGenre" xml:space="preserve"><value>Top genre</value></data>
+  <data name="Stats_PeriodBestMonth" xml:space="preserve"><value>Busiest month</value></data>
+  <data name="Stats_DayMon" xml:space="preserve"><value>Mon</value></data>
+  <data name="Stats_DayWed" xml:space="preserve"><value>Wed</value></data>
+  <data name="Stats_DayFri" xml:space="preserve"><value>Fri</value></data>
+  <data name="Stats_Less" xml:space="preserve"><value>Less</value></data>
+  <data name="Stats_More" xml:space="preserve"><value>More</value></data>
+  <data name="Stats_Taste" xml:space="preserve"><value>Your taste vs MAL</value></data>
+  <data name="Stats_TasteYou" xml:space="preserve"><value>You</value></data>
+  <data name="Stats_TasteEmpty" xml:space="preserve"><value>Score at least 3 titles in a genre (that MAL also scores) to compare your taste.</value></data>
+  <data name="Stats_ReleaseYears" xml:space="preserve"><value>Release years</value></data>
+  <data name="Stats_EmptyTitle" xml:space="preserve"><value>No statistics yet</value></data>
+  <data name="Stats_EmptyMessage" xml:space="preserve"><value>Add titles to your library and track your progress to see statistics here.</value></data>
 
   <data name="Discover_Title" xml:space="preserve"><value>Add</value></data>
   <data name="Discover_AddToLibrary" xml:space="preserve"><value>Add to library</value></data>
@@ -284,8 +313,6 @@
   <data name="App_UnexpectedErrorTitle" xml:space="preserve"><value>Unexpected Error</value></data>
   <data name="App_UnexpectedError" xml:space="preserve"><value>An unexpected error occurred. Details were written to the log file.</value></data>
   <data name="App_StartupFailed" xml:space="preserve"><value>AniMan failed to start. Details were written to the log file.</value></data>
-  <data name="Stats_WatchTimeFormat" xml:space="preserve"><value>{0}h {1}m</value></data>
-  <data name="Stats_WatchTimeMinutesFormat" xml:space="preserve"><value>{0}m</value></data>
   <data name="MediaStatus_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
   <data name="StartupPage_Dashboard" xml:space="preserve"><value>Home</value></data>
   <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>

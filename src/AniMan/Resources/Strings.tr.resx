@@ -88,11 +88,40 @@
   <data name="Stats_EpisodesWatched" xml:space="preserve"><value>İzlenen bölüm</value></data>
   <data name="Stats_WatchTime" xml:space="preserve"><value>İzleme süresi</value></data>
   <data name="Stats_ChaptersRead" xml:space="preserve"><value>Okunan bölüm</value></data>
-  <data name="Stats_MeanScore" xml:space="preserve"><value>Ortalama Puan</value></data>
-  <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Durum Dağılımı</value></data>
-  <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Puan Dağılımı</value></data>
-  <data name="Stats_TopGenres" xml:space="preserve"><value>En Çok Türler</value></data>
-  <data name="Stats_MonthlyActivity" xml:space="preserve"><value>Aylık Etkinlik (son 12 ay)</value></data>
+  <data name="Stats_MeanScore" xml:space="preserve"><value>Ortalama puanın</value></data>
+  <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Durum</value></data>
+  <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Puanların</value></data>
+  <data name="Stats_TopGenres" xml:space="preserve"><value>En çok türler</value></data>
+  <data name="Stats_Completed" xml:space="preserve"><value>Tamamlanan</value></data>
+  <data name="Stats_ReadingNow" xml:space="preserve"><value>Okunuyor</value></data>
+  <data name="Stats_OfTitlesFormat" xml:space="preserve"><value>{0} seriden</value></data>
+  <data name="Stats_HoursFormat" xml:space="preserve"><value>{0} sa</value></data>
+  <data name="Stats_DaysFormat" xml:space="preserve"><value>{0} gün</value></data>
+  <data name="Stats_NoRatings" xml:space="preserve"><value>Henüz puan yok</value></data>
+  <data name="Stats_MalSame" xml:space="preserve"><value>Ortalamada MAL ile aynı</value></data>
+  <data name="Stats_MalMoreGenerous" xml:space="preserve"><value>Ortalamada MAL'dan {0} cömert</value></data>
+  <data name="Stats_MalHarsher" xml:space="preserve"><value>Ortalamada MAL'dan {0} sert</value></data>
+  <data name="Stats_ClickToOpen" xml:space="preserve"><value>Kütüphanede görmek için tıkla</value></data>
+  <data name="Stats_TipScore" xml:space="preserve"><value>{0} puan: {1} seri</value></data>
+  <data name="Stats_TipTitles" xml:space="preserve"><value>{0}: {1} seri</value></data>
+  <data name="Stats_TipTaste" xml:space="preserve"><value>{0}: sen {1} · MAL {2} · {3} seri</value></data>
+  <data name="Stats_TipEpisodesOnDay" xml:space="preserve"><value>{0}: {1} bölüm</value></data>
+  <data name="Stats_TipChaptersOnDay" xml:space="preserve"><value>{0}: {1} bölüm</value></data>
+  <data name="Stats_Activity" xml:space="preserve"><value>Etkinlik</value></data>
+  <data name="Stats_PeriodLast12" xml:space="preserve"><value>Son 12 ay</value></data>
+  <data name="Stats_PeriodTopGenre" xml:space="preserve"><value>En çok tür</value></data>
+  <data name="Stats_PeriodBestMonth" xml:space="preserve"><value>En yoğun ay</value></data>
+  <data name="Stats_DayMon" xml:space="preserve"><value>Pzt</value></data>
+  <data name="Stats_DayWed" xml:space="preserve"><value>Çar</value></data>
+  <data name="Stats_DayFri" xml:space="preserve"><value>Cum</value></data>
+  <data name="Stats_Less" xml:space="preserve"><value>Az</value></data>
+  <data name="Stats_More" xml:space="preserve"><value>Çok</value></data>
+  <data name="Stats_Taste" xml:space="preserve"><value>Zevkin ve MAL</value></data>
+  <data name="Stats_TasteYou" xml:space="preserve"><value>Sen</value></data>
+  <data name="Stats_TasteEmpty" xml:space="preserve"><value>Karşılaştırma için bir türde (MAL'ın da puanladığı) en az 3 seriye puan ver.</value></data>
+  <data name="Stats_ReleaseYears" xml:space="preserve"><value>Yayın yılları</value></data>
+  <data name="Stats_EmptyTitle" xml:space="preserve"><value>Henüz istatistik yok</value></data>
+  <data name="Stats_EmptyMessage" xml:space="preserve"><value>Kütüphanene içerik ekleyip ilerlemeni işaretledikçe istatistiklerin burada görünür.</value></data>
 
   <data name="Discover_Title" xml:space="preserve"><value>Ekle</value></data>
   <data name="Discover_AddToLibrary" xml:space="preserve"><value>Kütüphaneye ekle</value></data>
@@ -284,8 +313,6 @@
   <data name="App_UnexpectedErrorTitle" xml:space="preserve"><value>Beklenmeyen Hata</value></data>
   <data name="App_UnexpectedError" xml:space="preserve"><value>Beklenmeyen bir hata oluştu. Ayrıntılar log dosyasına yazıldı.</value></data>
   <data name="App_StartupFailed" xml:space="preserve"><value>AniMan başlatılamadı. Ayrıntılar log dosyasına yazıldı.</value></data>
-  <data name="Stats_WatchTimeFormat" xml:space="preserve"><value>{0} sa {1} dk</value></data>
-  <data name="Stats_WatchTimeMinutesFormat" xml:space="preserve"><value>{0} dk</value></data>
   <data name="MediaStatus_Cancelled" xml:space="preserve"><value>İptal Edildi</value></data>
   <data name="StartupPage_Dashboard" xml:space="preserve"><value>Ana Sayfa</value></data>
   <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>

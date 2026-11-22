@@ -91,7 +91,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICatalogService, CatalogService>();
         services.AddTransient<ISnapshotService, SnapshotService>();
         services.AddTransient<ITrackingService, TrackingService>();
-        services.AddTransient<IStatisticsService, StatisticsService>();
         services.AddTransient<IExportService, ExportService>();
         services.AddTransient<IDataManagementService, DataManagementService>();
         services.AddSingleton<SnapshotBackfillService>();
