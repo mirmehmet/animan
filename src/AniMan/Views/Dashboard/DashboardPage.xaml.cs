@@ -82,6 +82,14 @@ public partial class DashboardPage : UserControl
     private void OnHorizontalScrollMouseWheel(object sender, MouseWheelEventArgs e)
     {
         e.Handled = true;
+
+        // Shift+wheel scrolls the strip sideways; a plain wheel keeps scrolling the page.
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && sender is ScrollViewer strip)
+        {
+            strip.ScrollToHorizontalOffset(strip.HorizontalOffset - e.Delta);
+            return;
+        }
+
         OuterScroll.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
         {
             RoutedEvent = MouseWheelEvent
