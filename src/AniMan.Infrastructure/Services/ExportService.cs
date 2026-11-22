@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using AniMan.Core.Common;
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -15,7 +16,8 @@ public sealed class ExportService(
     CoverStore coverStore,
     ILogger<ExportService> logger) : IExportService
 {
-    internal const int CurrentSchemaVersion = 1;
+    // v2 (extended snapshot metadata) only adds optional fields: v1 files import unchanged.
+    internal const int CurrentSchemaVersion = 2;
     private const long MaxBackupSizeBytes = 50L * 1024 * 1024; // 50 MB
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -81,28 +83,42 @@ public sealed class ExportService(
         }
     }
 
-    public async Task<Result> ImportAsync(string filePath, ImportMode mode, CancellationToken ct = default)
+    // Share of the progress bar each phase ends at. Saving is a single fast transaction;
+    // cover downloads are network-bound and take the rest.
+    private const double ReadEndsAt = 0.05;
+    private const double SaveEndsAt = 0.25;
+
+    public async Task<Result<ImportSummary>> ImportAsync(
+        string filePath, ImportMode mode,
+        IProgress<ImportProgress>? progress = null,
+        CancellationToken ct = default)
     {
+        void Report(ImportStage stage, double fraction, int done = 0, int total = 0) =>
+            progress?.Report(new ImportProgress(stage, Math.Clamp(fraction, 0, 1), done, total));
+
         try
         {
+            Report(ImportStage.Reading, 0);
+
             var fileInfo = new FileInfo(filePath);
             if (!fileInfo.Exists)
-                return Result.Failure($"Backup file not found: {filePath}");
+                return Result<ImportSummary>.Failure($"Backup file not found: {filePath}");
 
             if (fileInfo.Length > MaxBackupSizeBytes)
-                return Result.Failure("Backup file is too large (maximum 50 MB).");
+                return Result<ImportSummary>.Failure("Backup file is too large (maximum 50 MB).");
 
             LibraryBackup? backup;
             await using (var stream = File.OpenRead(filePath))
                 backup = await JsonSerializer.DeserializeAsync<LibraryBackup>(stream, JsonOptions, ct).ConfigureAwait(false);
 
             if (backup is null || backup.SchemaVersion < 1 || backup.ExportedAt == default)
-                return Result.Failure("Backup file is empty or invalid.");
+                return Result<ImportSummary>.Failure("Backup file is empty or invalid.");
             if (backup.SchemaVersion > CurrentSchemaVersion)
-                return Result.Failure(
+                return Result<ImportSummary>.Failure(
                     $"Backup schema version {backup.SchemaVersion} is newer than supported ({CurrentSchemaVersion}).");
 
             var backupItems = backup.Items ?? [];
+            Report(ImportStage.Saving, ReadEndsAt, 0, backupItems.Count);
 
             var referencedCovers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var pendingCoverDownloads = new List<(LibraryItem Entity, int MalId, MediaType MediaType, string Url)>();
@@ -114,7 +130,7 @@ public sealed class ExportService(
                 if (mode == ImportMode.Overwrite && backupItems.Count == 0 &&
                     await db.LibraryItems.AnyAsync(ct).ConfigureAwait(false))
                 {
-                    return Result.Failure("Backup contains no items; refusing to overwrite a non-empty library.");
+                    return Result<ImportSummary>.Failure("Backup contains no items; refusing to overwrite a non-empty library.");
                 }
 
                 // Overwrite deletes everything before inserting; a single fast DB-only transaction
@@ -155,8 +171,19 @@ public sealed class ExportService(
 
                 var seenKeys = new HashSet<(int MalId, MediaType MediaType)>(existingActiveKeys);
 
+                // About 50 updates over the loop is smooth without flooding the UI thread.
+                var processed = 0;
+                var reportEvery = Math.Max(1, backupItems.Count / 50);
+
                 foreach (var dto in backupItems)
                 {
+                    if (++processed % reportEvery == 0 || processed == backupItems.Count)
+                    {
+                        Report(ImportStage.Saving,
+                            ReadEndsAt + (SaveEndsAt - ReadEndsAt) * processed / backupItems.Count,
+                            processed, backupItems.Count);
+                    }
+
                     if (dto.MalId <= 0)
                     {
                         skipped++;
@@ -185,7 +212,10 @@ public sealed class ExportService(
                         if (existingTrashedByKey.TryGetValue(key, out var trashedLocal))
                         {
                             if (dto.DeletedAt is not null)
+                            {
+                                skipped++; // already in the local Trash; nothing to restore
                                 continue;
+                            }
 
                             db.LibraryItems.Remove(trashedLocal);
                             await db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -222,9 +252,15 @@ public sealed class ExportService(
                     await transaction.CommitAsync(ct).ConfigureAwait(false);
             }
 
+            var coversFailed = 0;
             if (pendingCoverDownloads.Count > 0)
             {
                 var downloaded = new ConcurrentBag<(int LibraryItemId, string Path)>();
+                var coverTotal = pendingCoverDownloads.Count;
+                var coversDone = 0;
+                var reportLock = new object();
+                Report(ImportStage.DownloadingCovers, SaveEndsAt, 0, coverTotal);
+
                 await Parallel.ForEachAsync(
                     pendingCoverDownloads,
                     new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
@@ -234,7 +270,18 @@ public sealed class ExportService(
                             .ConfigureAwait(false);
                         if (!string.IsNullOrWhiteSpace(path))
                             downloaded.Add((work.Entity.Id, path));
+
+                        // Locked so reports go out in increasing order and the bar never steps back.
+                        lock (reportLock)
+                        {
+                            coversDone++;
+                            Report(ImportStage.DownloadingCovers,
+                                SaveEndsAt + (1 - SaveEndsAt) * coversDone / coverTotal,
+                                coversDone, coverTotal);
+                        }
                     }).ConfigureAwait(false);
+
+                coversFailed = coverTotal - downloaded.Count;
 
                 if (!downloaded.IsEmpty)
                 {
@@ -259,16 +306,20 @@ public sealed class ExportService(
             if (mode == ImportMode.Overwrite)
                 coverStore.SweepUnreferenced(referencedCovers);
 
+            // With covers, the last cover report already reached 1.0 with its counts. Without
+            // any, finish the saving phase here so the bar ends full and the count reads n / n.
+            if (pendingCoverDownloads.Count == 0)
+                Report(ImportStage.Saving, 1, backupItems.Count, backupItems.Count);
             logger.LogInformation(
-                "Imported {Count} items ({Mode}) from {Path}; {Skipped} skipped",
-                imported, mode, filePath, skipped);
-            return Result.Success();
+                "Imported {Count} items ({Mode}) from {Path}; {Skipped} skipped, {CoversFailed} covers failed",
+                imported, mode, filePath, skipped, coversFailed);
+            return Result<ImportSummary>.Success(new ImportSummary(imported, skipped, coversFailed));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Import from {Path} failed", filePath);
-            return Result.Failure("Import failed. The backup file may be invalid or unreadable.");
+            return Result<ImportSummary>.Failure("Import failed. The backup file may be invalid or unreadable.");
         }
     }
 
@@ -400,7 +451,18 @@ public sealed class ExportService(
                 CoverLocalPath = null,
                 CoverOriginalUrl = HttpUrlGuard.SanitizeWebUrl(s.CoverOriginalUrl),
                 StreamingPlatforms = s.StreamingPlatforms,
-                SnapshotAt = s.SnapshotAt == default ? DateTime.UtcNow : s.SnapshotAt
+                SnapshotAt = s.SnapshotAt == default ? DateTime.UtcNow : s.SnapshotAt,
+                TitleEnglish = s.TitleEnglish,
+                Themes = JsonArrayOrNull(s.Themes),
+                Demographics = JsonArrayOrNull(s.Demographics),
+                DurationMinutes = s.DurationMinutes is > 0 ? s.DurationMinutes : null,
+                AgeRating = s.AgeRating,
+                Source = s.Source,
+                Authors = JsonArrayOrNull(s.Authors),
+                // Older files carry no version: their snapshots are Legacy and get backfilled.
+                DataVersion = s.DataVersion is >= MediaDataVersion.Legacy and <= MediaDataVersion.Current
+                    ? s.DataVersion.Value
+                    : MediaDataVersion.Legacy
             };
         }
 
@@ -428,7 +490,10 @@ public sealed class ExportService(
             i.Snapshot.TotalEpisodes, i.Snapshot.TotalChapters, i.Snapshot.TotalVolumes,
             i.Snapshot.AiringStart, i.Snapshot.AiringEnd, i.Snapshot.Season, i.Snapshot.Year,
             i.Snapshot.MalScore, i.Snapshot.Genres, CoverLocalPath: null,
-            i.Snapshot.CoverOriginalUrl, i.Snapshot.StreamingPlatforms, i.Snapshot.SnapshotAt),
+            i.Snapshot.CoverOriginalUrl, i.Snapshot.StreamingPlatforms, i.Snapshot.SnapshotAt,
+            i.Snapshot.TitleEnglish, i.Snapshot.Themes, i.Snapshot.Demographics,
+            i.Snapshot.DurationMinutes, i.Snapshot.AgeRating, i.Snapshot.Source,
+            i.Snapshot.Authors, i.Snapshot.DataVersion),
         Episodes = i.EpisodeProgress
             .Select(e => new EpisodeDto(e.EpisodeNumber, e.IsWatched, e.WatchedAt)).ToList(),
         Chapters = i.ChapterProgress
@@ -447,6 +512,23 @@ public sealed class ExportService(
             db.Settings.Add(new AppSetting { Key = key, Value = value });
         else
             existing.Value = value;
+    }
+
+    /// <summary>
+    /// Keeps an imported JSON-array column only if it really is a JSON array of strings, so a
+    /// hand-edited or damaged backup can't plant text the detail page would fail to parse.
+    /// </summary>
+    private static string? JsonArrayOrNull(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) is not null ? json : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static void TryDeleteTempFile(string tmpPath)

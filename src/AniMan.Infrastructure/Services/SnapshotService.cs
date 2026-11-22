@@ -178,6 +178,90 @@ public sealed class SnapshotService(
         }
     }
 
+    public async Task<Result> FillExtendedMetadataAsync(int libraryItemId, CancellationToken ct = default)
+    {
+        try
+        {
+            // Read what to fetch, then release the context before going to the network.
+            int malId;
+            MediaType mediaType;
+            await using (var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
+            {
+                var target = await db.Snapshots.AsNoTracking()
+                    .Where(s => s.LibraryItemId == libraryItemId && s.LibraryItem != null)
+                    .Select(s => new { s.DataVersion, s.LibraryItem!.MalId, s.LibraryItem.MediaType })
+                    .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+                if (target is null)
+                    return Result.Failure($"Snapshot for LibraryItem {libraryItemId} not found");
+                if (target.DataVersion >= MediaDataVersion.Current)
+                    return Result.Success();
+
+                malId = target.MalId;
+                mediaType = target.MediaType;
+            }
+
+            // force: the catalog row for this title may itself predate the extended fields.
+            Action<MediaSnapshot> apply;
+            if (mediaType == MediaType.Anime)
+            {
+                var result = await catalogService.GetAnimeAsync(malId, force: true, ct).ConfigureAwait(false);
+                if (!result.IsSuccess) return Result.Failure(result.Error!);
+                var a = result.Value!;
+                apply = s =>
+                {
+                    s.TitleEnglish = a.TitleEnglish;
+                    s.Themes = a.Themes;
+                    s.Demographics = a.Demographics;
+                    s.DurationMinutes = a.DurationMinutes;
+                    s.AgeRating = a.AgeRating;
+                    s.Source = a.Source;
+                    s.DataVersion = a.DataVersion;
+                };
+            }
+            else
+            {
+                var result = await catalogService.GetMangaAsync(malId, force: true, ct).ConfigureAwait(false);
+                if (!result.IsSuccess) return Result.Failure(result.Error!);
+                var m = result.Value!;
+                apply = s =>
+                {
+                    s.TitleEnglish = m.TitleEnglish;
+                    s.Themes = m.Themes;
+                    s.Demographics = m.Demographics;
+                    s.Authors = m.Authors;
+                    s.DataVersion = m.DataVersion;
+                };
+            }
+
+            var genres = await LoadGenresJsonAsync(malId, mediaType == MediaType.Anime ? "anime" : "manga", ct)
+                .ConfigureAwait(false);
+
+            await using (var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
+            {
+                var snapshot = await db.Snapshots.FindAsync([libraryItemId], ct).ConfigureAwait(false);
+                if (snapshot is null)
+                    return Result.Failure($"Snapshot for LibraryItem {libraryItemId} disappeared");
+
+                apply(snapshot);
+                // An empty list here means the catalog write failed, not that the title lost
+                // its genres — keep what the snapshot already has.
+                if (genres != "[]")
+                    snapshot.Genres = genres;
+
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
+
+            return Result.Success();
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Extended metadata fill failed for LibraryItem {Id}", libraryItemId);
+            return Result.Failure("Failed to fill extended metadata.");
+        }
+    }
+
     // ── Mapping ───────────────────────────────────────────────────────────────
 
     private static MediaSnapshot MapAnimeSnapshot(Core.Domain.Models.CachedAnime a) => new()
@@ -194,7 +278,16 @@ public sealed class SnapshotService(
         Season = a.Season,
         Year = a.Year,
         MalScore = a.Score,
-        Genres = "[]"
+        Genres = "[]",
+        TitleEnglish = a.TitleEnglish,
+        Themes = a.Themes,
+        Demographics = a.Demographics,
+        DurationMinutes = a.DurationMinutes,
+        AgeRating = a.AgeRating,
+        Source = a.Source,
+        // Inherit the catalog row's generation: a snapshot built from a row cached before
+        // extended metadata existed stays Legacy, so the backfill still completes it.
+        DataVersion = a.DataVersion
     };
 
     private static MediaSnapshot MapMangaSnapshot(Core.Domain.Models.CachedManga m) => new()
@@ -210,7 +303,12 @@ public sealed class SnapshotService(
         AiringStart = m.PublishedStart,
         AiringEnd = m.PublishedEnd,
         MalScore = m.Score,
-        Genres = "[]"
+        Genres = "[]",
+        TitleEnglish = m.TitleEnglish,
+        Themes = m.Themes,
+        Demographics = m.Demographics,
+        Authors = m.Authors,
+        DataVersion = m.DataVersion
     };
 
     // ── Helpers ───────────────────────────────────────────────────────────────

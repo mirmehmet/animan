@@ -52,7 +52,11 @@ internal static partial class AniListMapper
         // `popularity` is a member count, so writing it through would corrupt sorting.
         Images = ToImages(media.CoverImage),
         Genres = ToGenres(media.Genres),
-        Studios = ToNamedEntities(media.Studios?.Nodes)
+        Studios = ToNamedEntities(media.Studios?.Nodes),
+        TitleEnglish = media.Title?.English,
+        DurationMinutes = media.Duration is > 0 ? media.Duration : null,
+        Source = SourceName(media.Source)
+        // Themes, demographics and age rating have no AniList equivalent and stay null.
     };
 
     public static MangaDto ToMangaDto(AniListMedia media) => new()
@@ -72,8 +76,9 @@ internal static partial class AniListMapper
         },
         Score = ToMalScore(media.AverageScore),
         Images = ToImages(media.CoverImage),
-        Genres = ToGenres(media.Genres)
-        // Serializations: AniList has no equivalent.
+        Genres = ToGenres(media.Genres),
+        TitleEnglish = media.Title?.English
+        // Serializations, themes, demographics, authors: no AniList equivalent in our query.
     };
 
     /// <summary>Keeps only the links AniList marks as streaming services with valid http(s) URLs.</summary>
@@ -119,6 +124,28 @@ internal static partial class AniListMapper
         "NOVEL" => "Light Novel",
         "ONE_SHOT" => "One-shot",
         _ => format
+    };
+
+    /// <summary>AniList source enum → MyAnimeList's wording, so both sources read the same.</summary>
+    private static string? SourceName(string? source) => source switch
+    {
+        null or "" => null,
+        "ORIGINAL" => "Original",
+        "MANGA" => "Manga",
+        "LIGHT_NOVEL" => "Light novel",
+        "VISUAL_NOVEL" => "Visual novel",
+        "VIDEO_GAME" => "Game",
+        "NOVEL" => "Novel",
+        "WEB_NOVEL" => "Web novel",
+        "DOUJINSHI" => "Doujinshi",
+        "ANIME" => "Anime",
+        "LIVE_ACTION" => "Live action",
+        "GAME" => "Game",
+        "COMIC" => "Comic",
+        "MULTIMEDIA_PROJECT" => "Mixed media",
+        "PICTURE_BOOK" => "Picture book",
+        "OTHER" => "Other",
+        _ => source
     };
 
     private static string? AnimeStatus(string? status) => status switch

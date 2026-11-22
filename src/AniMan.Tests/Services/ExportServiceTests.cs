@@ -455,6 +455,196 @@ public class ExportServiceTests : IDisposable
             .Snapshot!.CoverLocalPath.Should().BeNull();
     }
 
+    // ── Backward compatibility: backups from earlier releases ─────────────────
+
+    /// <summary>Offline cover store: imports try to download covers, tests must not hit the network.</summary>
+    private ExportService CreateOffline()
+    {
+        var offline = new HttpClient(new OfflineHandler());
+        var coverStore = new CoverStore(
+            Mock.Of<IHttpClientFactory>(f => f.CreateClient("covers") == offline),
+            _paths, NullLogger<CoverStore>.Instance);
+        return new ExportService(_factory, coverStore, NullLogger<ExportService>.Instance);
+    }
+
+    private sealed class OfflineHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+            throw new HttpRequestException("offline test");
+    }
+
+    private static string FixturePath(string name) =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
+
+    [Fact]
+    public async Task Import_FrozenV1Backup_RestoresEveryUserFieldAndMarksSnapshotsLegacy()
+    {
+        var result = await CreateOffline().ImportAsync(FixturePath("library-backup-v1.json"), ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        using var db = CreateDb();
+        var items = db.LibraryItems
+            .Include(i => i.Snapshot).Include(i => i.Status)
+            .Include(i => i.EpisodeProgress).Include(i => i.ChapterProgress)
+            .Include(i => i.Notes).Include(i => i.StreamingOverrides)
+            .OrderBy(i => i.MalId)
+            .ToList();
+        items.Should().HaveCount(2);
+
+        var manga = items[0];
+        manga.MalId.Should().Be(2);
+        manga.MediaType.Should().Be(MediaType.Manga);
+        manga.Status!.Name.Should().Be("Reading");
+        manga.DeletedAt.Should().Be(new DateTime(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc), "trash state survives");
+        manga.ChapterProgress.Should().HaveCount(2).And.OnlyContain(c => c.IsRead);
+        manga.Snapshot!.Title.Should().Be("Berserk");
+
+        var anime = items[1];
+        anime.MalId.Should().Be(16498);
+        anime.Status!.Name.Should().Be("Completed");
+        anime.Score.Should().Be(9);
+        anime.UserRating.Should().Be(8.5m);
+        anime.IsFavorite.Should().BeTrue();
+        anime.RewatchCount.Should().Be(1);
+        anime.LastRewatchDate.Should().Be(new DateOnly(2026, 6, 1));
+        anime.StartedAt.Should().Be(new DateOnly(2026, 1, 3));
+        anime.CompletedAt.Should().Be(new DateOnly(2026, 2, 14));
+        anime.EpisodeProgress.Should().HaveCount(3);
+        anime.EpisodeProgress.Count(e => e.IsWatched).Should().Be(2);
+        anime.Notes.Should().HaveCount(2);
+        anime.Notes.Single(n => n.EpisodeNumber is null).Content.Should().Be("Rewatch before the final season.");
+        anime.StreamingOverrides.Single().PlatformName.Should().Be("Netflix");
+        anime.Snapshot!.Title.Should().Be("Shingeki no Kyojin");
+        anime.Snapshot.TitleJapanese.Should().Be("進撃の巨人");
+        anime.Snapshot.Genres.Should().Contain("Award Winning");
+        anime.Snapshot.StreamingPlatforms.Should().Contain("Crunchyroll");
+
+        // v1 has no extended metadata: it must arrive empty and marked for the backfill.
+        items.Should().AllSatisfy(i =>
+        {
+            i.Snapshot!.DataVersion.Should().Be(Core.Domain.MediaDataVersion.Legacy);
+            i.Snapshot.TitleEnglish.Should().BeNull();
+            i.Snapshot.Themes.Should().BeNull();
+            i.Snapshot.DurationMinutes.Should().BeNull();
+        });
+    }
+
+    [Fact]
+    public async Task Export_ThenImport_V2_PreservesExtendedMetadata()
+    {
+        using (var db = CreateDb())
+        {
+            db.LibraryItems.Add(new LibraryItem
+            {
+                MalId = 16498, MediaType = MediaType.Anime, StatusId = 3,
+                AddedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+                Snapshot = new MediaSnapshot
+                {
+                    Title = "Shingeki no Kyojin", Genres = """["Action"]""", SnapshotAt = DateTime.UtcNow,
+                    TitleEnglish = "Attack on Titan",
+                    Themes = """["Gore","Military","Survival"]""",
+                    Demographics = """["Shounen"]""",
+                    DurationMinutes = 24,
+                    AgeRating = "R - 17+ (violence & profanity)",
+                    Source = "Manga",
+                    DataVersion = Core.Domain.MediaDataVersion.Current
+                }
+            });
+            db.SaveChanges();
+        }
+
+        var svc = CreateOffline();
+        (await svc.ExportAsync(_tempFile)).IsSuccess.Should().BeTrue();
+        JsonNode.Parse(File.ReadAllText(_tempFile))!["schemaVersion"]!.GetValue<int>().Should().Be(2);
+
+        (await svc.ImportAsync(_tempFile, ImportMode.Overwrite)).IsSuccess.Should().BeTrue();
+
+        using var verify = CreateDb();
+        var snap = verify.Snapshots.Single();
+        snap.TitleEnglish.Should().Be("Attack on Titan");
+        snap.Themes.Should().Be("""["Gore","Military","Survival"]""");
+        snap.Demographics.Should().Be("""["Shounen"]""");
+        snap.DurationMinutes.Should().Be(24);
+        snap.AgeRating.Should().Be("R - 17+ (violence & profanity)");
+        snap.Source.Should().Be("Manga");
+        snap.DataVersion.Should().Be(Core.Domain.MediaDataVersion.Current);
+    }
+
+    [Fact]
+    public async Task Import_DamagedExtendedField_DropsOnlyThatFieldAndKeepsTheItem()
+    {
+        var json = File.ReadAllText(FixturePath("library-backup-v1.json"));
+        var root = JsonNode.Parse(json)!;
+        root["schemaVersion"] = 2;
+        var snapshot = root["items"]![0]!["snapshot"]!;
+        snapshot["themes"] = "not a json array";
+        snapshot["titleEnglish"] = "Attack on Titan";
+        snapshot["dataVersion"] = 99; // unknown future generation
+        File.WriteAllText(_tempFile, root.ToJsonString());
+
+        (await CreateOffline().ImportAsync(_tempFile, ImportMode.Overwrite)).IsSuccess.Should().BeTrue();
+
+        using var verify = CreateDb();
+        var snap = verify.Snapshots.Single(s => s.Title == "Shingeki no Kyojin");
+        snap.Themes.Should().BeNull("an unparseable list is dropped rather than stored");
+        snap.TitleEnglish.Should().Be("Attack on Titan");
+        snap.DataVersion.Should().Be(Core.Domain.MediaDataVersion.Legacy, "unknown versions are re-filled, not trusted");
+    }
+
+    // ── Progress and summary ──────────────────────────────────────────────────
+
+    /// <summary>Synchronous recorder; Progress&lt;T&gt; would post reports asynchronously.</summary>
+    private sealed class RecordingProgress : IProgress<ImportProgress>
+    {
+        private readonly object _gate = new();
+        public List<ImportProgress> Reports { get; } = [];
+        public void Report(ImportProgress value) { lock (_gate) Reports.Add(value); }
+    }
+
+    [Fact]
+    public async Task Import_ReportsProgressInStageOrder_NeverBackwards_EndingAtComplete()
+    {
+        var progress = new RecordingProgress();
+
+        var result = await CreateOffline().ImportAsync(
+            FixturePath("library-backup-v1.json"), ImportMode.Overwrite, progress);
+
+        result.IsSuccess.Should().BeTrue();
+        var reports = progress.Reports;
+        reports.Should().NotBeEmpty();
+        reports.First().Stage.Should().Be(ImportStage.Reading);
+        reports.Select(r => r.Stage).Should().BeInAscendingOrder();
+        reports.Select(r => r.Fraction).Should().BeInAscendingOrder("the bar must never step back");
+        reports.Last().Fraction.Should().Be(1);
+
+        // Both fixture items have a remote cover and none is on disk, so both are attempted.
+        var lastCover = reports.Last(r => r.Stage == ImportStage.DownloadingCovers);
+        lastCover.Done.Should().Be(2);
+        lastCover.Total.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Import_Summary_CountsImportedItemsAndFailedCovers()
+    {
+        var result = await CreateOffline().ImportAsync(FixturePath("library-backup-v1.json"), ImportMode.Overwrite);
+
+        result.Value.Should().Be(new ImportSummary(Imported: 2, Skipped: 0, CoversFailed: 2));
+    }
+
+    [Fact]
+    public async Task Import_MergeSameBackupTwice_SecondRunSkipsEverything()
+    {
+        var svc = CreateOffline();
+        await svc.ImportAsync(FixturePath("library-backup-v1.json"), ImportMode.Merge);
+
+        var second = await svc.ImportAsync(FixturePath("library-backup-v1.json"), ImportMode.Merge);
+
+        // The anime is already active; the manga is already in the local Trash.
+        second.Value.Should().Be(new ImportSummary(Imported: 0, Skipped: 2, CoversFailed: 0));
+        using var db = CreateDb();
+        db.LibraryItems.Should().HaveCount(2);
+    }
+
     public void Dispose()
     {
         _factory.Dispose();

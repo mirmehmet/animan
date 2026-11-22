@@ -133,6 +133,12 @@
         <Setter Property="Margin"          Value="0,0,6,6"/>
     </Style>
 
+    <!-- Themes (Military, School, …): genre pill shape without the tinted fill -->
+    <Style x:Key="ThemePill" TargetType="Border" BasedOn="{StaticResource GenrePill}">
+        <Setter Property="Background"  Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}"/>
+    </Style>
+
     <!-- ═══════════════════════════════════════════════════════════════════════
          PROGRESS BAR  –  brand accent foreground + rounded track
     ═══════════════════════════════════════════════════════════════════════════ -->

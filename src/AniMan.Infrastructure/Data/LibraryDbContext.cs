@@ -37,7 +37,12 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
             e.HasMany(i => i.StreamingOverrides).WithOne(o => o.LibraryItem).HasForeignKey(o => o.LibraryItemId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<MediaSnapshot>(e => e.HasKey(s => s.LibraryItemId));
+        modelBuilder.Entity<MediaSnapshot>(e =>
+        {
+            e.HasKey(s => s.LibraryItemId);
+            // Existing snapshots read as Legacy; the background backfill brings them to Current.
+            e.Property(s => s.DataVersion).HasDefaultValue(MediaDataVersion.Legacy);
+        });
 
         modelBuilder.Entity<EpisodeProgress>(e =>
         {

@@ -185,8 +185,9 @@ public partial class SettingsViewModel(
     public Task<Result> ExportAsync(string filePath) =>
         exportService.ExportAsync(filePath);
 
-    public Task<Result> ImportAsync(string filePath, ImportMode mode) =>
-        exportService.ImportAsync(filePath, mode);
+    public Task<Result<ImportSummary>> ImportAsync(
+        string filePath, ImportMode mode, IProgress<ImportProgress>? progress = null) =>
+        exportService.ImportAsync(filePath, mode, progress);
 
     // ── Trash management ─────────────────────────────────────────────────────
 

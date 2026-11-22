@@ -64,6 +64,14 @@ public partial class DetailViewModel : ObservableObject
     public string AiringDisplay => MediaMetadataDisplay.AiringRange(MediaSnapshot?.AiringStart, MediaSnapshot?.AiringEnd);
     public string StudioLabel => Localization.LocalizationManager.Get(IsManga ? "Detail_Publisher" : "Detail_Studio");
 
+    // ── Extended metadata (empty strings/lists hide their rows) ──────────────
+    public string EnglishTitleDisplay => MediaMetadataDisplay.EnglishTitle(MediaSnapshot?.Title, MediaSnapshot?.TitleEnglish);
+    public bool HasEnglishTitle => EnglishTitleDisplay.Length > 0;
+    public string DurationDisplay => MediaMetadataDisplay.Duration(MediaSnapshot?.DurationMinutes, MediaSnapshot?.TotalEpisodes);
+    public string DemographicsDisplay => string.Join(", ", DeserializeGenres(MediaSnapshot?.Demographics));
+    public string AuthorsDisplay => string.Join(" · ", DeserializeGenres(MediaSnapshot?.Authors));
+    public IReadOnlyList<string> Themes => DeserializeGenres(MediaSnapshot?.Themes);
+
     public event EventHandler<TrackingAutoCompleteEventArgs>? AutoCompleteRequested;
     public event EventHandler<(int MalId, MediaType MediaType)>? AddToLibraryFromPreviewRequested;
     public event EventHandler<NoteEditEventArgs>? NoteEditRequested;
@@ -288,7 +296,13 @@ public partial class DetailViewModel : ObservableObject
                     MalScore = a.Score,
                     CoverOriginalUrl = a.CoverLargeUrl ?? a.CoverMediumUrl,
                     Genres = "[]",
-                    SnapshotAt = DateTime.UtcNow
+                    SnapshotAt = DateTime.UtcNow,
+                    TitleEnglish = a.TitleEnglish,
+                    Themes = a.Themes,
+                    Demographics = a.Demographics,
+                    DurationMinutes = a.DurationMinutes,
+                    AgeRating = a.AgeRating,
+                    Source = a.Source
                 };
                 coverUrl = a.CoverLargeUrl ?? a.CoverMediumUrl;
             }
@@ -310,7 +324,11 @@ public partial class DetailViewModel : ObservableObject
                     MalScore = m.Score,
                     CoverOriginalUrl = m.CoverLargeUrl ?? m.CoverMediumUrl,
                     Genres = "[]",
-                    SnapshotAt = DateTime.UtcNow
+                    SnapshotAt = DateTime.UtcNow,
+                    TitleEnglish = m.TitleEnglish,
+                    Themes = m.Themes,
+                    Demographics = m.Demographics,
+                    Authors = m.Authors
                 };
                 coverUrl = m.CoverLargeUrl ?? m.CoverMediumUrl;
             }
@@ -724,6 +742,12 @@ public partial class DetailViewModel : ObservableObject
         OnPropertyChanged(nameof(SeasonDisplay));
         OnPropertyChanged(nameof(StatusDisplay));
         OnPropertyChanged(nameof(AiringDisplay));
+        OnPropertyChanged(nameof(EnglishTitleDisplay));
+        OnPropertyChanged(nameof(HasEnglishTitle));
+        OnPropertyChanged(nameof(DurationDisplay));
+        OnPropertyChanged(nameof(DemographicsDisplay));
+        OnPropertyChanged(nameof(AuthorsDisplay));
+        OnPropertyChanged(nameof(Themes));
     }
 }
 

@@ -48,4 +48,21 @@ public record MangaDto
 
     [JsonPropertyName("serializations")]
     public IReadOnlyList<NamedEntityDto>? Serializations { get; init; }
+
+    [JsonPropertyName("title_english")]
+    public string? TitleEnglish { get; init; }
+
+    /// <summary>Hentai, Ecchi, Erotica — MyAnimeList lists these apart from <see cref="Genres"/>.</summary>
+    [JsonPropertyName("explicit_genres")]
+    public IReadOnlyList<GenreDto>? ExplicitGenres { get; init; }
+
+    [JsonPropertyName("themes")]
+    public IReadOnlyList<NamedEntityDto>? Themes { get; init; }
+
+    [JsonPropertyName("demographics")]
+    public IReadOnlyList<NamedEntityDto>? Demographics { get; init; }
+
+    /// <summary>Story/art credits; names come as "Last, First".</summary>
+    [JsonPropertyName("authors")]
+    public IReadOnlyList<NamedEntityDto>? Authors { get; init; }
 }

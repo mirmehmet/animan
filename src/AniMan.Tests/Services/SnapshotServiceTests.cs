@@ -1,4 +1,5 @@
 using AniMan.Core.Common;
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -226,6 +227,178 @@ public class SnapshotServiceTests : IDisposable
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // ── Extended metadata ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SnapshotAsync_FromCurrentCatalogRow_CopiesExtendedMetadata()
+    {
+        _catalogServiceMock
+            .Setup(c => c.GetAnimeAsync(16498, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
+            {
+                Id = 16498, Title = "Shingeki no Kyojin", FetchedAt = DateTime.UtcNow,
+                TitleEnglish = "Attack on Titan", Themes = """["Military"]""", Demographics = """["Shounen"]""",
+                DurationMinutes = 24, AgeRating = "R - 17+", Source = "Manga",
+                DataVersion = MediaDataVersion.Current
+            }));
+        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
+            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
+
+        var result = await CreateService().SnapshotAsync(16498, MediaType.Anime, 1);
+
+        result.IsSuccess.Should().BeTrue();
+        var snap = result.Value!.Snapshot!;
+        snap.TitleEnglish.Should().Be("Attack on Titan");
+        snap.Themes.Should().Be("""["Military"]""");
+        snap.DurationMinutes.Should().Be(24);
+        snap.Source.Should().Be("Manga");
+        snap.DataVersion.Should().Be(MediaDataVersion.Current);
+    }
+
+    [Fact]
+    public async Task SnapshotAsync_FromLegacyCatalogRow_StaysLegacySoBackfillCompletesIt()
+    {
+        // A catalog row cached before the update has no extended fields; marking the new
+        // snapshot Current would hide it from the backfill forever.
+        SetupAnime(5, "Steins;Gate");
+        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
+            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
+
+        var result = await CreateService().SnapshotAsync(5, MediaType.Anime, 1);
+
+        result.Value!.Snapshot!.DataVersion.Should().Be(MediaDataVersion.Legacy);
+    }
+
+    [Fact]
+    public async Task FillExtendedMetadata_LegacySnapshot_FillsOnlyNewFieldsAndGenres()
+    {
+        var itemId = SeedLegacyItem(16498, MediaType.Anime);
+        SeedCatalogGenres(16498, "anime", (1, "Action"), (9, "Ecchi"));
+        _catalogServiceMock
+            .Setup(c => c.GetAnimeAsync(16498, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
+            {
+                Id = 16498, Title = "A different upstream title", Synopsis = "Different synopsis",
+                FetchedAt = DateTime.UtcNow,
+                TitleEnglish = "Attack on Titan", Themes = """["Gore","Military"]""",
+                Demographics = """["Shounen"]""", DurationMinutes = 24,
+                AgeRating = "R - 17+ (violence & profanity)", Source = "Manga",
+                DataVersion = MediaDataVersion.Current
+            }));
+
+        var result = await CreateService().FillExtendedMetadataAsync(itemId);
+
+        result.IsSuccess.Should().BeTrue();
+        using var verify = _libraryFactory.CreateDbContext();
+        var item = verify.LibraryItems.Include(i => i.Snapshot).Include(i => i.Notes).Single();
+        var snap = item.Snapshot!;
+
+        // New fields filled
+        snap.TitleEnglish.Should().Be("Attack on Titan");
+        snap.Themes.Should().Be("""["Gore","Military"]""");
+        snap.Demographics.Should().Be("""["Shounen"]""");
+        snap.DurationMinutes.Should().Be(24);
+        snap.AgeRating.Should().Be("R - 17+ (violence & profanity)");
+        snap.Source.Should().Be("Manga");
+        snap.Genres.Should().Be("""["Action","Ecchi"]""");
+        snap.DataVersion.Should().Be(MediaDataVersion.Current);
+
+        // Everything else exactly as it was
+        snap.Title.Should().Be("Shingeki no Kyojin");
+        snap.Synopsis.Should().Be("Original synopsis");
+        snap.CoverLocalPath.Should().Be(@"C:\covers\16498_anime.jpg");
+        snap.StreamingPlatforms.Should().Be("""[{"Name":"Crunchyroll"}]""");
+        item.Score.Should().Be(9);
+        item.IsFavorite.Should().BeTrue();
+        item.Notes.Single().Content.Should().Be("keep me");
+        _catalogServiceMock.Verify(c => c.GetAnimeAsync(16498, true, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task FillExtendedMetadata_SourceFails_LeavesSnapshotLegacyAndUnchanged()
+    {
+        var itemId = SeedLegacyItem(16498, MediaType.Anime);
+        _catalogServiceMock
+            .Setup(c => c.GetAnimeAsync(16498, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedAnime>.Failure("offline"));
+
+        var result = await CreateService().FillExtendedMetadataAsync(itemId);
+
+        result.IsSuccess.Should().BeFalse();
+        using var verify = _libraryFactory.CreateDbContext();
+        var snap = verify.Snapshots.Single();
+        snap.DataVersion.Should().Be(MediaDataVersion.Legacy, "it is retried next launch");
+        snap.Genres.Should().Be("""["Action"]""");
+        snap.TitleEnglish.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task FillExtendedMetadata_CatalogHasNoGenres_KeepsExistingGenres()
+    {
+        var itemId = SeedLegacyItem(2, MediaType.Manga);
+        _catalogServiceMock
+            .Setup(c => c.GetMangaAsync(2, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedManga>.Success(new CachedManga
+            {
+                Id = 2, Title = "Berserk", FetchedAt = DateTime.UtcNow,
+                Authors = """["Miura, Kentarou"]""", DataVersion = MediaDataVersion.Current
+            }));
+
+        (await CreateService().FillExtendedMetadataAsync(itemId)).IsSuccess.Should().BeTrue();
+
+        using var verify = _libraryFactory.CreateDbContext();
+        var snap = verify.Snapshots.Single();
+        snap.Genres.Should().Be("""["Action"]""", "an empty catalog genre list means a failed cache write, not no genres");
+        snap.Authors.Should().Be("""["Miura, Kentarou"]""");
+        snap.DataVersion.Should().Be(MediaDataVersion.Current);
+    }
+
+    [Fact]
+    public async Task FillExtendedMetadata_AlreadyCurrent_DoesNotFetch()
+    {
+        var itemId = SeedLegacyItem(16498, MediaType.Anime, MediaDataVersion.Current);
+
+        (await CreateService().FillExtendedMetadataAsync(itemId)).IsSuccess.Should().BeTrue();
+
+        _catalogServiceMock.Verify(
+            c => c.GetAnimeAsync(It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private int SeedLegacyItem(int malId, MediaType type, int dataVersion = MediaDataVersion.Legacy)
+    {
+        using var db = _libraryFactory.CreateDbContext();
+        var item = new LibraryItem
+        {
+            MalId = malId, MediaType = type, StatusId = 1, Score = 9, IsFavorite = true,
+            AddedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+            Snapshot = new MediaSnapshot
+            {
+                Title = type == MediaType.Anime ? "Shingeki no Kyojin" : "Berserk",
+                Synopsis = "Original synopsis",
+                Genres = """["Action"]""",
+                CoverLocalPath = $@"C:\covers\{malId}_{type.ToString().ToLowerInvariant()}.jpg",
+                StreamingPlatforms = """[{"Name":"Crunchyroll"}]""",
+                SnapshotAt = DateTime.UtcNow,
+                DataVersion = dataVersion
+            },
+            Notes = { new Note { Content = "keep me", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow } }
+        };
+        db.LibraryItems.Add(item);
+        db.SaveChanges();
+        return item.Id;
+    }
+
+    private void SeedCatalogGenres(int malId, string mediaType, params (int Id, string Name)[] genres)
+    {
+        using var db = _catalogFactory.CreateDbContext();
+        foreach (var (id, name) in genres)
+        {
+            db.Genres.Add(new CachedGenre { Id = id, MediaType = mediaType, Name = name });
+            db.MediaGenres.Add(new CachedMediaGenre { MediaId = malId, MediaType = mediaType, GenreId = id });
+        }
+        db.SaveChanges();
+    }
 
     private void SetupAnime(int malId, string title)
     {

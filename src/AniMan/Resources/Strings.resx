@@ -154,6 +154,14 @@
   <data name="Detail_OpenOnMal" xml:space="preserve"><value>Open on MAL</value></data>
   <data name="Detail_Aired" xml:space="preserve"><value>Aired</value></data>
   <data name="Detail_Studio" xml:space="preserve"><value>Studio</value></data>
+  <data name="Detail_Duration" xml:space="preserve"><value>Duration</value></data>
+  <data name="Detail_Source" xml:space="preserve"><value>Source</value></data>
+  <data name="Detail_AgeRating" xml:space="preserve"><value>Rating</value></data>
+  <data name="Detail_Demographic" xml:space="preserve"><value>Demographic</value></data>
+  <data name="Detail_Authors" xml:space="preserve"><value>Authors</value></data>
+  <data name="Detail_DurationMinutes" xml:space="preserve"><value>{0} min</value></data>
+  <data name="Detail_DurationHoursMinutes" xml:space="preserve"><value>{0} hr {1} min</value></data>
+  <data name="Detail_DurationPerEpisode" xml:space="preserve"><value>{0} / ep</value></data>
   <data name="Detail_Publisher" xml:space="preserve"><value>Publisher</value></data>
   <data name="Season_Winter" xml:space="preserve"><value>Winter</value></data>
   <data name="Season_Spring" xml:space="preserve"><value>Spring</value></data>
@@ -207,7 +215,15 @@
   <data name="Settings_EmptyTrashContent" xml:space="preserve"><value>All items in trash will be permanently deleted. This cannot be undone.</value></data>
   <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Empty Trash</value></data>
   <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Restart required</value></data>
-  <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Data imported successfully. AniMan will now restart to apply changes.</value></data>
+  <data name="Settings_ImportRestartContent" xml:space="preserve"><value>AniMan will now restart to apply the changes.</value></data>
+  <data name="Common_PercentFormat" xml:space="preserve"><value>{0}%</value></data>
+  <data name="Settings_ImportProgressTitle" xml:space="preserve"><value>Importing backup</value></data>
+  <data name="Settings_ImportStageReading" xml:space="preserve"><value>Reading backup file…</value></data>
+  <data name="Settings_ImportStageSaving" xml:space="preserve"><value>Saving library… {0} / {1}</value></data>
+  <data name="Settings_ImportStageCovers" xml:space="preserve"><value>Downloading covers… {0} / {1}</value></data>
+  <data name="Settings_ImportSummaryImported" xml:space="preserve"><value>{0} items imported.</value></data>
+  <data name="Settings_ImportSummarySkipped" xml:space="preserve"><value>{0} items skipped (already in your library, or invalid).</value></data>
+  <data name="Settings_ImportSummaryCoversFailed" xml:space="preserve"><value>{0} covers could not be downloaded. You can retry later with "{1}" on the item's page.</value></data>
   <data name="Settings_ExportSuccessTitle" xml:space="preserve"><value>Backup created</value></data>
   <data name="Settings_ExportSuccessContent" xml:space="preserve"><value>Your library was exported successfully.</value></data>
   <data name="Settings_ExportErrorTitle" xml:space="preserve"><value>Export failed</value></data>

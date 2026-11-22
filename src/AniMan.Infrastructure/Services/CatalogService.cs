@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using AniMan.Core.Common;
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
@@ -79,7 +80,8 @@ public sealed class CatalogService(
 
             if (cached is not null)
             {
-                if (!await IsStaleAsync(cached.FetchedAt, ct).ConfigureAwait(false))
+                if (cached.DataVersion >= MediaDataVersion.Current &&
+                    !await IsStaleAsync(cached.FetchedAt, ct).ConfigureAwait(false))
                     return Result<CachedAnime>.Success(cached);
 
                 QueueBackgroundRefresh("anime", malId,
@@ -114,7 +116,8 @@ public sealed class CatalogService(
 
             if (cached is not null)
             {
-                if (!await IsStaleAsync(cached.FetchedAt, ct).ConfigureAwait(false))
+                if (cached.DataVersion >= MediaDataVersion.Current &&
+                    !await IsStaleAsync(cached.FetchedAt, ct).ConfigureAwait(false))
                     return Result<CachedManga>.Success(cached);
 
                 QueueBackgroundRefresh("manga", malId,

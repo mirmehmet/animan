@@ -125,6 +125,34 @@ public class CatalogServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAnimeAsync_FreshButLegacyRow_ServesItAndRefreshesInBackground()
+    {
+        // Cached by a version without extended metadata: still served instantly, but
+        // refreshed so English title, themes, etc. appear on the next visit.
+        var legacy = MakeCachedAnime(9, daysOld: 0);
+        legacy.DataVersion = AniMan.Core.Domain.MediaDataVersion.Legacy;
+        _db.Anime.Add(legacy);
+        await _db.SaveChangesAsync();
+
+        var refreshed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _sourceMock
+            .Setup(j => j.GetAnimeFullAsync(9, It.IsAny<CancellationToken>()))
+            .Callback(() => refreshed.TrySetResult())
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(
+                new SingleResult<AnimeDto> { Data = new AnimeDto { MalId = 9, Title = "Cached Anime 9", TitleEnglish = "English 9" } }));
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(9, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+
+        var result = await CreateService().GetAnimeAsync(9);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.TitleEnglish.Should().BeNull("the cached row is served immediately");
+        await refreshed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public async Task GetAnimeEpisodesAsync_EmptySourceAndKnownTotal_CreatesPlaceholders()
     {
         var anime = MakeCachedAnime(10, daysOld: 10, totalEpisodes: 12);
@@ -278,7 +306,8 @@ public class CatalogServiceTests : IDisposable
         Id = id,
         Title = $"Cached Anime {id}",
         FetchedAt = DateTime.UtcNow.AddDays(-daysOld),
-        TotalEpisodes = totalEpisodes
+        TotalEpisodes = totalEpisodes,
+        DataVersion = AniMan.Core.Domain.MediaDataVersion.Current
     };
 
     private static AnimeDto MakeAnimeDto(int id) => new()

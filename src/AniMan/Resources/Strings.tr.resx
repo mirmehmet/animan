@@ -154,6 +154,14 @@
   <data name="Detail_OpenOnMal" xml:space="preserve"><value>MAL'da aç</value></data>
   <data name="Detail_Aired" xml:space="preserve"><value>Yayın</value></data>
   <data name="Detail_Studio" xml:space="preserve"><value>Stüdyo</value></data>
+  <data name="Detail_Duration" xml:space="preserve"><value>Süre</value></data>
+  <data name="Detail_Source" xml:space="preserve"><value>Kaynak</value></data>
+  <data name="Detail_AgeRating" xml:space="preserve"><value>Yaş sınırı</value></data>
+  <data name="Detail_Demographic" xml:space="preserve"><value>Demografi</value></data>
+  <data name="Detail_Authors" xml:space="preserve"><value>Yazarlar</value></data>
+  <data name="Detail_DurationMinutes" xml:space="preserve"><value>{0} dk</value></data>
+  <data name="Detail_DurationHoursMinutes" xml:space="preserve"><value>{0} sa {1} dk</value></data>
+  <data name="Detail_DurationPerEpisode" xml:space="preserve"><value>{0} / bölüm</value></data>
   <data name="Detail_Publisher" xml:space="preserve"><value>Yayınevi</value></data>
   <data name="Season_Winter" xml:space="preserve"><value>Kış</value></data>
   <data name="Season_Spring" xml:space="preserve"><value>İlkbahar</value></data>
@@ -207,7 +215,15 @@
   <data name="Settings_EmptyTrashContent" xml:space="preserve"><value>Çöp kutusundaki tüm içerikler kalıcı olarak silinecek. Bu işlem geri alınamaz.</value></data>
   <data name="Settings_EmptyTrashConfirm" xml:space="preserve"><value>Boşalt</value></data>
   <data name="Settings_ImportRestartTitle" xml:space="preserve"><value>Yeniden başlatma gerekli</value></data>
-  <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Veriler başarıyla içe aktarıldı. Değişiklikleri uygulamak için AniMan yeniden başlatılacak.</value></data>
+  <data name="Settings_ImportRestartContent" xml:space="preserve"><value>Değişiklikleri uygulamak için AniMan yeniden başlatılacak.</value></data>
+  <data name="Common_PercentFormat" xml:space="preserve"><value>%{0}</value></data>
+  <data name="Settings_ImportProgressTitle" xml:space="preserve"><value>Yedek içe aktarılıyor</value></data>
+  <data name="Settings_ImportStageReading" xml:space="preserve"><value>Yedek dosyası okunuyor…</value></data>
+  <data name="Settings_ImportStageSaving" xml:space="preserve"><value>Kütüphane kaydediliyor… {0} / {1}</value></data>
+  <data name="Settings_ImportStageCovers" xml:space="preserve"><value>Kapaklar indiriliyor… {0} / {1}</value></data>
+  <data name="Settings_ImportSummaryImported" xml:space="preserve"><value>{0} öğe içe aktarıldı.</value></data>
+  <data name="Settings_ImportSummarySkipped" xml:space="preserve"><value>{0} öğe atlandı (zaten kütüphanede ya da geçersiz).</value></data>
+  <data name="Settings_ImportSummaryCoversFailed" xml:space="preserve"><value>{0} kapak indirilemedi. Öğenin sayfasındaki "{1}" ile daha sonra tekrar deneyebilirsin.</value></data>
   <data name="Settings_ExportSuccessTitle" xml:space="preserve"><value>Yedek oluşturuldu</value></data>
   <data name="Settings_ExportSuccessContent" xml:space="preserve"><value>Kütüphaneniz başarıyla dışa aktarıldı.</value></data>
   <data name="Settings_ExportErrorTitle" xml:space="preserve"><value>Dışa aktarma başarısız</value></data>

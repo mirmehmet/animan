@@ -5,6 +5,7 @@ using System.Windows.Markup;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
+using AniMan.Infrastructure.Services;
 using AniMan.Localization;
 using AniMan.Navigation;
 using AniMan.ViewModels;
@@ -25,6 +26,9 @@ public partial class App : Application
 {
     private static bool _languageMetadataOverridden;
     private static bool _restartRequested;
+
+    /// <summary>Cancelled on exit so background work (snapshot backfill) stops with the app.</summary>
+    private static readonly CancellationTokenSource AppLifetime = new();
 
     public static IServiceProvider Services { get; private set; } = null!;
 
@@ -83,6 +87,10 @@ public partial class App : Application
             // re-applying the theme (which would briefly reset DynamicResource values).
             if (themeMode == ViewModels.Settings.ThemeMode.System)
                 Theming.AppThemeManager.AttachSystemWatcher(mainWindow);
+
+            // Fill extended metadata for snapshots from older versions/backups. Fire-and-forget:
+            // RunAsync logs its own failures and never throws.
+            _ = Services.GetRequiredService<SnapshotBackfillService>().RunAsync(AppLifetime.Token);
         }
         catch (Exception ex)
         {
@@ -153,6 +161,7 @@ public partial class App : Application
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IContentDialogService, ContentDialogService>();
         services.AddSingleton<NavigationBag>();
+        services.AddSingleton<BusyOverlayViewModel>();
 
         // Pages: Main tab pages are Singletons so their VisualTrees are preserved and not leaked/duplicated across navigations.
         // DetailPage is Transient as it represents individual items on demand.
@@ -220,6 +229,7 @@ public partial class App : Application
         AppLogger.Information("AniMan shutting down (restart: {Restart})", _restartRequested);
         try
         {
+            AppLifetime.Cancel();
             (Services as IDisposable)?.Dispose();
             SqliteConnection.ClearAllPools();
         }

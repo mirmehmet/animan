@@ -24,6 +24,30 @@ internal static class MediaMetadataDisplay
         ["Not yet published"] = "MediaStatus_NotYetPublished",
     };
 
+    /// <summary>
+    /// The English title, or empty when there is none or it only repeats the main title
+    /// ("Berserk" / "Berserk") — empty hides the line on the detail page.
+    /// </summary>
+    public static string EnglishTitle(string? title, string? english) =>
+        string.IsNullOrWhiteSpace(english) ||
+        string.Equals(english.Trim(), title?.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : english.Trim();
+
+    /// <summary>"24 min / ep" for series, "1 hr 45 min" for single-episode titles; empty when unknown.</summary>
+    public static string Duration(int? minutesPerEpisode, int? totalEpisodes)
+    {
+        if (minutesPerEpisode is not { } minutes || minutes <= 0) return string.Empty;
+
+        var length = minutes >= 60
+            ? string.Format(LocalizationManager.Get("Detail_DurationHoursMinutes"), minutes / 60, minutes % 60)
+            : string.Format(LocalizationManager.Get("Detail_DurationMinutes"), minutes);
+
+        return totalEpisodes == 1
+            ? length
+            : string.Format(LocalizationManager.Get("Detail_DurationPerEpisode"), length);
+    }
+
     public static string Season(string? season, int? year)
     {
         if (string.IsNullOrEmpty(season)) return "";

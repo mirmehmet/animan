@@ -1,3 +1,4 @@
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +18,8 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
         modelBuilder.Entity<CachedAnime>(e =>
         {
             e.HasKey(a => a.Id);
+            // Rows cached before extended metadata existed read as Legacy and get refreshed.
+            e.Property(a => a.DataVersion).HasDefaultValue(MediaDataVersion.Legacy);
             e.HasMany(a => a.Episodes).WithOne(ep => ep.Anime).HasForeignKey(ep => ep.AnimeId);
             e.HasMany(a => a.StreamingPlatforms).WithOne(s => s.Anime).HasForeignKey(s => s.AnimeId);
         });
@@ -33,7 +36,11 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             e.HasIndex(s => new { s.AnimeId, s.PlatformName }).IsUnique();
         });
 
-        modelBuilder.Entity<CachedManga>(e => e.HasKey(m => m.Id));
+        modelBuilder.Entity<CachedManga>(e =>
+        {
+            e.HasKey(m => m.Id);
+            e.Property(m => m.DataVersion).HasDefaultValue(MediaDataVersion.Legacy);
+        });
 
         modelBuilder.Entity<CachedGenre>(e => e.HasKey(g => g.Id));
 

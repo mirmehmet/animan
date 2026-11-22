@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-11-20T18:42:07.1234567Z",
+  "statuses": [
+    { "name": "Watching", "isDefault": true, "displayOrder": 1, "color": null },
+    { "name": "Reading", "isDefault": true, "displayOrder": 1, "color": null },
+    { "name": "Completed", "isDefault": true, "displayOrder": 2, "color": null },
+    { "name": "On-hold", "isDefault": true, "displayOrder": 3, "color": null },
+    { "name": "Dropped", "isDefault": true, "displayOrder": 4, "color": null },
+    { "name": "Plan to watch", "isDefault": true, "displayOrder": 5, "color": null },
+    { "name": "Plan to read", "isDefault": true, "displayOrder": 5, "color": null }
+  ],
+  "items": [
+    {
+      "malId": 16498,
+      "mediaType": "Anime",
+      "statusName": "Completed",
+      "score": 9,
+      "userRating": 8.5,
+      "isFavorite": true,
+      "rewatchCount": 1,
+      "lastRewatchDate": "2026-06-01",
+      "startedAt": "2026-01-03",
+      "completedAt": "2026-02-14",
+      "addedAt": "2026-01-02T10:00:00Z",
+      "updatedAt": "2026-06-01T21:15:00Z",
+      "deletedAt": null,
+      "snapshot": {
+        "title": "Shingeki no Kyojin",
+        "titleJapanese": "進撃の巨人",
+        "synopsis": "Centuries ago, mankind was slaughtered to near extinction by monstrous humanoid creatures called Titans.",
+        "type": "TV",
+        "status": "Finished Airing",
+        "studio": "Wit Studio",
+        "totalEpisodes": 25,
+        "totalChapters": null,
+        "totalVolumes": null,
+        "airingStart": "2013-04-07T00:00:00+00:00",
+        "airingEnd": "2013-09-29T00:00:00+00:00",
+        "season": "spring",
+        "year": 2013,
+        "malScore": 8.55,
+        "genres": "[\"Action\",\"Award Winning\",\"Drama\",\"Suspense\"]",
+        "coverLocalPath": null,
+        "coverOriginalUrl": "https://cdn.myanimelist.net/images/anime/10/47347l.jpg",
+        "streamingPlatforms": "[{\"Name\":\"Crunchyroll\",\"Url\":\"https://www.crunchyroll.com/series/GR751KNZY\"}]",
+        "snapshotAt": "2026-01-02T10:00:00Z"
+      },
+      "episodes": [
+        { "episodeNumber": 1, "isWatched": true, "watchedAt": "2026-01-03T20:00:00Z" },
+        { "episodeNumber": 2, "isWatched": true, "watchedAt": "2026-01-03T20:30:00Z" },
+        { "episodeNumber": 3, "isWatched": false, "watchedAt": null }
+      ],
+      "chapters": [],
+      "notes": [
+        { "episodeNumber": null, "chapterNumber": null, "content": "Rewatch before the final season.", "createdAt": "2026-02-14T22:00:00Z", "updatedAt": "2026-02-14T22:00:00Z" },
+        { "episodeNumber": 2, "chapterNumber": null, "content": "That ending.", "createdAt": "2026-01-03T20:31:00Z", "updatedAt": "2026-01-03T20:31:00Z" }
+      ],
+      "streamingOverrides": [
+        { "platformName": "Netflix", "url": "https://www.netflix.com/title/70299043", "addedAt": "2026-01-02T10:05:00Z" }
+      ]
+    },
+    {
+      "malId": 2,
+      "mediaType": "Manga",
+      "statusName": "Reading",
+      "score": null,
+      "userRating": null,
+      "isFavorite": false,
+      "rewatchCount": 0,
+      "lastRewatchDate": null,
+      "startedAt": "2026-03-10",
+      "completedAt": null,
+      "addedAt": "2026-03-10T08:00:00Z",
+      "updatedAt": "2026-04-01T08:00:00Z",
+      "deletedAt": "2026-11-01T12:00:00Z",
+      "snapshot": {
+        "title": "Berserk",
+        "titleJapanese": "ベルセルク",
+        "synopsis": null,
+        "type": "Manga",
+        "status": "Publishing",
+        "studio": "Young Animal",
+        "totalEpisodes": null,
+        "totalChapters": null,
+        "totalVolumes": null,
+        "airingStart": "1989-08-25T00:00:00+00:00",
+        "airingEnd": null,
+        "season": null,
+        "year": null,
+        "malScore": 9.47,
+        "genres": "[\"Action\",\"Adventure\",\"Award Winning\",\"Drama\",\"Fantasy\",\"Horror\"]",
+        "coverLocalPath": null,
+        "coverOriginalUrl": "https://cdn.myanimelist.net/images/manga/1/157897l.jpg",
+        "streamingPlatforms": null,
+        "snapshotAt": "2026-03-10T08:00:00Z"
+      },
+      "episodes": [],
+      "chapters": [
+        { "chapterNumber": 1, "isRead": true, "readAt": "2026-03-10T09:00:00Z" },
+        { "chapterNumber": 2, "isRead": true, "readAt": "2026-03-11T09:00:00Z" }
+      ],
+      "notes": [],
+      "streamingOverrides": []
+    }
+  ]
+}

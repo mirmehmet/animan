@@ -44,9 +44,15 @@
                     <TextBlock Text="{Binding MediaSnapshot.Title}"
                                FontSize="24" FontWeight="Bold"
                                TextWrapping="Wrap"/>
+                    <!-- English title: hidden when missing or identical to the main title -->
+                    <TextBlock Text="{Binding EnglishTitleDisplay}"
+                               FontSize="15" Margin="0,4,0,0"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Visibility="{Binding HasEnglishTitle, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                     <TextBlock Text="{Binding MediaSnapshot.TitleJapanese}"
                                FontSize="13" Margin="0,4,0,0"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
 
                     <!-- Metadata InfoRows (visible in both modes; each auto-hides when empty) -->
                     <StackPanel Margin="0,12,0,0">
@@ -56,7 +62,12 @@
                         <ctrl:InfoRow Label="{loc:Loc Detail_Volumes}"  Value="{Binding MediaSnapshot.TotalVolumes, TargetNullValue='', StringFormat={}{0}}"/>
                         <ctrl:InfoRow Label="{loc:Loc Detail_Season}"   Value="{Binding SeasonDisplay}"/>
                         <ctrl:InfoRow Label="{loc:Loc Detail_Aired}"    Value="{Binding AiringDisplay}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Duration}" Value="{Binding DurationDisplay}"/>
                         <ctrl:InfoRow Label="{Binding StudioLabel}"     Value="{Binding MediaSnapshot.Studio}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Authors}"  Value="{Binding AuthorsDisplay}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Source}"   Value="{Binding MediaSnapshot.Source}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_Demographic}" Value="{Binding DemographicsDisplay}"/>
+                        <ctrl:InfoRow Label="{loc:Loc Detail_AgeRating}" Value="{Binding MediaSnapshot.AgeRating}"/>
                         <ctrl:InfoRow Label="{loc:Loc Detail_Status}"   Value="{Binding StatusDisplay}"/>
                     </StackPanel>
 
@@ -70,6 +81,21 @@
                                 <Border Style="{StaticResource GenrePill}">
                                     <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold"
                                                Foreground="{StaticResource BrandAccentBrush}"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Theme pills: same shape as genres, quieter, so genres stay the headline -->
+                    <ItemsControl ItemsSource="{Binding Themes}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource ThemePill}">
+                                    <TextBlock Text="{Binding}" FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

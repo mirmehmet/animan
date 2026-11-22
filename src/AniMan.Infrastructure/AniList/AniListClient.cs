@@ -26,6 +26,8 @@ public sealed class AniListClient(
         format
         status
         episodes
+        duration
+        source
         chapters
         volumes
         startDate { year month day }

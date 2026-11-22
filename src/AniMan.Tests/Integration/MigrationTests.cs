@@ -99,17 +99,12 @@ public class MigrationTests
             StatusId = TrackingStatusIds.Watching,
             Score = 10,
             AddedAt = now,
-            UpdatedAt = now,
-            Snapshot = new MediaSnapshot
-            {
-                Title = "Fullmetal Alchemist: Brotherhood",
-                TotalEpisodes = 64,
-                Genres = """["Action","Adventure"]""",
-                SnapshotAt = now
-            }
+            UpdatedAt = now
         };
         db.LibraryItems.Add(item);
         await db.SaveChangesAsync();
+        await InsertLegacySnapshotAsync(db, item.Id, "Fullmetal Alchemist: Brotherhood",
+            totalEpisodes: 64, totalChapters: null, """["Action","Adventure"]""", now);
 
         // Simulate v0.2.5 edge cases: whitespace-only note + duplicate series notes.
         db.Notes.AddRange(
@@ -133,6 +128,10 @@ public class MigrationTests
 
         upgradedItem.MalId.Should().Be(5114);
         upgradedItem.Snapshot!.Title.Should().Be("Fullmetal Alchemist: Brotherhood");
+        upgradedItem.Snapshot.Genres.Should().Be("""["Action","Adventure"]""");
+        // Pre-existing snapshots come through as Legacy so the backfill completes them.
+        upgradedItem.Snapshot.DataVersion.Should().Be(MediaDataVersion.Legacy);
+        upgradedItem.Snapshot.TitleEnglish.Should().BeNull();
         upgradedItem.Notes.Should().HaveCount(2);
         upgradedItem.Notes.Single(n => n.EpisodeNumber is null).Content.Should().Be("Latest series note");
         upgradedItem.Notes.Single(n => n.EpisodeNumber == 1).Content.Should().Be("Ep 1 latest");
@@ -168,6 +167,7 @@ public class MigrationTests
 
         var now = new DateTime(2026, 10, 28, 12, 0, 0, DateTimeKind.Utc);
         var expectedItems = new List<(int MalId, MediaType Type, int StatusId, int Score, string Title)>();
+        var legacySnapshots = new Dictionary<int, (string Title, int? Episodes, int? Chapters, string Genres, DateTime At)>();
 
         // 2. Seed 50 library items simulating user library (30 anime, 20 manga)
         for (int i = 1; i <= 50; i++)
@@ -192,19 +192,19 @@ public class MigrationTests
                 IsFavorite = i % 3 == 0,
                 RewatchCount = i % 4,
                 AddedAt = now.AddDays(-i),
-                UpdatedAt = now.AddHours(-i),
-                Snapshot = new MediaSnapshot
-                {
-                    Title = title,
-                    TotalEpisodes = isAnime ? 12 : null,
-                    TotalChapters = isAnime ? null : 50,
-                    Genres = isAnime ? "[\"Action\",\"Fantasy\"]" : "[\"Romance\",\"Drama\"]",
-                    SnapshotAt = now.AddDays(-i)
-                }
+                UpdatedAt = now.AddHours(-i)
             };
             db.LibraryItems.Add(item);
+            legacySnapshots[i * 100] = (title, isAnime ? 12 : null, isAnime ? null : 50,
+                isAnime ? "[\"Action\",\"Fantasy\"]" : "[\"Romance\",\"Drama\"]", now.AddDays(-i));
         }
         await db.SaveChangesAsync();
+
+        foreach (var seeded in await db.LibraryItems.AsNoTracking().ToListAsync())
+        {
+            var snap = legacySnapshots[seeded.MalId];
+            await InsertLegacySnapshotAsync(db, seeded.Id, snap.Title, snap.Episodes, snap.Chapters, snap.Genres, snap.At);
+        }
 
         // Add progress and notes for all items
         var itemsInDb = await db.LibraryItems.ToListAsync();
@@ -275,6 +275,8 @@ public class MigrationTests
             actual.Score.Should().Be(expected.Score);
             actual.Snapshot.Should().NotBeNull();
             actual.Snapshot!.Title.Should().Be(expected.Title);
+            actual.Snapshot.Genres.Should().Be(legacySnapshots[expected.MalId].Genres);
+            actual.Snapshot.DataVersion.Should().Be(MediaDataVersion.Legacy);
         }
 
         // Progress rows intact
@@ -290,6 +292,106 @@ public class MigrationTests
         (await verify.Settings.FindAsync(["Language"]))?.Value.Should().Be("tr");
         (await verify.Settings.FindAsync(["StartupPage"]))?.Value.Should().Be("Anime");
         (await verify.Settings.FindAsync(["CacheRefreshDays"]))?.Value.Should().Be("14");
+    }
+
+    /// <summary>
+    /// The upgrade every current user takes: a v0.2.6+ library (HardenLibraryConstraints)
+    /// gaining the extended snapshot columns. Nothing the user entered may change; existing
+    /// snapshots must read as Legacy (so the backfill picks them up) and the new columns
+    /// must be writable afterwards.
+    /// </summary>
+    [Fact]
+    public async Task Migrate_FromV026LibraryDatabase_AddsExtendedSnapshotColumnsWithoutTouchingUserData()
+    {
+        await using var db = NewLibraryContext(out var connection);
+        using var _ = connection;
+
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261028195010_HardenLibraryConstraints");
+
+        var now = new DateTime(2026, 11, 1, 9, 30, 0, DateTimeKind.Utc);
+        var anime = new LibraryItem
+        {
+            MalId = 16498, MediaType = MediaType.Anime, StatusId = TrackingStatusIds.Completed,
+            Score = 9, UserRating = 8.5m, IsFavorite = true, RewatchCount = 2,
+            StartedAt = new DateOnly(2026, 1, 3), CompletedAt = new DateOnly(2026, 2, 14),
+            AddedAt = now, UpdatedAt = now
+        };
+        var manga = new LibraryItem
+        {
+            MalId = 2, MediaType = MediaType.Manga, StatusId = TrackingStatusIds.Reading,
+            AddedAt = now, UpdatedAt = now, DeletedAt = now.AddDays(1) // in Trash
+        };
+        db.LibraryItems.AddRange(anime, manga);
+        await db.SaveChangesAsync();
+
+        await InsertLegacySnapshotAsync(db, anime.Id, "Shingeki no Kyojin", 25, null, """["Action","Drama"]""", now);
+        await InsertLegacySnapshotAsync(db, manga.Id, "Berserk", null, 380, """["Action","Adventure"]""", now);
+
+        db.EpisodeProgress.AddRange(
+            new EpisodeProgress { LibraryItemId = anime.Id, EpisodeNumber = 1, IsWatched = true, WatchedAt = now },
+            new EpisodeProgress { LibraryItemId = anime.Id, EpisodeNumber = 2, IsWatched = true, WatchedAt = now });
+        db.ChapterProgress.Add(new ChapterProgress { LibraryItemId = manga.Id, ChapterNumber = 10, IsRead = true, ReadAt = now });
+        db.Notes.Add(new Note { LibraryItemId = anime.Id, Content = "Rewatch before S4", CreatedAt = now, UpdatedAt = now });
+        db.StreamingOverrides.Add(new UserStreamingOverride { LibraryItemId = anime.Id, PlatformName = "Crunchyroll", AddedAt = now });
+        db.Settings.Add(new AppSetting { Key = "Language", Value = "tr" });
+        await db.SaveChangesAsync();
+
+        await db.Database.MigrateAsync();
+
+        await using (var verify = new LibraryDbContext(
+            new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options))
+        {
+            var items = await verify.LibraryItems
+                .Include(i => i.Snapshot)
+                .Include(i => i.EpisodeProgress)
+                .Include(i => i.ChapterProgress)
+                .Include(i => i.Notes)
+                .Include(i => i.StreamingOverrides)
+                .OrderBy(i => i.MalId)
+                .ToListAsync();
+
+            items.Should().HaveCount(2);
+            var upgradedManga = items[0];
+            var upgradedAnime = items[1];
+
+            upgradedAnime.Score.Should().Be(9);
+            upgradedAnime.UserRating.Should().Be(8.5m);
+            upgradedAnime.IsFavorite.Should().BeTrue();
+            upgradedAnime.RewatchCount.Should().Be(2);
+            upgradedAnime.StartedAt.Should().Be(new DateOnly(2026, 1, 3));
+            upgradedAnime.CompletedAt.Should().Be(new DateOnly(2026, 2, 14));
+            upgradedAnime.EpisodeProgress.Should().HaveCount(2);
+            upgradedAnime.Notes.Single().Content.Should().Be("Rewatch before S4");
+            upgradedAnime.StreamingOverrides.Single().PlatformName.Should().Be("Crunchyroll");
+            upgradedAnime.Snapshot!.Title.Should().Be("Shingeki no Kyojin");
+            upgradedAnime.Snapshot.Genres.Should().Be("""["Action","Drama"]""");
+
+            upgradedManga.DeletedAt.Should().NotBeNull("trashed items stay trashed");
+            upgradedManga.ChapterProgress.Single().ChapterNumber.Should().Be(10);
+
+            items.Should().AllSatisfy(i =>
+            {
+                i.Snapshot!.DataVersion.Should().Be(MediaDataVersion.Legacy);
+                i.Snapshot.TitleEnglish.Should().BeNull();
+                i.Snapshot.Themes.Should().BeNull();
+                i.Snapshot.DurationMinutes.Should().BeNull();
+            });
+            (await verify.Settings.FindAsync(["Language"]))!.Value.Should().Be("tr");
+
+            // The new columns are writable once migrated.
+            upgradedAnime.Snapshot.TitleEnglish = "Attack on Titan";
+            upgradedAnime.Snapshot.DurationMinutes = 24;
+            upgradedAnime.Snapshot.DataVersion = MediaDataVersion.Current;
+            await verify.SaveChangesAsync();
+        }
+
+        await using var reread = new LibraryDbContext(
+            new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
+        var snapshot = await reread.Snapshots.SingleAsync(s => s.Title == "Shingeki no Kyojin");
+        snapshot.TitleEnglish.Should().Be("Attack on Titan");
+        snapshot.DurationMinutes.Should().Be(24);
+        snapshot.DataVersion.Should().Be(MediaDataVersion.Current);
     }
 
     [Fact]
@@ -330,6 +432,20 @@ public class MigrationTests
 
     // A real (in-memory) SQLite connection, not the EF InMemory provider: migrations
     // are relational DDL and the InMemory provider ignores them entirely.
+    /// <summary>
+    /// Writes a snapshot exactly as the original (v0.2.5–v0.2.x) schema stored it, with raw
+    /// SQL over the original columns only. Going through the current EF model would try to
+    /// write columns the legacy table does not have yet — and would not reflect what a real
+    /// user's old database contains.
+    /// </summary>
+    private static Task InsertLegacySnapshotAsync(
+        LibraryDbContext db, int libraryItemId, string title,
+        int? totalEpisodes, int? totalChapters, string genres, DateTime snapshotAt) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO Snapshots (LibraryItemId, Title, TotalEpisodes, TotalChapters, Genres, SnapshotAt)
+            VALUES ({libraryItemId}, {title}, {totalEpisodes}, {totalChapters}, {genres}, {snapshotAt})
+            """);
+
     private static LibraryDbContext NewLibraryContext(out SqliteConnection connection)
     {
         connection = OpenConnection();

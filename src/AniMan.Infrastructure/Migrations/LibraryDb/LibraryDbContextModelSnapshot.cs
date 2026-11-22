@@ -15,7 +15,7 @@ namespace AniMan.Migrations.LibraryDb
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.18");
+            modelBuilder.HasAnnotation("ProductVersion", "9.0.21");
 
             modelBuilder.Entity("AniMan.Core.Domain.Models.AppSetting", b =>
                 {
@@ -144,10 +144,16 @@ namespace AniMan.Migrations.LibraryDb
                     b.Property<int>("LibraryItemId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AgeRating")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("AiringEnd")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AiringStart")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Authors")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CoverLocalPath")
@@ -155,6 +161,17 @@ namespace AniMan.Migrations.LibraryDb
 
                     b.Property<string>("CoverOriginalUrl")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("DataVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("Demographics")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Genres")
                         .IsRequired()
@@ -169,6 +186,9 @@ namespace AniMan.Migrations.LibraryDb
                     b.Property<DateTime>("SnapshotAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Source")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Status")
                         .HasColumnType("TEXT");
 
@@ -181,8 +201,14 @@ namespace AniMan.Migrations.LibraryDb
                     b.Property<string>("Synopsis")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Themes")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Title")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TitleEnglish")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TitleJapanese")

@@ -43,7 +43,12 @@ internal sealed record SnapshotDto(
     int? TotalEpisodes, int? TotalChapters, int? TotalVolumes,
     string? AiringStart, string? AiringEnd, string? Season, int? Year,
     double? MalScore, string Genres, string? CoverLocalPath,
-    string? CoverOriginalUrl, string? StreamingPlatforms, DateTime SnapshotAt);
+    string? CoverOriginalUrl, string? StreamingPlatforms, DateTime SnapshotAt,
+    // Schema v2 additions. Optional with null defaults so v1 files, which lack them,
+    // still deserialize; DataVersion null means "written before it existed" (Legacy).
+    string? TitleEnglish = null, string? Themes = null, string? Demographics = null,
+    int? DurationMinutes = null, string? AgeRating = null, string? Source = null,
+    string? Authors = null, int? DataVersion = null);
 
 internal sealed record EpisodeDto(int EpisodeNumber, bool IsWatched, DateTime? WatchedAt);
 

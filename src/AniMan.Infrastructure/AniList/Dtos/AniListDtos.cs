@@ -71,6 +71,14 @@ public record AniListMedia
     [JsonPropertyName("episodes")]
     public int? Episodes { get; init; }
 
+    /// <summary>Minutes per episode (whole number).</summary>
+    [JsonPropertyName("duration")]
+    public int? Duration { get; init; }
+
+    /// <summary>ORIGINAL, MANGA, LIGHT_NOVEL, VISUAL_NOVEL, VIDEO_GAME, NOVEL, WEB_NOVEL, ...</summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; init; }
+
     [JsonPropertyName("chapters")]
     public int? Chapters { get; init; }
 

@@ -19,6 +19,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- Frozen backups written by earlier releases: every future version must still import them. -->
+  <ItemGroup>
+    <None Update="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\AniMan.Core\AniMan.Core.csproj" />
     <ProjectReference Include="..\AniMan.Infrastructure\AniMan.Infrastructure.csproj" />

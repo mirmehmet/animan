@@ -94,6 +94,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IStatisticsService, StatisticsService>();
         services.AddTransient<IExportService, ExportService>();
         services.AddTransient<IDataManagementService, DataManagementService>();
+        services.AddSingleton<SnapshotBackfillService>();
 
         return services;
     }
