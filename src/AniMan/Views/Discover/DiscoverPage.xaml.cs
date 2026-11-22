@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using AniMan.Core.Domain.Enums;
 using AniMan.Localization;
 using AniMan.Navigation;
@@ -18,6 +20,10 @@ public partial class DiscoverPage : SWC.UserControl
     private readonly NavigationBag _bag;
     private readonly INavigationService _navigationService;
     private readonly ILogger<DiscoverPage> _logger;
+
+    // Set while the view swaps tabs and restores that tab's offset, so the
+    // intermediate ScrollChanged events don't overwrite the saved position.
+    private bool _restoringScroll;
 
     public DiscoverPage(
         DiscoverViewModel viewModel,
@@ -37,6 +43,8 @@ public partial class DiscoverPage : SWC.UserControl
         Unloaded += (_, _) =>
         {
             _vm.AddToLibraryRequested -= OnAddToLibraryRequested;
+            _vm.ScrollToTopRequested -= OnScrollToTopRequested;
+            _vm.PropertyChanged -= OnViewModelPropertyChanged;
             _vm.IsPageActive = false;
         };
     }
@@ -48,18 +56,22 @@ public partial class DiscoverPage : SWC.UserControl
             // Guard against repeated Loaded events without an intervening Unloaded.
             _vm.AddToLibraryRequested -= OnAddToLibraryRequested;
             _vm.AddToLibraryRequested += OnAddToLibraryRequested;
+            _vm.ScrollToTopRequested -= OnScrollToTopRequested;
+            _vm.ScrollToTopRequested += OnScrollToTopRequested;
+            _vm.PropertyChanged -= OnViewModelPropertyChanged;
+            _vm.PropertyChanged += OnViewModelPropertyChanged;
             _vm.IsPageActive = true;
 
             // A nav re-click may have kicked off ResetToInitialAsync already;
             // don't start a second load on top of it.
-            if (_vm.IsLoading) return;
+            if (_vm.Current.IsLoading) return;
 
-            if (_vm.Cards.Count > 0)
+            if (_vm.Current.Cards.Count > 0)
             {
                 // Returning to preserved state (e.g. back from a detail page):
                 // keep tab/query/results, just re-sync ✓ markers and scroll position.
                 await _vm.RefreshLibraryFlagsAsync();
-                CardsScrollViewer.ScrollToVerticalOffset(_vm.SavedScrollOffset);
+                RestoreScroll(_vm.Current.SavedScrollOffset);
             }
             else
             {
@@ -80,15 +92,34 @@ public partial class DiscoverPage : SWC.UserControl
 
     private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (e.VerticalChange <= 0 || sender is not ScrollViewer sv) return;
-        if (sv.ScrollableHeight > 0 && sv.VerticalOffset >= sv.ScrollableHeight - 240)
-            _vm.LoadMoreCommand.Execute(null);
+        if (!_restoringScroll)
+            _vm.Current.SavedScrollOffset = e.VerticalOffset;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Tab switched: show the new tab where the user left it.
+        if (e.PropertyName == nameof(DiscoverViewModel.Current))
+            RestoreScroll(_vm.Current.SavedScrollOffset);
+    }
+
+    private void OnScrollToTopRequested(object? sender, EventArgs e) => RestoreScroll(0);
+
+    /// <summary>Scrolls once the new cards have been laid out (layout runs at a higher
+    /// dispatcher priority than Loaded), ignoring the offset changes the swap itself causes.</summary>
+    private void RestoreScroll(double offset)
+    {
+        _restoringScroll = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            CardsScrollViewer.ScrollToVerticalOffset(offset);
+            _restoringScroll = false;
+        }, DispatcherPriority.Loaded);
     }
 
     private void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not DiscoverCardViewModel card) return;
-        _vm.SavedScrollOffset = CardsScrollViewer.VerticalOffset;
         var backLabel = "← " + LocalizationManager.Get("Discover_Title");
         _bag.Put(new DetailNavigationArgs(card.MalId, card.MediaType, null, backLabel));
         _navigationService.Navigate(typeof(Detail.DetailPage));

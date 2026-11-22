@@ -76,7 +76,7 @@
 
   <data name="Nav_Anime" xml:space="preserve"><value>Anime</value></data>
   <data name="Nav_Manga" xml:space="preserve"><value>Manga</value></data>
-  <data name="Nav_Discover" xml:space="preserve"><value>Keşfet</value></data>
+  <data name="Nav_Discover" xml:space="preserve"><value>Ekle</value></data>
   <data name="Nav_Stats" xml:space="preserve"><value>İstatistik</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Ayarlar</value></data>
 
@@ -96,7 +96,7 @@
   <data name="Stats_TopGenres" xml:space="preserve"><value>En Çok Türler</value></data>
   <data name="Stats_MonthlyActivity" xml:space="preserve"><value>Aylık Etkinlik (son 12 ay)</value></data>
 
-  <data name="Discover_Title" xml:space="preserve"><value>Keşfet</value></data>
+  <data name="Discover_Title" xml:space="preserve"><value>Ekle</value></data>
   <data name="Discover_ThisSeason" xml:space="preserve"><value>Bu Sezon</value></data>
   <data name="Discover_Upcoming" xml:space="preserve"><value>Yakında</value></data>
   <data name="Discover_TopAnime" xml:space="preserve"><value>En İyi Anime</value></data>
@@ -151,8 +151,8 @@
   <data name="Dashboard_Watching" xml:space="preserve"><value>İzleniyor</value></data>
   <data name="Dashboard_Completed" xml:space="preserve"><value>Tamamlandı</value></data>
   <data name="Dashboard_EmptyTitle" xml:space="preserve"><value>Kütüphaneniz boş</value></data>
-  <data name="Dashboard_EmptyMessage" xml:space="preserve"><value>Başlamak için anime ve manga keşfedin.</value></data>
-  <data name="Dashboard_GoToDiscover" xml:space="preserve"><value>Keşfete Git</value></data>
+  <data name="Dashboard_EmptyMessage" xml:space="preserve"><value>Başlamak için anime ve manga ekleyin.</value></data>
+  <data name="Dashboard_GoToDiscover" xml:space="preserve"><value>İçerik Ekle</value></data>
   <data name="Dashboard_ErrorTitle" xml:space="preserve"><value>Sezon animeleri yüklenemedi</value></data>
   <data name="Dashboard_ErrorRetry" xml:space="preserve"><value>Tekrar Dene</value></data>
 
@@ -195,6 +195,9 @@
   <data name="Discover_ErrorTitle" xml:space="preserve"><value>İçerik yüklenemedi</value></data>
   <data name="Discover_ErrorRetry" xml:space="preserve"><value>Tekrar Dene</value></data>
   <data name="Discover_LoadMore" xml:space="preserve"><value>Daha fazla yükleniyor…</value></data>
+  <data name="Discover_PreviousPage" xml:space="preserve"><value>Önceki</value></data>
+  <data name="Discover_NextPage" xml:space="preserve"><value>Sonraki</value></data>
+  <data name="Discover_PageLabel" xml:space="preserve"><value>Sayfa {0}</value></data>
 
   <data name="Ratings_SortHighToLow" xml:space="preserve"><value>Puanım: Yüksekten Düşüğe</value></data>
   <data name="Ratings_SortLowToHigh" xml:space="preserve"><value>Puanım: Düşükten Yükseğe</value></data>
@@ -263,7 +266,7 @@
   <data name="StartupPage_Dashboard" xml:space="preserve"><value>Ana Sayfa</value></data>
   <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>
   <data name="StartupPage_Manga" xml:space="preserve"><value>Manga</value></data>
-  <data name="StartupPage_Discover" xml:space="preserve"><value>Keşfet</value></data>
+  <data name="StartupPage_Discover" xml:space="preserve"><value>Ekle</value></data>
   <data name="Settings_DeleteAllDataFailed" xml:space="preserve"><value>Tüm veriler silinemedi.</value></data>
   <data name="Settings_DeleteAllDataFailedTitle" xml:space="preserve"><value>Hata</value></data>
 </root>

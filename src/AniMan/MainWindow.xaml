@@ -64,7 +64,7 @@
                                        Click="OnDiscoverNavClicked"
                                        xmlns:views="clr-namespace:AniMan.Views.Discover">
                     <ui:NavigationViewItem.Icon>
-                        <ui:SymbolIcon Symbol="CompassNorthwest24" />
+                        <ui:SymbolIcon Symbol="Add24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
 

@@ -76,7 +76,7 @@
 
   <data name="Nav_Anime" xml:space="preserve"><value>Anime</value></data>
   <data name="Nav_Manga" xml:space="preserve"><value>Manga</value></data>
-  <data name="Nav_Discover" xml:space="preserve"><value>Discover</value></data>
+  <data name="Nav_Discover" xml:space="preserve"><value>Add</value></data>
   <data name="Nav_Stats" xml:space="preserve"><value>Stats</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Settings</value></data>
 
@@ -96,7 +96,7 @@
   <data name="Stats_TopGenres" xml:space="preserve"><value>Top Genres</value></data>
   <data name="Stats_MonthlyActivity" xml:space="preserve"><value>Monthly Activity (last 12 months)</value></data>
 
-  <data name="Discover_Title" xml:space="preserve"><value>Discover</value></data>
+  <data name="Discover_Title" xml:space="preserve"><value>Add</value></data>
   <data name="Discover_ThisSeason" xml:space="preserve"><value>This Season</value></data>
   <data name="Discover_Upcoming" xml:space="preserve"><value>Upcoming</value></data>
   <data name="Discover_TopAnime" xml:space="preserve"><value>Top Anime</value></data>
@@ -151,8 +151,8 @@
   <data name="Dashboard_Watching" xml:space="preserve"><value>Watching</value></data>
   <data name="Dashboard_Completed" xml:space="preserve"><value>Completed</value></data>
   <data name="Dashboard_EmptyTitle" xml:space="preserve"><value>Your library is empty</value></data>
-  <data name="Dashboard_EmptyMessage" xml:space="preserve"><value>Discover anime and manga to get started.</value></data>
-  <data name="Dashboard_GoToDiscover" xml:space="preserve"><value>Go to Discover</value></data>
+  <data name="Dashboard_EmptyMessage" xml:space="preserve"><value>Add anime and manga to get started.</value></data>
+  <data name="Dashboard_GoToDiscover" xml:space="preserve"><value>Add titles</value></data>
   <data name="Dashboard_ErrorTitle" xml:space="preserve"><value>Could not load seasonal anime</value></data>
   <data name="Dashboard_ErrorRetry" xml:space="preserve"><value>Try Again</value></data>
 
@@ -195,6 +195,9 @@
   <data name="Discover_ErrorTitle" xml:space="preserve"><value>Could not load content</value></data>
   <data name="Discover_ErrorRetry" xml:space="preserve"><value>Try Again</value></data>
   <data name="Discover_LoadMore" xml:space="preserve"><value>Loading more…</value></data>
+  <data name="Discover_PreviousPage" xml:space="preserve"><value>Previous</value></data>
+  <data name="Discover_NextPage" xml:space="preserve"><value>Next</value></data>
+  <data name="Discover_PageLabel" xml:space="preserve"><value>Page {0}</value></data>
 
   <data name="Ratings_SortHighToLow" xml:space="preserve"><value>My Score: High to Low</value></data>
   <data name="Ratings_SortLowToHigh" xml:space="preserve"><value>My Score: Low to High</value></data>
@@ -263,7 +266,7 @@
   <data name="StartupPage_Dashboard" xml:space="preserve"><value>Home</value></data>
   <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>
   <data name="StartupPage_Manga" xml:space="preserve"><value>Manga</value></data>
-  <data name="StartupPage_Discover" xml:space="preserve"><value>Discover</value></data>
+  <data name="StartupPage_Discover" xml:space="preserve"><value>Add</value></data>
   <data name="Settings_DeleteAllDataFailed" xml:space="preserve"><value>Failed to delete all data.</value></data>
   <data name="Settings_DeleteAllDataFailedTitle" xml:space="preserve"><value>Error</value></data>
 </root>

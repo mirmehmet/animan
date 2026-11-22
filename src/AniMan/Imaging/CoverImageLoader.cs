@@ -14,6 +14,11 @@ public static class CoverImageLoader
     private static readonly ConcurrentDictionary<(string Path, int Width, long WriteTicks), WeakReference<BitmapImage>> Cache = new();
     private static readonly ConcurrentDictionary<(string Url, int Width), WeakReference<BitmapImage>> UrlCache = new();
 
+    // The bitmaps are weakly held, but their dictionary entries are not: sweep dead
+    // entries every PruneInterval inserts so paging through lists can't grow the maps forever.
+    private const int PruneInterval = 200;
+    private static int _insertsSincePrune;
+
     /// <summary>Checks whether a remote URL cover was already decoded at the specified width.</summary>
     public static BitmapImage? TryGetFromUrlCache(string? url, int decodePixelWidth)
     {
@@ -45,6 +50,7 @@ public static class CoverImageLoader
             bmp.Freeze();
 
             Cache[key] = new WeakReference<BitmapImage>(bmp);
+            PruneIfDue();
             return bmp;
         }
         catch
@@ -77,13 +83,35 @@ public static class CoverImageLoader
             img.Freeze();
 
             if (!string.IsNullOrWhiteSpace(urlKey))
+            {
                 UrlCache[(urlKey, decodePixelWidth)] = new WeakReference<BitmapImage>(img);
+                PruneIfDue();
+            }
 
             return img;
         }
         catch
         {
             return null;
+        }
+    }
+
+    private static void PruneIfDue()
+    {
+        if (Interlocked.Increment(ref _insertsSincePrune) < PruneInterval)
+            return;
+        Interlocked.Exchange(ref _insertsSincePrune, 0);
+
+        foreach (var (key, weakRef) in Cache)
+        {
+            if (!weakRef.TryGetTarget(out _))
+                Cache.TryRemove(key, out _);
+        }
+
+        foreach (var (key, weakRef) in UrlCache)
+        {
+            if (!weakRef.TryGetTarget(out _))
+                UrlCache.TryRemove(key, out _);
         }
     }
 }
