@@ -60,8 +60,6 @@
   </resheader>
 
   <data name="Common_Search" xml:space="preserve"><value>Search</value></data>
-  <data name="Common_List" xml:space="preserve"><value>List</value></data>
-  <data name="Common_Grid" xml:space="preserve"><value>Grid</value></data>
   <data name="Common_Add" xml:space="preserve"><value>Add</value></data>
   <data name="Common_Cancel" xml:space="preserve"><value>Cancel</value></data>
 
@@ -97,12 +95,6 @@
   <data name="Stats_MonthlyActivity" xml:space="preserve"><value>Monthly Activity (last 12 months)</value></data>
 
   <data name="Discover_Title" xml:space="preserve"><value>Add</value></data>
-  <data name="Discover_ThisSeason" xml:space="preserve"><value>This Season</value></data>
-  <data name="Discover_Upcoming" xml:space="preserve"><value>Upcoming</value></data>
-  <data name="Discover_TopAnime" xml:space="preserve"><value>Top Anime</value></data>
-  <data name="Discover_TopManga" xml:space="preserve"><value>Top Manga</value></data>
-  <data name="Discover_SearchPlaceholder" xml:space="preserve"><value>Search anime or manga…</value></data>
-  <data name="Discover_SearchManga" xml:space="preserve"><value>Manga</value></data>
   <data name="Discover_AddToLibrary" xml:space="preserve"><value>Add to library</value></data>
   <data name="Discover_SelectStatus" xml:space="preserve"><value>Select status:</value></data>
 
@@ -114,11 +106,9 @@
   <data name="Library_NoResultsMessage" xml:space="preserve"><value>Try a different filter or search term.</value></data>
   <data name="Library_NoTitle" xml:space="preserve"><value>(no title)</value></data>
 
-  <data name="Detail_ReSnapshot" xml:space="preserve"><value>Re-snapshot</value></data>
   <data name="Detail_EpisodesSuffix" xml:space="preserve"><value> episodes</value></data>
   <data name="Detail_SeriesNotes" xml:space="preserve"><value>Series Notes</value></data>
   <data name="Detail_NotesPlaceholder" xml:space="preserve"><value>Write notes about this series...</value></data>
-  <data name="Detail_SaveNote" xml:space="preserve"><value>Save Note</value></data>
   <data name="Detail_Episodes" xml:space="preserve"><value>Episodes</value></data>
   <data name="Detail_Note" xml:space="preserve"><value>Note</value></data>
   <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Select up to here</value></data>
@@ -181,7 +171,6 @@
   <data name="Detail_Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Detail_MalScore" xml:space="preserve"><value>MAL</value></data>
   <data name="Detail_MyRating" xml:space="preserve"><value>My Rating</value></data>
-  <data name="Detail_RatingPlaceholder" xml:space="preserve"><value>—</value></data>
   <data name="Detail_DeleteTitle" xml:space="preserve"><value>Move to trash?</value></data>
   <data name="Detail_DeleteContent" xml:space="preserve"><value>This item will be moved to trash. You can restore it within 30 days from Settings.</value></data>
   <data name="Detail_DeleteConfirm" xml:space="preserve"><value>Move to Trash</value></data>
@@ -194,7 +183,6 @@
   <data name="Discover_NoResultsMessage" xml:space="preserve"><value>Try a different search term.</value></data>
   <data name="Discover_ErrorTitle" xml:space="preserve"><value>Could not load content</value></data>
   <data name="Discover_ErrorRetry" xml:space="preserve"><value>Try Again</value></data>
-  <data name="Discover_LoadMore" xml:space="preserve"><value>Loading more…</value></data>
   <data name="Discover_PreviousPage" xml:space="preserve"><value>Previous</value></data>
   <data name="Discover_NextPage" xml:space="preserve"><value>Next</value></data>
   <data name="Discover_PageLabel" xml:space="preserve"><value>Page {0}</value></data>
@@ -204,7 +192,6 @@
   <data name="Ratings_SortMalHighToLow" xml:space="preserve"><value>MAL Score: High to Low</value></data>
   <data name="Ratings_SortAlpha" xml:space="preserve"><value>Alphabetical (A→Z)</value></data>
 
-  <data name="Settings_DarkMode" xml:space="preserve"><value>Dark Mode</value></data>
   <data name="Settings_About" xml:space="preserve"><value>About</value></data>
   <data name="Settings_DataSource" xml:space="preserve"><value>Data Source</value></data>
   <data name="Settings_StartupPage" xml:space="preserve"><value>Startup Page</value></data>
@@ -215,7 +202,6 @@
   <data name="Settings_Trash" xml:space="preserve"><value>Trash</value></data>
   <data name="Settings_TrashEmpty" xml:space="preserve"><value>Trash is empty</value></data>
   <data name="Settings_EmptyTrash" xml:space="preserve"><value>Empty Trash</value></data>
-  <data name="Settings_RestoreItem" xml:space="preserve"><value>Restore</value></data>
   <data name="Settings_TrashDaysLeft" xml:space="preserve"><value>{0} days left</value></data>
   <data name="Settings_EmptyTrashTitle" xml:space="preserve"><value>Empty trash?</value></data>
   <data name="Settings_EmptyTrashContent" xml:space="preserve"><value>All items in trash will be permanently deleted. This cannot be undone.</value></data>
@@ -250,11 +236,8 @@
 
   <data name="Settings_Font" xml:space="preserve"><value>Font</value></data>
 
-  <data name="Common_Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Common_Restore" xml:space="preserve"><value>Restore</value></data>
-  <data name="Common_Confirm" xml:space="preserve"><value>Confirm</value></data>
 
-  <data name="Common_Refresh" xml:space="preserve"><value>Refresh</value></data>
   <data name="Detail_FavoriteTooltip" xml:space="preserve"><value>Favorite</value></data>
 
   <data name="App_UnexpectedErrorTitle" xml:space="preserve"><value>Unexpected Error</value></data>
@@ -267,6 +250,4 @@
   <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>
   <data name="StartupPage_Manga" xml:space="preserve"><value>Manga</value></data>
   <data name="StartupPage_Discover" xml:space="preserve"><value>Add</value></data>
-  <data name="Settings_DeleteAllDataFailed" xml:space="preserve"><value>Failed to delete all data.</value></data>
-  <data name="Settings_DeleteAllDataFailedTitle" xml:space="preserve"><value>Error</value></data>
 </root>

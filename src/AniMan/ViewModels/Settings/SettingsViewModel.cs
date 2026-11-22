@@ -190,7 +190,6 @@ public partial class SettingsViewModel(
 
     // ── Trash management ─────────────────────────────────────────────────────
 
-    [RelayCommand]
     private async Task LoadTrashAsync()
     {
         IsTrashLoading = true;

@@ -22,21 +22,15 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="{loc:Loc Nav_Manga}"
                        Style="{StaticResource PageTitleText}"/>
 
-            <ui:TextBox Grid.Column="1" Width="240" Margin="0,0,8,0"
+            <ui:TextBox Grid.Column="1" Width="240"
                         PlaceholderText="{loc:Loc Library_SearchManga}"
                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                         Icon="{ui:SymbolIcon Symbol=Search24}"/>
-
-            <ui:Button Grid.Column="2" Command="{Binding LoadCommand}" Appearance="Secondary"
-                       ToolTip="{loc:Loc Common_Refresh}">
-                <ui:SymbolIcon Symbol="ArrowSync24"/>
-            </ui:Button>
         </Grid>
 
         <!-- Status filter tabs (PillTab) -->
