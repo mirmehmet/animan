@@ -2,6 +2,7 @@ using System.Net;
 using AniMan.Infrastructure.AniList;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using AniMan.Core.Common;
 
 namespace AniMan.Tests.AniList;
 
@@ -91,7 +92,7 @@ public class AniListClientTests : IDisposable
         var result = await client.SearchAnimeAsync("cowboy");
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("timed out");
+        result.Kind.Should().Be(ErrorKind.Timeout);
     }
 
     [Fact]
@@ -106,6 +107,7 @@ public class AniListClientTests : IDisposable
         var result = await client.GetAnimeFullAsync(999999);
 
         result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.NotFound);
     }
 
     public void Dispose() => _limiter.Dispose();

@@ -17,6 +17,7 @@ public partial class DiscoverPage : SWC.UserControl
 {
     private readonly DiscoverViewModel _vm;
     private readonly IContentDialogService _dialogService;
+    private readonly ISnackbarService _snackbar;
     private readonly NavigationBag _bag;
     private readonly INavigationService _navigationService;
     private readonly ILogger<DiscoverPage> _logger;
@@ -28,6 +29,7 @@ public partial class DiscoverPage : SWC.UserControl
     public DiscoverPage(
         DiscoverViewModel viewModel,
         IContentDialogService dialogService,
+        ISnackbarService snackbar,
         NavigationBag bag,
         INavigationService navigationService,
         ILogger<DiscoverPage> logger)
@@ -35,6 +37,7 @@ public partial class DiscoverPage : SWC.UserControl
         InitializeComponent();
         _vm = viewModel;
         _dialogService = dialogService;
+        _snackbar = snackbar;
         _bag = bag;
         _navigationService = navigationService;
         _logger = logger;
@@ -127,18 +130,28 @@ public partial class DiscoverPage : SWC.UserControl
 
     private async void OnAddToLibraryRequested(object? sender, AddToLibraryEventArgs e)
     {
+        var card = e.Card;
+        if (card.IsAdding) return; // a second click while the first add is still running
+
         try
         {
-            var card = e.Card;
             var statusId = await Dialogs.AddToLibraryDialog.ShowAsync(
                 _dialogService, card.Title, card.MediaType == MediaType.Manga);
             if (statusId is null) return;
 
-            await _vm.AddToLibraryAsync(card.MalId, card.MediaType, statusId.Value);
+            card.IsAdding = true;
+            var result = await _vm.AddToLibraryAsync(card.MalId, card.MediaType, statusId.Value);
+            if (!result.IsSuccess)
+                _snackbar.ShowFailure("Notify_AddToLibraryFailed", result.Kind);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Add to library dialog failed from Discover");
+            _snackbar.ShowFailure("Notify_AddToLibraryFailed", Core.Common.ErrorKind.Unexpected);
+        }
+        finally
+        {
+            card.IsAdding = false;
         }
     }
 }

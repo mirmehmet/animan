@@ -85,7 +85,7 @@ public sealed class DataManagementService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Full data reset failed");
-            return Result.Failure("Failed to reset data. Check the log file for details.");
+            return Result.Failure("Failed to reset data. Check the log file for details.", ErrorKind.LocalData);
         }
     }
 }

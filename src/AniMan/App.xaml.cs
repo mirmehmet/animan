@@ -159,6 +159,7 @@ public partial class App : Application
             sp => new ServiceProviderPageProvider(sp));
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IContentDialogService, ContentDialogService>();
+        services.AddSingleton<ISnackbarService, SnackbarService>();
         services.AddSingleton<NavigationBag>();
         services.AddSingleton<BusyOverlayViewModel>();
 

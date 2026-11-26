@@ -90,6 +90,8 @@
                         <TextBlock Text="{loc:Loc Settings_Export}" FontSize="14" FontWeight="SemiBold"/>
                         <TextBlock Text="{loc:Loc Settings_ExportDesc}" FontSize="12"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="{Binding LastBackupText}" FontSize="12" Margin="0,2,0,0"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                     </StackPanel>
                 </ui:CardControl.Header>
                 <ui:Button Content="{loc:Loc Settings_ExportAction}"

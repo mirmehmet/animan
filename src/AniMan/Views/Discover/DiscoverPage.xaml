@@ -163,10 +163,16 @@
                                                                Command="{Binding DataContext.RequestAddCommand,
                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                                CommandParameter="{Binding}"
-                                                               Visibility="{Binding IsInLibrary,
-                                                                   Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                                               Visibility="{Binding ShowAddButton,
+                                                                   Converter={StaticResource BooleanToVisibilityConverter}}">
                                                         <ui:SymbolIcon Symbol="Add24" FontSize="14"/>
                                                     </ui:Button>
+                                                    <ui:ProgressRing Grid.Column="1"
+                                                                     IsIndeterminate="True"
+                                                                     Width="16" Height="16"
+                                                                     Margin="4,0"
+                                                                     Visibility="{Binding IsAdding,
+                                                                         Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                                     <ui:SymbolIcon Grid.Column="1" Symbol="Checkmark24"
                                                                    FontSize="16"
                                                                    Foreground="{StaticResource BrandAccentBrush}"

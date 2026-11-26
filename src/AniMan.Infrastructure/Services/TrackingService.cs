@@ -42,7 +42,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "GetLibrary failed for {Type}", mediaType);
-            return Result<IReadOnlyList<LibraryItem>>.Failure(LoadError);
+            return Result<IReadOnlyList<LibraryItem>>.Failure(LoadError, ErrorKind.LocalData);
         }
     }
 
@@ -70,7 +70,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "GetItem failed for {Id}", libraryItemId);
-            return Result<LibraryItem>.Failure(LoadError);
+            return Result<LibraryItem>.Failure(LoadError, ErrorKind.LocalData);
         }
     }
 
@@ -330,7 +330,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "SaveNote failed for item {Id}", libraryItemId);
-            return Result<Note>.Failure("Failed to save the note.");
+            return Result<Note>.Failure("Failed to save the note.", ErrorKind.LocalData);
         }
     }
 
@@ -354,7 +354,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "GetProgress failed for item {Id}", libraryItemId);
-            return Result<ProgressInfo>.Failure(LoadError);
+            return Result<ProgressInfo>.Failure(LoadError, ErrorKind.LocalData);
         }
     }
 
@@ -382,7 +382,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "EmptyTrash failed");
-            return Result.Failure(SaveError);
+            return Result.Failure(SaveError, ErrorKind.LocalData);
         }
     }
 
@@ -403,7 +403,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "GetTrash failed");
-            return Result<IReadOnlyList<LibraryItem>>.Failure(LoadError);
+            return Result<IReadOnlyList<LibraryItem>>.Failure(LoadError, ErrorKind.LocalData);
         }
     }
 
@@ -478,7 +478,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "{Operation} failed for item {Id}", operation, libraryItemId);
-            return Result.Failure(SaveError);
+            return Result.Failure(SaveError, ErrorKind.LocalData);
         }
     }
 
@@ -515,7 +515,7 @@ public sealed class TrackingService(
         catch (Exception ex)
         {
             logger.LogError(ex, "{Operation} failed for item {Id}", operation, libraryItemId);
-            return Result<TrackingResult>.Failure(ProgressError);
+            return Result<TrackingResult>.Failure(ProgressError, ErrorKind.LocalData);
         }
     }
 

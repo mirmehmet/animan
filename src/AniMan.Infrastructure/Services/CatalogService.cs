@@ -28,7 +28,7 @@ public sealed class CatalogService(
         {
             var apiResult = await sourceClient.SearchAnimeAsync(query, ct: ct).ConfigureAwait(false);
             if (!apiResult.IsSuccess)
-                return Result<IReadOnlyList<CachedAnime>>.Failure(apiResult.Error!);
+                return Result<IReadOnlyList<CachedAnime>>.Failure(apiResult.Error!, apiResult.Kind);
 
             var items = apiResult.Value!.Data ?? [];
             var anime = await UpsertAnimeListAsync(items, ct).ConfigureAwait(false);
@@ -49,7 +49,7 @@ public sealed class CatalogService(
         {
             var apiResult = await sourceClient.SearchMangaAsync(query, ct: ct).ConfigureAwait(false);
             if (!apiResult.IsSuccess)
-                return Result<IReadOnlyList<CachedManga>>.Failure(apiResult.Error!);
+                return Result<IReadOnlyList<CachedManga>>.Failure(apiResult.Error!, apiResult.Kind);
 
             var items = apiResult.Value!.Data ?? [];
             var manga = await UpsertMangaListAsync(items, ct).ConfigureAwait(false);
@@ -151,7 +151,7 @@ public sealed class CatalogService(
             {
                 var animeResult = await GetAnimeAsync(malId, force: false, ct).ConfigureAwait(false);
                 if (!animeResult.IsSuccess)
-                    return Result<IReadOnlyList<CachedEpisode>>.Failure(animeResult.Error!);
+                    return Result<IReadOnlyList<CachedEpisode>>.Failure(animeResult.Error!, animeResult.Kind);
                 anime = animeResult.Value!;
             }
 
@@ -195,7 +195,7 @@ public sealed class CatalogService(
         {
             var result = await sourceClient.GetCurrentSeasonAsync(ct).ConfigureAwait(false);
             if (!result.IsSuccess)
-                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
+                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!, result.Kind);
 
             var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedAnime>>.Success(anime);
@@ -215,7 +215,7 @@ public sealed class CatalogService(
         {
             var result = await sourceClient.GetTopAnimeAsync(page, ct).ConfigureAwait(false);
             if (!result.IsSuccess)
-                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!);
+                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!, result.Kind);
 
             var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedAnime>>.Success(anime);
@@ -235,7 +235,7 @@ public sealed class CatalogService(
         {
             var result = await sourceClient.GetTopMangaAsync(page, ct).ConfigureAwait(false);
             if (!result.IsSuccess)
-                return Result<IReadOnlyList<CachedManga>>.Failure(result.Error!);
+                return Result<IReadOnlyList<CachedManga>>.Failure(result.Error!, result.Kind);
 
             var manga = await UpsertMangaListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
             return Result<IReadOnlyList<CachedManga>>.Success(manga);
@@ -375,7 +375,7 @@ public sealed class CatalogService(
     {
         var apiResult = await sourceClient.GetAnimeFullAsync(malId, ct).ConfigureAwait(false);
         if (!apiResult.IsSuccess || apiResult.Value?.Data is null)
-            return Result<CachedAnime>.Failure(apiResult.Error ?? "No data from the media source");
+            return Result<CachedAnime>.Failure(apiResult.Error ?? "No data from the media source", apiResult.Kind);
 
         var anime = MediaMapper.ToAnime(apiResult.Value.Data);
         await TryCacheAsync($"anime {malId}",
@@ -388,7 +388,7 @@ public sealed class CatalogService(
     {
         var apiResult = await sourceClient.GetMangaFullAsync(malId, ct).ConfigureAwait(false);
         if (!apiResult.IsSuccess || apiResult.Value?.Data is null)
-            return Result<CachedManga>.Failure(apiResult.Error ?? "No data from the media source");
+            return Result<CachedManga>.Failure(apiResult.Error ?? "No data from the media source", apiResult.Kind);
 
         var manga = MediaMapper.ToManga(apiResult.Value.Data);
         await TryCacheAsync($"manga {malId}",
@@ -792,7 +792,7 @@ public sealed class CatalogService(
     {
         var result = await sourceClient.GetAnimeStreamingAsync(malId, ct).ConfigureAwait(false);
         if (!result.IsSuccess)
-            return Result<IReadOnlyList<CachedAnimeStreaming>>.Failure(result.Error ?? "Failed to load streaming info.");
+            return Result<IReadOnlyList<CachedAnimeStreaming>>.Failure(result.Error ?? "Failed to load streaming info.", result.Kind);
 
         var data = result.Value?.Data ?? [];
         var streaming = data

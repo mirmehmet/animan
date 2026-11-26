@@ -123,6 +123,12 @@
                 Subtitle="{loc:Loc Library_EmptyMessage}"
                 Visibility="{Binding IsEmptyLibrary, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
+            <!-- Load failure: shown only when nothing could be loaded -->
+            <ctrl:ErrorStateControl
+                Title="{loc:Loc Library_ErrorTitle}"
+                ErrorMessage="{Binding LoadErrorMessage}"
+                RetryCommand="{Binding LoadCommand}"/>
+
             <!-- No search/filter matches state -->
             <ctrl:EmptyStateControl
                 Icon="Search24"

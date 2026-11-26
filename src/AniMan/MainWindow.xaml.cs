@@ -19,6 +19,7 @@ public partial class MainWindow : FluentWindow
     public MainWindow(
         INavigationService navigationService,
         IContentDialogService contentDialogService,
+        ISnackbarService snackbarService,
         ISettingsService settingsService,
         DiscoverViewModel discoverViewModel,
         BusyOverlayViewModel busyOverlay,
@@ -38,6 +39,7 @@ public partial class MainWindow : FluentWindow
         _logger = logger;
         navigationService.SetNavigationControl(RootNavigation);
         contentDialogService.SetDialogHost(RootContentDialogHost);
+        snackbarService.SetSnackbarPresenter(RootSnackbarPresenter);
         Loaded += OnWindowLoaded;
         Closing += OnWindowClosing;
     }

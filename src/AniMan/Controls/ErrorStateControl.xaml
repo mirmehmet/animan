@@ -17,6 +17,23 @@
                        HorizontalAlignment="Center"
                        Foreground="#EF4444"/>
 
+        <!-- Optional heading (e.g. "Couldn't load the library"); the message below says why -->
+        <TextBlock Text="{Binding Title, ElementName=Root}"
+                   FontSize="16" FontWeight="SemiBold"
+                   Margin="0,12,0,0"
+                   HorizontalAlignment="Center"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Title, ElementName=Root}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
         <TextBlock Text="{Binding ErrorMessage, ElementName=Root}"
                    FontSize="12"
                    Margin="0,8,0,0"

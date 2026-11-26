@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Reflection;
 using AniMan.Core.Common;
 using AniMan.Core.Domain.Models;
@@ -110,12 +111,29 @@ public partial class SettingsViewModel(
 
             SelectedFont = await settingsService.GetFontAsync();
 
+            await RefreshLastBackupAsync();
             await LoadTrashAsync();
         }
         finally
         {
             _initialized = true;
         }
+    }
+
+    // ── Backup ────────────────────────────────────────────────────────────────
+
+    /// <summary>"Last backup: …" under the export button, in the UI language and local time.</summary>
+    [ObservableProperty] private string _lastBackupText = string.Empty;
+
+    /// <summary>Re-reads the time of the last export (written by the export service on success).</summary>
+    public async Task RefreshLastBackupAsync()
+    {
+        var stored = await settingsService.GetAsync("LastBackupAt");
+        LastBackupText = DateTime.TryParse(stored, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var at)
+            ? string.Format(LocalizationManager.Culture, LocalizationManager.Get("Settings_LastBackup"),
+                DateTime.SpecifyKind(at, DateTimeKind.Utc).ToLocalTime().ToString("g", LocalizationManager.Culture))
+            : LocalizationManager.Get("Settings_LastBackupNever");
     }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
@@ -179,8 +197,13 @@ public partial class SettingsViewModel(
 
     // ── Backup / Restore ──────────────────────────────────────────────────────
 
-    public Task<Result> ExportAsync(string filePath) =>
-        exportService.ExportAsync(filePath);
+    public async Task<Result> ExportAsync(string filePath)
+    {
+        var result = await exportService.ExportAsync(filePath);
+        if (result.IsSuccess)
+            await RefreshLastBackupAsync();
+        return result;
+    }
 
     public Task<Result<ImportSummary>> ImportAsync(
         string filePath, ImportMode mode, IProgress<ImportProgress>? progress = null) =>
@@ -200,6 +223,9 @@ public partial class SettingsViewModel(
         finally { IsTrashLoading = false; }
     }
 
+    /// <summary>Raised when restoring an item from the trash fails; the page tells the user why.</summary>
+    public event EventHandler<ErrorKind>? RestoreFailed;
+
     [RelayCommand]
     private async Task RestoreItemAsync(LibraryItem item)
     {
@@ -209,10 +235,13 @@ public partial class SettingsViewModel(
             TrashItems.Remove(item);
             OnPropertyChanged(nameof(HasTrashItems));
         }
+        else
+        {
+            RestoreFailed?.Invoke(this, result.Kind);
+        }
     }
 
-    [RelayCommand]
-    private async Task EmptyTrashAsync()
+    public async Task<Result> EmptyTrashAsync()
     {
         var result = await trackingService.EmptyTrashAsync();
         if (result.IsSuccess)
@@ -220,6 +249,7 @@ public partial class SettingsViewModel(
             TrashItems.Clear();
             OnPropertyChanged(nameof(HasTrashItems));
         }
+        return result;
     }
 
     partial void OnTrashItemsChanged(ObservableCollection<LibraryItem> value) =>
@@ -235,6 +265,7 @@ public partial class SettingsViewModel(
             TrashItems.Clear();
             OnPropertyChanged(nameof(HasTrashItems));
         }
+        await RefreshLastBackupAsync(); // the reset clears the stored backup time
         return result;
     }
 }

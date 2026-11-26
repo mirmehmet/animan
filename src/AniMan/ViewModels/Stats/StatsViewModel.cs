@@ -28,6 +28,9 @@ public partial class StatsViewModel : ObservableObject
 
     private readonly ITrackingService _tracking;
     private readonly Dictionary<MediaType, LoadedLibrary> _cache = [];
+
+    /// <summary>Localized load failure per media type; a failed load is not cached, so the next visit retries.</summary>
+    private readonly Dictionary<MediaType, string> _loadErrors = [];
     private bool _suppressPeriod;
 
     private sealed record LoadedLibrary(
@@ -40,6 +43,7 @@ public partial class StatsViewModel : ObservableObject
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _hasData;
     [ObservableProperty] private bool _isEmpty;
+    [ObservableProperty] private string? _loadErrorMessage;
 
     [ObservableProperty] private IReadOnlyList<StatTileViewModel> _tiles = [];
     [ObservableProperty] private IReadOnlyList<StatusSegmentViewModel> _statusSegments = [];
@@ -134,7 +138,15 @@ public partial class StatsViewModel : ObservableObject
         if (_cache.ContainsKey(mediaType)) return;
 
         var result = await _tracking.GetLibraryAsync(mediaType.ToString().ToLowerInvariant());
-        var items = result.IsSuccess ? result.Value! : [];
+        if (!result.IsSuccess)
+        {
+            // Not "no statistics yet": the library exists, it just could not be read.
+            _loadErrors[mediaType] = ErrorText.For(result.Kind);
+            return;
+        }
+
+        _loadErrors.Remove(mediaType);
+        var items = result.Value!;
 
         var statuses = new Dictionary<int, (string Name, string? Color)>();
         foreach (var item in items)
@@ -183,8 +195,9 @@ public partial class StatsViewModel : ObservableObject
         var library = _cache.GetValueOrDefault(MediaType) ?? new LoadedLibrary([], []);
         var entries = library.Entries;
 
+        LoadErrorMessage = _loadErrors.GetValueOrDefault(MediaType);
         HasData = entries.Count > 0;
-        IsEmpty = !HasData;
+        IsEmpty = !HasData && LoadErrorMessage is null;
 
         var inProgressId = IsAnime ? TrackingStatusIds.Watching : TrackingStatusIds.Reading;
         var o = LibraryStatsCalculator.ComputeOverview(entries, TrackingStatusIds.Completed, inProgressId);

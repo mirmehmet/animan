@@ -42,7 +42,7 @@ public sealed class SnapshotService(
             {
                 var result = await catalogService.GetAnimeAsync(malId, force: false, ct).ConfigureAwait(false);
                 if (!result.IsSuccess)
-                    return Result<LibraryItem>.Failure(result.Error!);
+                    return Result<LibraryItem>.Failure(result.Error!, result.Kind);
                 snapshot = MapAnimeSnapshot(result.Value!);
                 coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
             }
@@ -50,7 +50,7 @@ public sealed class SnapshotService(
             {
                 var result = await catalogService.GetMangaAsync(malId, force: false, ct).ConfigureAwait(false);
                 if (!result.IsSuccess)
-                    return Result<LibraryItem>.Failure(result.Error!);
+                    return Result<LibraryItem>.Failure(result.Error!, result.Kind);
                 snapshot = MapMangaSnapshot(result.Value!);
                 coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
             }
@@ -140,14 +140,14 @@ public sealed class SnapshotService(
             if (item.MediaType == MediaType.Anime)
             {
                 var result = await catalogService.GetAnimeAsync(item.MalId, force: true, ct).ConfigureAwait(false);
-                if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!);
+                if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!, result.Kind);
                 fresh = MapAnimeSnapshot(result.Value!);
                 coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
             }
             else
             {
                 var result = await catalogService.GetMangaAsync(item.MalId, force: true, ct).ConfigureAwait(false);
-                if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!);
+                if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!, result.Kind);
                 fresh = MapMangaSnapshot(result.Value!);
                 coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
             }
@@ -206,7 +206,7 @@ public sealed class SnapshotService(
             if (mediaType == MediaType.Anime)
             {
                 var result = await catalogService.GetAnimeAsync(malId, force: true, ct).ConfigureAwait(false);
-                if (!result.IsSuccess) return Result.Failure(result.Error!);
+                if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
                 var a = result.Value!;
                 apply = s =>
                 {
@@ -222,7 +222,7 @@ public sealed class SnapshotService(
             else
             {
                 var result = await catalogService.GetMangaAsync(malId, force: true, ct).ConfigureAwait(false);
-                if (!result.IsSuccess) return Result.Failure(result.Error!);
+                if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
                 var m = result.Value!;
                 apply = s =>
                 {

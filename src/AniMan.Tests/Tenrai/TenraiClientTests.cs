@@ -3,6 +3,7 @@ using AniMan.Infrastructure.Tenrai;
 using AniMan.Tests.TestDoubles;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using AniMan.Core.Common;
 
 namespace AniMan.Tests.Tenrai;
 
@@ -79,7 +80,7 @@ public class TenraiClientTests : IDisposable
         var result = await client.SearchAnimeAsync("cowboy");
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("timed out");
+        result.Kind.Should().Be(ErrorKind.Timeout);
     }
 
     [Fact]
@@ -177,7 +178,7 @@ public class TenraiClientTests : IDisposable
         var result = await RunInVirtualTimeAsync(h.Client.SearchAnimeAsync("bebop"), h.Time);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("not responding");
+        result.Kind.Should().Be(ErrorKind.ServiceUnavailable);
         h.Calls.Should().Be(4, "one attempt plus three retries");
     }
 
@@ -189,7 +190,7 @@ public class TenraiClientTests : IDisposable
         var result = await RunInVirtualTimeAsync(h.Client.SearchAnimeAsync("bebop"), h.Time);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("Too many requests");
+        result.Kind.Should().Be(ErrorKind.RateLimited);
     }
 
     [Theory]
@@ -202,7 +203,7 @@ public class TenraiClientTests : IDisposable
         var result = await RunInVirtualTimeAsync(h.Client.GetAnimeFullAsync(1), h.Time);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("Not found");
+        result.Kind.Should().Be(ErrorKind.NotFound);
         h.Calls.Should().Be(1, "a 4xx answer is final");
     }
 
@@ -224,7 +225,7 @@ public class TenraiClientTests : IDisposable
         var task = client.SearchAnimeAsync("bebop");
         (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(5)))).Should().Be(task);
 
-        (await task).IsSuccess.Should().BeFalse();
+        (await task).Kind.Should().Be(ErrorKind.NoConnection);
         calls.Should().Be(1, "an offline machine gets its answer at once instead of after 7 s of retries");
     }
 
@@ -244,7 +245,7 @@ public class TenraiClientTests : IDisposable
 
         var result = await RunInVirtualTimeAsync(client.SearchAnimeAsync("bebop"), time);
 
-        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.NoConnection);
         calls.Should().Be(4, "a refused connection can be a server blip, so it keeps its retries");
     }
 

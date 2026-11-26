@@ -147,17 +147,33 @@ public partial class DetailViewModel : ObservableObject
         }
     }
 
-    public async Task AddToLibraryAndReloadAsync(int malId, MediaType mediaType, int statusId)
-    {
-        var result = await _snapshot.SnapshotAsync(malId, mediaType, statusId);
-        if (!result.IsSuccess) return;
+    /// <summary>True while a preview title is being added; disables the add button.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RequestAddFromPreviewCommand))]
+    private bool _isAddingToLibrary;
 
-        await InitializeAsync(result.Value!.Id);
+    public async Task<Result> AddToLibraryAndReloadAsync(int malId, MediaType mediaType, int statusId)
+    {
+        IsAddingToLibrary = true;
+        try
+        {
+            var result = await _snapshot.SnapshotAsync(malId, mediaType, statusId);
+            if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
+
+            await InitializeAsync(result.Value!.Id);
+            return Result.Success();
+        }
+        finally
+        {
+            IsAddingToLibrary = false;
+        }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRequestAddFromPreview))]
     private void RequestAddFromPreview() =>
         AddToLibraryFromPreviewRequested?.Invoke(this, (_previewMalId, _previewMediaType));
+
+    private bool CanRequestAddFromPreview() => !IsAddingToLibrary;
 
     [RelayCommand]
     private async Task ToggleFavoriteAsync()

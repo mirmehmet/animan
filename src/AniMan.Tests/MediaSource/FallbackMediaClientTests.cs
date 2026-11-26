@@ -54,14 +54,15 @@ public class FallbackMediaClientTests
         // The UI already words the primary's message for the user; reporting that the
         // backup source is also down is not the more useful thing to show.
         _primary.Setup(c => c.SearchAnimeAsync(It.IsAny<string>(), 25, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Failure("primary is down"));
+            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Failure("primary is down", ErrorKind.NoConnection));
         _secondary.Setup(c => c.SearchAnimeAsync(It.IsAny<string>(), 25, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Failure("secondary is down"));
+            .ReturnsAsync(Result<PagedResult<AnimeDto>>.Failure("secondary is down", ErrorKind.ServiceUnavailable));
 
         var result = await CreateClient().SearchAnimeAsync("konosuba");
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be("primary is down");
+        result.Kind.Should().Be(ErrorKind.NoConnection, "the reason shown to the user follows the primary");
     }
 
     [Fact]

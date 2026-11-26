@@ -122,6 +122,11 @@
             </Border>
         </Border>
 
+        <!-- Short, non-blocking failure notices for single actions (add, restore, empty trash) -->
+        <ui:SnackbarPresenter x:Name="RootSnackbarPresenter"
+                              Grid.Row="1"
+                              VerticalAlignment="Bottom"/>
+
         <ui:ContentDialogHost x:Name="RootContentDialogHost"
                               Grid.Row="0" Grid.RowSpan="2"/>
     </Grid>

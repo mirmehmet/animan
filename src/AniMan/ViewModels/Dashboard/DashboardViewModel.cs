@@ -95,7 +95,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             }
             else
             {
-                SeasonErrorMessage = result.Error;
+                SeasonErrorMessage = ErrorText.For(result.Kind);
                 OnPropertyChanged(nameof(HasSeasonError));
             }
         }

@@ -128,21 +128,21 @@ public sealed class TenraiClient : IMediaSourceClient
             if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
             {
                 _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
-                return Result<T>.Failure("Not found on MyAnimeList.");
+                return Result<T>.Failure("Not found on MyAnimeList.", ErrorKind.NotFound);
             }
 
             // Retries are exhausted at this point — turn the final status into a
-            // message that tells the user whose side the problem is on.
+            // kind that tells the user whose side the problem is on.
             if ((int)response.StatusCode >= 500)
             {
                 _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
-                return Result<T>.Failure("The MyAnimeList data service is not responding right now. Please try again later.");
+                return Result<T>.Failure("The MyAnimeList data service is not responding right now.", ErrorKind.ServiceUnavailable);
             }
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
                 _logger.LogWarning("Tenrai returned {Status} for {Url}", response.StatusCode, relativeUrl);
-                return Result<T>.Failure("Too many requests — please wait a moment and try again.");
+                return Result<T>.Failure("Too many requests to Tenrai.", ErrorKind.RateLimited);
             }
 
             response.EnsureSuccessStatusCode();
@@ -161,12 +161,18 @@ public sealed class TenraiClient : IMediaSourceClient
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Tenrai request timed out: {Url}", relativeUrl);
-            return Result<T>.Failure("The request timed out. Please try again.");
+            return Result<T>.Failure("The Tenrai request timed out.", ErrorKind.Timeout);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is null)
+        {
+            // No HTTP answer at all: offline, DNS failure, refused or reset connection.
+            _logger.LogWarning(ex, "Tenrai could not be reached: {Url}", relativeUrl);
+            return Result<T>.Failure("Could not reach Tenrai.", ErrorKind.NoConnection);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Tenrai request failed: {Url}", relativeUrl);
-            return Result<T>.Failure("Could not reach the API. Check your connection and try again.");
+            return Result<T>.Failure("Tenrai request failed.");
         }
     }
 }

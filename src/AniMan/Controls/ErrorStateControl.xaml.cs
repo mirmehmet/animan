@@ -22,7 +22,17 @@ public partial class ErrorStateControl : System.Windows.Controls.UserControl
 
     public static readonly DependencyProperty RetryTextProperty =
         DependencyProperty.Register(nameof(RetryText), typeof(string),
-            typeof(ErrorStateControl), new PropertyMetadata("Retry"));
+            typeof(ErrorStateControl), new PropertyMetadata(string.Empty));
+
+    public static readonly DependencyProperty TitleProperty =
+        DependencyProperty.Register(nameof(Title), typeof(string),
+            typeof(ErrorStateControl), new PropertyMetadata(string.Empty));
+
+    public string Title
+    {
+        get => (string)GetValue(TitleProperty);
+        set => SetValue(TitleProperty, value);
+    }
 
     public string ErrorMessage
     {
@@ -45,5 +55,7 @@ public partial class ErrorStateControl : System.Windows.Controls.UserControl
     public ErrorStateControl()
     {
         InitializeComponent();
+        // Localized default; a RetryText set in XAML still wins.
+        SetCurrentValue(RetryTextProperty, Localization.LocalizationManager.Get("Common_Retry"));
     }
 }

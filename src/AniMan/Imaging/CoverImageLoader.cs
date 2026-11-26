@@ -11,6 +11,8 @@ namespace AniMan.Imaging;
 /// </summary>
 public static class CoverImageLoader
 {
+    private static readonly Serilog.ILogger Log = Serilog.Log.ForContext(typeof(CoverImageLoader));
+
     private static readonly ConcurrentDictionary<(string Path, int Width, long WriteTicks), WeakReference<BitmapImage>> Cache = new();
     private static readonly ConcurrentDictionary<(string Url, int Width), WeakReference<BitmapImage>> UrlCache = new();
 
@@ -56,9 +58,11 @@ public static class CoverImageLoader
             PruneIfDue();
             return bmp;
         }
-        catch
+        catch (Exception ex)
         {
-            return null; // cover stays blank — non-critical
+            // A corrupt or unreadable file stays blank until the cover is refreshed — say which one.
+            Log.Warning(ex, "Cover file could not be decoded: {Path}", path);
+            return null;
         }
     }
 
@@ -93,8 +97,9 @@ public static class CoverImageLoader
 
             return img;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Warning(ex, "Downloaded cover could not be decoded ({Bytes} bytes, {Url})", bytes.Length, urlKey);
             return null;
         }
     }

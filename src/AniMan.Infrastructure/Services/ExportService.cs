@@ -79,7 +79,7 @@ public sealed class ExportService(
         {
             TryDeleteTempFile(tmpPath);
             logger.LogError(ex, "Export to {Path} failed", filePath);
-            return Result.Failure("Export failed. Check the log file for details.");
+            return Result.Failure("Export failed. Check the log file for details.", ErrorKind.ExportFailed);
         }
     }
 
@@ -102,20 +102,21 @@ public sealed class ExportService(
 
             var fileInfo = new FileInfo(filePath);
             if (!fileInfo.Exists)
-                return Result<ImportSummary>.Failure($"Backup file not found: {filePath}");
+                return Result<ImportSummary>.Failure($"Backup file not found: {filePath}", ErrorKind.BackupInvalid);
 
             if (fileInfo.Length > MaxBackupSizeBytes)
-                return Result<ImportSummary>.Failure("Backup file is too large (maximum 50 MB).");
+                return Result<ImportSummary>.Failure("Backup file is too large (maximum 50 MB).", ErrorKind.BackupTooLarge);
 
             LibraryBackup? backup;
             await using (var stream = File.OpenRead(filePath))
                 backup = await JsonSerializer.DeserializeAsync<LibraryBackup>(stream, JsonOptions, ct).ConfigureAwait(false);
 
             if (backup is null || backup.SchemaVersion < 1 || backup.ExportedAt == default)
-                return Result<ImportSummary>.Failure("Backup file is empty or invalid.");
+                return Result<ImportSummary>.Failure("Backup file is empty or invalid.", ErrorKind.BackupInvalid);
             if (backup.SchemaVersion > CurrentSchemaVersion)
                 return Result<ImportSummary>.Failure(
-                    $"Backup schema version {backup.SchemaVersion} is newer than supported ({CurrentSchemaVersion}).");
+                    $"Backup schema version {backup.SchemaVersion} is newer than supported ({CurrentSchemaVersion}).",
+                    ErrorKind.BackupTooNew);
 
             var backupItems = backup.Items ?? [];
             Report(ImportStage.Saving, ReadEndsAt, 0, backupItems.Count);
@@ -130,7 +131,7 @@ public sealed class ExportService(
                 if (mode == ImportMode.Overwrite && backupItems.Count == 0 &&
                     await db.LibraryItems.AnyAsync(ct).ConfigureAwait(false))
                 {
-                    return Result<ImportSummary>.Failure("Backup contains no items; refusing to overwrite a non-empty library.");
+                    return Result<ImportSummary>.Failure("Backup contains no items; refusing to overwrite a non-empty library.", ErrorKind.BackupEmptyOverwrite);
                 }
 
                 // Overwrite deletes everything before inserting; a single fast DB-only transaction
@@ -319,7 +320,7 @@ public sealed class ExportService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Import from {Path} failed", filePath);
-            return Result<ImportSummary>.Failure("Import failed. The backup file may be invalid or unreadable.");
+            return Result<ImportSummary>.Failure("Import failed. The backup file may be invalid or unreadable.", ErrorKind.BackupInvalid);
         }
     }
 

@@ -322,4 +322,24 @@
   <data name="StartupPage_Anime" xml:space="preserve"><value>Anime</value></data>
   <data name="StartupPage_Manga" xml:space="preserve"><value>Manga</value></data>
   <data name="StartupPage_Discover" xml:space="preserve"><value>Ekle</value></data>
+  <data name="Error_NoConnection" xml:space="preserve"><value>İnternet bağlantısı yok gibi görünüyor. Bağlantıyı kontrol edip tekrar dene.</value></data>
+  <data name="Error_Timeout" xml:space="preserve"><value>İstek zaman aşımına uğradı. Biraz sonra tekrar dene.</value></data>
+  <data name="Error_ServiceUnavailable" xml:space="preserve"><value>Veri servisi şu an yanıt veremiyor. Biraz sonra tekrar dene.</value></data>
+  <data name="Error_RateLimited" xml:space="preserve"><value>Çok fazla istek gönderildi. Biraz sonra tekrar dene.</value></data>
+  <data name="Error_NotFound" xml:space="preserve"><value>Bu kayıt MyAnimeList'te bulunamadı.</value></data>
+  <data name="Error_Unexpected" xml:space="preserve"><value>Bir şeyler ters gitti.</value></data>
+  <data name="Error_LocalData" xml:space="preserve"><value>Kütüphane verisine erişilemiyor. Uygulamayı tekrar başlatmayı dene.</value></data>
+  <data name="Error_BackupTooLarge" xml:space="preserve"><value>Yedek dosyası fazlasıyla büyük (en fazla 50 MB).</value></data>
+  <data name="Error_BackupInvalid" xml:space="preserve"><value>Yedek dosyası okunamadı ya da geçersiz.</value></data>
+  <data name="Error_BackupTooNew" xml:space="preserve"><value>Bu yedek AniMan'ın daha yeni bir sürümüyle alınmış. Uygulamayı güncelleyip tekrar dene.</value></data>
+  <data name="Error_BackupEmptyOverwrite" xml:space="preserve"><value>Yedekte hiç öğe yok. Kütüphanenin silinmemesi için işlem durduruldu.</value></data>
+  <data name="Error_ExportFailed" xml:space="preserve"><value>Yedek kaydedilemedi. Seçtiğin klasöre yazma izni olduğundan emin ol.</value></data>
+  <data name="Library_ErrorTitle" xml:space="preserve"><value>Kütüphane yüklenemedi</value></data>
+  <data name="Stats_ErrorTitle" xml:space="preserve"><value>İstatistikler yüklenemedi</value></data>
+  <data name="Notify_AddToLibraryFailed" xml:space="preserve"><value>Kütüphaneye eklenemedi</value></data>
+  <data name="Notify_RestoreFailed" xml:space="preserve"><value>Geri yüklenemedi</value></data>
+  <data name="Notify_EmptyTrashFailed" xml:space="preserve"><value>Çöp kutusu boşaltılamadı</value></data>
+  <data name="Settings_LastBackup" xml:space="preserve"><value>Son yedek: {0}</value></data>
+  <data name="Settings_LastBackupNever" xml:space="preserve"><value>Henüz yedek alınmadı</value></data>
+  <data name="Common_Retry" xml:space="preserve"><value>Tekrar Dene</value></data>
 </root>

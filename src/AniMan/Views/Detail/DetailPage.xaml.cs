@@ -22,6 +22,7 @@ public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls
     internal static WeakReference<DetailPage>? ActiveInstance { get; private set; }
 
     private readonly IContentDialogService _dialogService;
+    private readonly ISnackbarService _snackbar;
     private readonly INavigationService _navigationService;
     private readonly NavigationBag _navigationBag;
     private readonly ILogger<DetailPage> _logger;
@@ -29,12 +30,14 @@ public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls
     public DetailPage(
         DetailViewModel viewModel,
         IContentDialogService dialogService,
+        ISnackbarService snackbar,
         NavigationBag navigationBag,
         INavigationService navigationService,
         ILogger<DetailPage> logger)
     {
         InitializeComponent();
         _dialogService = dialogService;
+        _snackbar = snackbar;
         _navigationService = navigationService;
         _navigationBag = navigationBag;
         _logger = logger;
@@ -144,13 +147,16 @@ public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls
             var vm = (DetailViewModel)DataContext;
             var statusId = await Dialogs.AddToLibraryDialog.ShowAsync(
                 _dialogService, vm.MediaSnapshot?.Title ?? string.Empty, e.MediaType == MediaType.Manga);
-            if (statusId is null) return;
+            if (statusId is null || vm.IsAddingToLibrary) return;
 
-            await vm.AddToLibraryAndReloadAsync(e.MalId, e.MediaType, statusId.Value);
+            var result = await vm.AddToLibraryAndReloadAsync(e.MalId, e.MediaType, statusId.Value);
+            if (!result.IsSuccess)
+                _snackbar.ShowFailure("Notify_AddToLibraryFailed", result.Kind);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Add to library from preview failed for {MalId}", e.MalId);
+            _snackbar.ShowFailure("Notify_AddToLibraryFailed", ErrorKind.Unexpected);
         }
     }
 

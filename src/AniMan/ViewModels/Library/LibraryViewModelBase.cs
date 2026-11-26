@@ -106,8 +106,11 @@ public abstract partial class LibraryViewModelBase : ObservableObject
 
     public bool IsRatingsTab => ActiveStatusId == RatingsTabId;
 
+    /// <summary>Localized reason the last load failed; null after a successful load.</summary>
+    public string? LoadErrorMessage { get; private set; }
+
     public bool HasTotalItems => _allItems.Count > 0;
-    public bool IsEmptyLibrary => !IsLoading && _allItems.Count == 0;
+    public bool IsEmptyLibrary => !IsLoading && _allItems.Count == 0 && LoadErrorMessage is null;
     public bool IsNoResults => !IsLoading && _allItems.Count > 0 && Items.Count == 0;
     public bool HasContent => !IsLoading && Items.Count > 0;
 
@@ -153,6 +156,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     private async Task LoadAsync()
     {
         IsLoading = true;
+        LoadErrorMessage = null; // a retry hides the old error while it runs
         OnStateChanged();
         try
         {
@@ -160,8 +164,15 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             await Layout.EnsureLoadedAsync();
 
             var result = await _tracking.GetLibraryAsync(_mediaType.ToString().ToLowerInvariant());
-            if (!result.IsSuccess) return;
+            if (!result.IsSuccess)
+            {
+                // An error screen only when there is nothing to show: a failed reload keeps
+                // the list from the previous load on screen instead of hiding it.
+                LoadErrorMessage = _allItems.Count == 0 ? ErrorText.For(result.Kind) : null;
+                return;
+            }
 
+            LoadErrorMessage = null;
             _allItems = result.Value!.Select(ToCard).ToList();
 
             _ = LoadCoversAsync(Layout.CoverDecodeWidth);
@@ -499,6 +510,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
 
     private void OnStateChanged()
     {
+        OnPropertyChanged(nameof(LoadErrorMessage));
         OnPropertyChanged(nameof(HasTotalItems));
         OnPropertyChanged(nameof(IsEmptyLibrary));
         OnPropertyChanged(nameof(IsNoResults));

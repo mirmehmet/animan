@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Net.Http;
+using AniMan.Core.Common;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using AniMan.Localization;
 
 namespace AniMan.ViewModels.Discover;
 
@@ -139,10 +141,10 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
     private void RequestAdd(DiscoverCardViewModel card) =>
         AddToLibraryRequested?.Invoke(this, new AddToLibraryEventArgs(card));
 
-    public async Task<bool> AddToLibraryAsync(int malId, MediaType mediaType, int statusId)
+    public async Task<Result> AddToLibraryAsync(int malId, MediaType mediaType, int statusId)
     {
         var result = await _snapshot.SnapshotAsync(malId, mediaType, statusId);
-        if (!result.IsSuccess) return false;
+        if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
 
         _librarySet.Add((malId, mediaType));
         foreach (var card in _anime.Cards.Concat(_manga.Cards))
@@ -151,7 +153,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
                 card.IsInLibrary = true;
         }
 
-        return true;
+        return Result.Success();
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -177,7 +179,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
                 }
                 else
                 {
-                    state.ErrorMessage = result.Error;
+                    state.ErrorMessage = ErrorText.For(result.Kind);
                 }
             }
             else
@@ -192,7 +194,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
                 }
                 else
                 {
-                    state.ErrorMessage = result.Error;
+                    state.ErrorMessage = ErrorText.For(result.Kind);
                 }
             }
         }
@@ -221,7 +223,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
                 if (result.IsSuccess)
                     SetCards(state, result.Value!.Select(ToCard));
                 else
-                    state.ErrorMessage = result.Error;
+                    state.ErrorMessage = ErrorText.For(result.Kind);
             }
             else
             {
@@ -231,7 +233,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
                 if (result.IsSuccess)
                     SetCards(state, result.Value!.Select(ToCard));
                 else
-                    state.ErrorMessage = result.Error;
+                    state.ErrorMessage = ErrorText.For(result.Kind);
             }
         }
         catch (OperationCanceledException) { }

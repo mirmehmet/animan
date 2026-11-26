@@ -100,6 +100,11 @@
                                     Subtitle="{loc:Loc Stats_EmptyMessage}"
                                     Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
+            <ctrl:ErrorStateControl Margin="0,48,0,0"
+                                    Title="{loc:Loc Stats_ErrorTitle}"
+                                    ErrorMessage="{Binding LoadErrorMessage}"
+                                    RetryCommand="{Binding LoadCommand}"/>
+
             <!-- Dashboard (cards sit in a -6 margin so their own 6px margins line up with the page edge) -->
             <StackPanel Margin="-6,0"
                         Visibility="{Binding HasData, Converter={StaticResource BooleanToVisibilityConverter}}">

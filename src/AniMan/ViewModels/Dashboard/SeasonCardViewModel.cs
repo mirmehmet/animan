@@ -48,7 +48,11 @@ public partial class SeasonCardViewModel : ObservableObject
                 CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, DecodeWidth, cacheKey));
         }
         catch (OperationCanceledException) { throw; }
-        catch { /* leave cover blank on failure */ }
+        catch (Exception ex)
+        {
+            // Cover stays blank. Debug level: offline, every card on the page would log this.
+            Serilog.Log.ForContext<SeasonCardViewModel>().Debug(ex, "Season cover download failed: {Url}", uri);
+        }
     }
 }
 

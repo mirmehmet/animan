@@ -10,6 +10,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AniMan.Core.Common;
 
 namespace AniMan.Tests.Services;
 
@@ -165,6 +166,7 @@ public class ExportServiceTests : IDisposable
         var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
 
         result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.BackupInvalid);
         using var verify = CreateDb();
         verify.LibraryItems.Should().ContainSingle(i => i.MalId == 100);
     }
@@ -180,6 +182,23 @@ public class ExportServiceTests : IDisposable
         var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
 
         result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.BackupEmptyOverwrite);
+        using var verify = CreateDb();
+        verify.LibraryItems.Should().ContainSingle(i => i.MalId == 100);
+    }
+
+    [Fact]
+    public async Task Import_BackupFromNewerVersion_IsRejectedAsTooNew_AndLibraryIsUntouched()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Keep Me");
+        await File.WriteAllTextAsync(
+            _tempFile,
+            """{"schemaVersion":999,"exportedAt":"2026-10-28T12:00:00Z","statuses":[],"items":[]}""");
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.BackupTooNew, "the file is fine — the app is just older than it");
         using var verify = CreateDb();
         verify.LibraryItems.Should().ContainSingle(i => i.MalId == 100);
     }

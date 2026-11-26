@@ -16,6 +16,7 @@ public partial class SettingsPage : UserControl
 {
     private readonly SettingsViewModel _viewModel;
     private readonly IContentDialogService _dialogService;
+    private readonly ISnackbarService _snackbar;
     private readonly BusyOverlayViewModel _busy;
     private readonly ILogger<SettingsPage> _logger;
 
@@ -25,16 +26,20 @@ public partial class SettingsPage : UserControl
     public SettingsPage(
         SettingsViewModel viewModel,
         IContentDialogService dialogService,
+        ISnackbarService snackbar,
         BusyOverlayViewModel busy,
         ILogger<SettingsPage> logger)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _dialogService = dialogService;
+        _snackbar = snackbar;
         _busy = busy;
         _logger = logger;
         DataContext = viewModel;
         viewModel.LanguageChangeRequiresRestart += OnLanguageChangeRequiresRestart;
+        // Both live for the whole app (singletons), so this subscription never leaks.
+        viewModel.RestoreFailed += (_, kind) => _snackbar.ShowFailure("Notify_RestoreFailed", kind);
         Loaded += OnLoaded;
     }
 
@@ -96,7 +101,7 @@ public partial class SettingsPage : UserControl
             {
                 await ShowMessageAsync(
                     LocalizationManager.Get("Settings_ExportErrorTitle"),
-                    result.Error ?? string.Empty);
+                    ErrorText.For(result.Kind));
             }
         }
         catch (Exception ex)
@@ -140,7 +145,7 @@ public partial class SettingsPage : UserControl
             {
                 await ShowMessageAsync(
                     LocalizationManager.Get("Settings_ImportErrorTitle"),
-                    result.Error ?? string.Empty);
+                    ErrorText.For(result.Kind));
                 return;
             }
 
@@ -235,12 +240,16 @@ public partial class SettingsPage : UserControl
             };
 
             var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
-            if (result == ContentDialogResult.Primary)
-                await _viewModel.EmptyTrashCommand.ExecuteAsync(null);
+            if (result != ContentDialogResult.Primary) return;
+
+            var emptied = await _viewModel.EmptyTrashAsync();
+            if (!emptied.IsSuccess)
+                _snackbar.ShowFailure("Notify_EmptyTrashFailed", emptied.Kind);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Empty trash workflow failed");
+            _snackbar.ShowFailure("Notify_EmptyTrashFailed", Core.Common.ErrorKind.Unexpected);
         }
     }
 

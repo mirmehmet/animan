@@ -29,4 +29,19 @@ public class LocalizationTests
         missingInTr.Should().BeEmpty("all English resource keys must have a Turkish translation");
         missingInEn.Should().BeEmpty("all Turkish resource keys must exist in default English resx");
     }
+
+    [Fact]
+    public void EveryErrorKind_HasALocalizedMessage()
+    {
+        // ErrorText.For(kind) resolves "Error_{kind}"; a missing key would show the raw key to the user.
+        var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AniMan"));
+        foreach (var file in new[] { "Strings.resx", "Strings.tr.resx" })
+        {
+            var keys = XDocument.Load(Path.Combine(projectRoot, "Resources", file)).Root!
+                .Elements("data").Select(e => e.Attribute("name")!.Value).ToHashSet();
+
+            foreach (var kind in Enum.GetValues<AniMan.Core.Common.ErrorKind>())
+                keys.Should().Contain($"Error_{kind}", $"{file} needs a message for ErrorKind.{kind}");
+        }
+    }
 }

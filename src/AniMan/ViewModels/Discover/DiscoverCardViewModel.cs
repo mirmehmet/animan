@@ -19,8 +19,18 @@ public partial class DiscoverCardViewModel : ObservableObject
     public string? Type { get; init; }
     public MediaType MediaType { get; init; }
 
-    [ObservableProperty] private bool _isInLibrary;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAddButton))]
+    private bool _isInLibrary;
+
+    /// <summary>True while this title is being added; the "+" turns into a spinner and ignores clicks.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAddButton))]
+    private bool _isAdding;
+
     [ObservableProperty] private BitmapImage? _coverImage;
+
+    public bool ShowAddButton => !IsInLibrary && !IsAdding;
 
     public async Task LoadCoverAsync(IHttpClientFactory httpClientFactory, CancellationToken ct = default)
     {
@@ -55,6 +65,10 @@ public partial class DiscoverCardViewModel : ObservableObject
                 CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, DecodeWidth, cacheKey));
         }
         catch (OperationCanceledException) { throw; }
-        catch { /* leave cover blank on failure */ }
+        catch (Exception ex)
+        {
+            // Cover stays blank. Debug level: offline, every card on the page would log this.
+            Serilog.Log.ForContext<DiscoverCardViewModel>().Debug(ex, "Discover cover download failed: {Url}", uri);
+        }
     }
 }

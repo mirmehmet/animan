@@ -102,7 +102,7 @@ public sealed class AniListClient(
             new { idMal = malId }, ct).ConfigureAwait(false);
 
         if (!result.IsSuccess)
-            return Result<SingleResult<AnimeDto>>.Failure(result.Error!);
+            return Result<SingleResult<AnimeDto>>.Failure(result.Error!, result.Kind);
 
         var media = result.Value!.Media;
         if (media is null || !AniListMapper.HasMalId(media))
@@ -126,7 +126,7 @@ public sealed class AniListClient(
             new { idMal = malId }, ct).ConfigureAwait(false);
 
         if (!result.IsSuccess)
-            return Result<SingleResult<MangaDto>>.Failure(result.Error!);
+            return Result<SingleResult<MangaDto>>.Failure(result.Error!, result.Kind);
 
         var media = result.Value!.Media;
         if (media is null || !AniListMapper.HasMalId(media))
@@ -173,7 +173,7 @@ public sealed class AniListClient(
             new { idMal = malId }, ct).ConfigureAwait(false);
 
         if (!result.IsSuccess)
-            return Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure(result.Error!);
+            return Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure(result.Error!, result.Kind);
 
         var links = AniListMapper.ToStreamingDtos(result.Value!.Media?.ExternalLinks);
         return Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
@@ -266,7 +266,7 @@ public sealed class AniListClient(
                     HasNextPage = result.Value.Page?.PageInfo?.HasNextPage ?? false
                 }
             })
-            : Result<PagedResult<AnimeDto>>.Failure(result.Error!);
+            : Result<PagedResult<AnimeDto>>.Failure(result.Error!, result.Kind);
 
     private static Result<PagedResult<MangaDto>> ToMangaPage(Result<AniListPageData> result) =>
         result.IsSuccess
@@ -278,7 +278,7 @@ public sealed class AniListClient(
                     HasNextPage = result.Value.Page?.PageInfo?.HasNextPage ?? false
                 }
             })
-            : Result<PagedResult<MangaDto>>.Failure(result.Error!);
+            : Result<PagedResult<MangaDto>>.Failure(result.Error!, result.Kind);
 
     private Task<Result<AniListPageData>> QueryPageAsync(
         string query, object variables, CancellationToken ct) =>
@@ -301,19 +301,19 @@ public sealed class AniListClient(
                 if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
                 {
                     logger.LogWarning("AniList returned {Status}", response.StatusCode);
-                    return Result<T>.Failure("Not found on AniList.");
+                    return Result<T>.Failure("Not found on AniList.", ErrorKind.NotFound);
                 }
 
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     logger.LogWarning("AniList returned {Status}", response.StatusCode);
-                    return Result<T>.Failure("Too many requests — please wait a moment and try again.");
+                    return Result<T>.Failure("Too many requests to AniList.", ErrorKind.RateLimited);
                 }
 
                 if ((int)response.StatusCode >= 500)
                 {
                     logger.LogWarning("AniList returned {Status}", response.StatusCode);
-                    return Result<T>.Failure("AniList is not responding right now. Please try again later.");
+                    return Result<T>.Failure("AniList is not responding right now.", ErrorKind.ServiceUnavailable);
                 }
 
                 response.EnsureSuccessStatusCode();
@@ -343,12 +343,18 @@ public sealed class AniListClient(
         catch (OperationCanceledException)
         {
             logger.LogWarning("AniList request timed out");
-            return Result<T>.Failure("The request timed out. Please try again.");
+            return Result<T>.Failure("The AniList request timed out.", ErrorKind.Timeout);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is null)
+        {
+            // No HTTP answer at all: offline, DNS failure, refused or reset connection.
+            logger.LogWarning(ex, "AniList could not be reached");
+            return Result<T>.Failure("Could not reach AniList.", ErrorKind.NoConnection);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "AniList request failed");
-            return Result<T>.Failure("Could not reach AniList. Please try again later.");
+            return Result<T>.Failure("AniList request failed.");
         }
     }
 }
