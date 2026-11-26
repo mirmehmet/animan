@@ -146,6 +146,9 @@
   <data name="Detail_ClearLaterContent" xml:space="preserve"><value>{0}. bölümden sonra izlenmiş {1} bölüm var. Devam edersen bu bölümlerin işareti ve izlenme tarihleri silinir.</value></data>
   <data name="Detail_ClearLaterContentManga" xml:space="preserve"><value>{0}. bölümden sonra okunmuş {1} bölüm var. Devam edersen bu bölümlerin işareti ve okunma tarihleri silinir.</value></data>
   <data name="Detail_ClearLaterConfirm" xml:space="preserve"><value>İşaretleri kaldır</value></data>
+  <data name="Detail_ChapterJumpLabel" xml:space="preserve"><value>Şu bölüme kadar okudum:</value></data>
+  <data name="Detail_ChapterJumpPlaceholder" xml:space="preserve"><value>Bölüm no</value></data>
+  <data name="Detail_ChapterJumpButton" xml:space="preserve"><value>İşaretle</value></data>
   <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Bölüm {0}</value></data>
   <data name="Detail_Chapters" xml:space="preserve"><value>Bölümler</value></data>
   <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> bölüm</value></data>

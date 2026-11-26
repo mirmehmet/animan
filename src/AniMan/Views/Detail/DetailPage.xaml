@@ -245,12 +245,14 @@
                         <TextBlock Margin="0,0,0,4">
                             <Run Text="{Binding WatchedCount, Mode=OneWay}"/>
                             <Run Text=" / "/>
-                            <Run Text="{Binding TotalCount, Mode=OneWay}"/>
+                            <Run Text="{Binding ProgressTotalText, Mode=OneWay}"/>
                             <Run Text="{Binding ProgressSuffix, Mode=OneWay}"/>
                         </TextBlock>
+                        <!-- No bar while the total is unknown (ongoing series): there is nothing to fill toward. -->
                         <ProgressBar Style="{StaticResource BrandProgressBar}"
                                      Value="{Binding WatchedCount, Mode=OneWay}"
-                                     Maximum="{Binding TotalCount}"/>
+                                     Maximum="{Binding TotalCount}"
+                                     Visibility="{Binding IsTotalKnown, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
 
                     <!-- Synopsis -->
@@ -277,6 +279,24 @@
                         Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="{Binding ProgressListTitle}" FontWeight="SemiBold" FontSize="16"
                            Margin="0,0,0,8"/>
+
+                <!-- Ongoing manga (no chapter count): jump straight to the last chapter read. -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                            Visibility="{Binding ShowChapterJump, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{loc:Loc Detail_ChapterJumpLabel}" VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+                    <ui:TextBox Width="110"
+                                Text="{Binding ChapterJumpText, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{loc:Loc Detail_ChapterJumpPlaceholder}">
+                        <ui:TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding JumpToChapterCommand}"/>
+                        </ui:TextBox.InputBindings>
+                    </ui:TextBox>
+                    <ui:Button Margin="8,0,0,0" Appearance="Secondary"
+                               Content="{loc:Loc Detail_ChapterJumpButton}"
+                               Command="{Binding JumpToChapterCommand}"/>
+                </StackPanel>
+
                 <controls:ProgressListControl DataContext="{Binding Pager}"/>
             </StackPanel>
 

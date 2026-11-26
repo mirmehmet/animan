@@ -146,6 +146,9 @@
   <data name="Detail_ClearLaterContent" xml:space="preserve"><value>{1} episodes after episode {0} are marked as watched. Continuing removes those marks and their watch dates.</value></data>
   <data name="Detail_ClearLaterContentManga" xml:space="preserve"><value>{1} chapters after chapter {0} are marked as read. Continuing removes those marks and their read dates.</value></data>
   <data name="Detail_ClearLaterConfirm" xml:space="preserve"><value>Clear marks</value></data>
+  <data name="Detail_ChapterJumpLabel" xml:space="preserve"><value>Read up to chapter:</value></data>
+  <data name="Detail_ChapterJumpPlaceholder" xml:space="preserve"><value>Chapter no.</value></data>
+  <data name="Detail_ChapterJumpButton" xml:space="preserve"><value>Mark</value></data>
   <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Ep {0}</value></data>
   <data name="Detail_Chapters" xml:space="preserve"><value>Chapters</value></data>
   <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> chapters</value></data>

@@ -68,7 +68,31 @@ public partial class DetailViewModel : ObservableObject
 
     public bool HasUnsavedSeriesNote => !IsPreviewMode && LibraryItemId > 0 && SeriesNote != _lastSavedSeriesNote;
     public bool HasStreamingPlatforms => StreamingPlatforms.Count > 0;
-    public bool HasProgress => TotalCount > 0;
+    /// <summary>Shown when there is a list to track: a known total, or rows built without one (B3).</summary>
+    public bool HasProgress => TotalCount > 0 || Rows.Count > 0;
+
+    /// <summary>
+    /// The source knows how many episodes/chapters the title has. Ongoing series often do not:
+    /// anime then list the episodes aired so far, manga the highest chapter read plus one.
+    /// </summary>
+    public bool IsTotalKnown =>
+        (IsManga ? MediaSnapshot?.TotalChapters : MediaSnapshot?.TotalEpisodes) is > 0;
+
+    /// <summary>"12", or "?" while the total is unknown.</summary>
+    public string ProgressTotalText => TotalCount > 0
+        ? TotalCount.ToString(Localization.LocalizationManager.Culture)
+        : "?";
+
+    /// <summary>The "read up to chapter" box: ongoing manga only, where no chapter count exists to list.</summary>
+    public bool ShowChapterJump => IsManga && !IsPreviewMode && LibraryItemId > 0 && !IsTotalKnown;
+
+    /// <summary>Text of the "read up to chapter" box.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(JumpToChapterCommand))]
+    private string _chapterJumpText = string.Empty;
+
+    /// <summary>Highest number the jump box accepts; keeps a typo from creating tens of thousands of rows.</summary>
+    private const int MaxJumpChapter = 9999;
     public string ProgressListTitle => Localization.LocalizationManager.Get(IsManga ? "Detail_Chapters" : "Detail_Episodes");
     public string ProgressSuffix => IsManga
         ? Localization.LocalizationManager.Get("Detail_ChaptersSuffix")
@@ -607,7 +631,9 @@ public partial class DetailViewModel : ObservableObject
 
     private async Task LoadEpisodeTitlesAsync(int malId, IReadOnlyList<ProgressRowViewModel> rows, CancellationToken ct)
     {
-        if (rows.Count == 0) return;
+        // With a known total and no rows there is nothing to title; with an unknown total the
+        // episode list may still bring rows.
+        if (rows.Count == 0 && IsTotalKnown) return;
         try
         {
             // Best-effort: without titles the rows keep their "Ep N" label.
@@ -617,6 +643,10 @@ public partial class DetailViewModel : ObservableObject
             var titles = new Dictionary<int, string?>();
             foreach (var ce in result.Value!)
                 titles[ce.EpisodeNumber] = ce.Title;
+
+            // Ongoing anime without a total: list every aired episode (B3).
+            if (titles.Count > 0 && GrowRowsTo(titles.Keys.Max()))
+                rows = Rows;
 
             foreach (var row in rows)
             {
@@ -652,30 +682,71 @@ public partial class DetailViewModel : ObservableObject
             .OfType<int>()
             .ToHashSet();
 
-        var total = (manga ? Item.Snapshot.TotalChapters : Item.Snapshot.TotalEpisodes) ?? 0;
+        // Unknown total (ongoing series, B3): list what is known for sure — everything up to
+        // the highest mark — and for manga one more row for the next chapter. Anime grow to
+        // the aired episodes once the episode list arrives (see LoadEpisodeTitlesAsync).
+        var total = manga ? Item.Snapshot.TotalChapters : Item.Snapshot.TotalEpisodes;
+        if (total is not > 0)
+        {
+            var highestDone = progress.Where(kv => kv.Value.Done).Select(kv => kv.Key).DefaultIfEmpty(0).Max();
+            total = manga ? highestDone + 1 : highestDone;
+        }
 
+        _rowProgress = progress;
+        _rowNotes = withNotes;
         var rows = new List<ProgressRowViewModel>();
         for (var i = 1; i <= total; i++)
-        {
-            var row = new ProgressRowViewModel(_tracking, _logger, _progressGate, manga)
-            {
-                LibraryItemId = LibraryItemId,
-                Number = i,
-                HasNote = withNotes.Contains(i)
-            };
-            var done = progress.TryGetValue(i, out var p) && p.Done;
-            row.InitDone(done, done ? p.At : null);
-
-            row.Toggled += OnRowToggled;
-            row.MarkUpToHereRequested += OnRowMarkUpToHere;
-            row.NoteRequested += OnRowNoteRequested;
-            row.SaveFailed += OnProgressSaveFailed;
-            rows.Add(row);
-        }
+            rows.Add(CreateRow(i));
 
         Rows = new ObservableCollection<ProgressRowViewModel>(rows);
         Pager.Reset(rows);
         return rows;
+    }
+
+    // Saved state the rows were built from, so rows added later (B3) start out right too.
+    private Dictionary<int, (bool Done, DateTime? At)> _rowProgress = [];
+    private HashSet<int> _rowNotes = [];
+
+    private ProgressRowViewModel CreateRow(int number)
+    {
+        var row = new ProgressRowViewModel(_tracking, _logger, _progressGate, IsManga)
+        {
+            LibraryItemId = LibraryItemId,
+            Number = number,
+            HasNote = _rowNotes.Contains(number)
+        };
+        var done = _rowProgress.TryGetValue(number, out var p) && p.Done;
+        row.InitDone(done, done ? p.At : null);
+
+        row.Toggled += OnRowToggled;
+        row.MarkUpToHereRequested += OnRowMarkUpToHere;
+        row.NoteRequested += OnRowNoteRequested;
+        row.SaveFailed += OnProgressSaveFailed;
+        return row;
+    }
+
+    /// <summary>
+    /// Adds rows up to <paramref name="count"/> when the total is unknown (B3): aired episodes
+    /// that arrived with the episode list, or the next chapter after the last one read.
+    /// Never removes rows. Returns whether any were added.
+    /// </summary>
+    private bool GrowRowsTo(int count)
+    {
+        if (IsTotalKnown || count <= Rows.Count) return false;
+
+        for (var i = Rows.Count + 1; i <= count; i++)
+            Rows.Add(CreateRow(i));
+        Pager.Reset(Rows);
+        OnPropertyChanged(nameof(HasProgress));
+        return true;
+    }
+
+    /// <summary>Ongoing manga: keep one unread row after the highest chapter read.</summary>
+    private void EnsureNextChapterRow()
+    {
+        if (!IsManga) return;
+        var highestDone = Rows.Where(r => r.IsDone).Select(r => r.Number).DefaultIfEmpty(0).Max();
+        GrowRowsTo(highestDone + 1);
     }
 
     private void OnProgressSaveFailed(object? sender, ErrorKind kind) =>
@@ -695,6 +766,7 @@ public partial class DetailViewModel : ObservableObject
     {
         try
         {
+            EnsureNextChapterRow();
             await LoadProgressAsync();
 
             if (WatchedCount == TotalCount && TotalCount > 0)
@@ -706,64 +778,98 @@ public partial class DetailViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// "Mark up to here" means exactly up to here: marks after the chosen number are removed,
-    /// with their dates. When there are such marks the user confirms first. The write holds the
-    /// progress gate, so it cannot interleave with a row toggle that is still saving.
-    /// </summary>
     private async void OnRowMarkUpToHere(object? sender, ProgressRowViewModel row)
     {
         try
         {
-            var target = row.Number;
-            var later = Rows.Count(r => r.Number > target && r.IsDone);
-            if (later > 0)
-            {
-                var confirmed = ConfirmClearLaterProgress is { } confirm
-                                && await confirm(new ClearLaterProgressRequest(target, later, IsManga));
-                if (!confirmed) return;
-            }
-
-            TrackingResult saved;
-            await _progressGate.WaitAsync();
-            try
-            {
-                var result = IsManga
-                    ? await _tracking.MarkChaptersUpToAsync(LibraryItemId, target)
-                    : await _tracking.MarkUpToHereAsync(LibraryItemId, target);
-                if (!result.IsSuccess)
-                {
-                    OnProgressSaveFailed(this, result.Kind);
-                    return;
-                }
-                saved = result.Value!;
-
-                // Already persisted by the service — sync the checkboxes both ways without
-                // re-triggering writes: at/below the target done (dates kept), above it cleared.
-                // Still under the gate, so a queued row toggle sees the final state.
-                foreach (var r in Rows)
-                {
-                    if (r.Number <= target)
-                        r.InitDone(true, r.DoneAt ?? DateTime.UtcNow);
-                    else
-                        r.InitDone(false, null);
-                }
-            }
-            finally
-            {
-                _progressGate.Release();
-            }
-
-            await LoadProgressAsync();
-
-            if (saved.AutoCompleteNeeded)
-                RequestAutoCompleteIfNeeded();
+            await MarkUpToAsync(row.Number);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Mark-up-to-here failed for item {Id}", LibraryItemId);
             OnProgressSaveFailed(this, ErrorKind.Unexpected);
         }
+    }
+
+    /// <summary>"Read up to chapter N" for ongoing manga: the same as "mark up to here" on row N.</summary>
+    [RelayCommand(CanExecute = nameof(CanJumpToChapter))]
+    private async Task JumpToChapterAsync()
+    {
+        if (!TryParseJumpChapter(out var target)) return;
+        try
+        {
+            if (await MarkUpToAsync(target))
+                ChapterJumpText = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Jump to chapter failed for item {Id}", LibraryItemId);
+            OnProgressSaveFailed(this, ErrorKind.Unexpected);
+        }
+    }
+
+    private bool CanJumpToChapter() => TryParseJumpChapter(out _);
+
+    private bool TryParseJumpChapter(out int chapter) =>
+        int.TryParse(ChapterJumpText.Trim(), System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out chapter)
+        && chapter is > 0 and <= MaxJumpChapter;
+
+    /// <summary>
+    /// "Mark up to here" means exactly up to here: marks after the chosen number are removed,
+    /// with their dates. When there are such marks the user confirms first. The write holds the
+    /// progress gate, so it cannot interleave with a row toggle that is still saving.
+    /// </summary>
+    /// <returns><c>true</c> when saved; <c>false</c> when the user cancelled or the save failed.</returns>
+    private async Task<bool> MarkUpToAsync(int target)
+    {
+        var later = Rows.Count(r => r.Number > target && r.IsDone);
+        if (later > 0)
+        {
+            var confirmed = ConfirmClearLaterProgress is { } confirm
+                            && await confirm(new ClearLaterProgressRequest(target, later, IsManga));
+            if (!confirmed) return false;
+        }
+
+        TrackingResult saved;
+        await _progressGate.WaitAsync();
+        try
+        {
+            var result = IsManga
+                ? await _tracking.MarkChaptersUpToAsync(LibraryItemId, target)
+                : await _tracking.MarkUpToHereAsync(LibraryItemId, target);
+            if (!result.IsSuccess)
+            {
+                OnProgressSaveFailed(this, result.Kind);
+                return false;
+            }
+            saved = result.Value!;
+
+            // A jump past the listed chapters (ongoing manga) needs their rows first.
+            GrowRowsTo(target);
+
+            // Already persisted by the service — sync the checkboxes both ways without
+            // re-triggering writes: at/below the target done (dates kept), above it cleared.
+            // Still under the gate, so a queued row toggle sees the final state.
+            foreach (var r in Rows)
+            {
+                if (r.Number <= target)
+                    r.InitDone(true, r.DoneAt ?? DateTime.UtcNow);
+                else
+                    r.InitDone(false, null);
+            }
+            EnsureNextChapterRow();
+        }
+        finally
+        {
+            _progressGate.Release();
+        }
+
+        await LoadProgressAsync();
+
+        if (saved.AutoCompleteNeeded)
+            RequestAutoCompleteIfNeeded();
+        return true;
     }
 
     private void OnRowNoteRequested(object? sender, ProgressRowViewModel row)
@@ -820,12 +926,15 @@ public partial class DetailViewModel : ObservableObject
     partial void OnTotalCountChanged(int value)
     {
         OnPropertyChanged(nameof(HasProgress));
+        OnPropertyChanged(nameof(ProgressTotalText));
     }
 
     partial void OnIsMangaChanged(bool value)
     {
         OnPropertyChanged(nameof(ProgressListTitle));
         OnPropertyChanged(nameof(ProgressSuffix));
+        OnPropertyChanged(nameof(IsTotalKnown));
+        OnPropertyChanged(nameof(ShowChapterJump));
         OnPropertyChanged(nameof(StudioLabel));
     }
 
@@ -840,7 +949,14 @@ public partial class DetailViewModel : ObservableObject
         OnPropertyChanged(nameof(DemographicsDisplay));
         OnPropertyChanged(nameof(AuthorsDisplay));
         OnPropertyChanged(nameof(Themes));
+        OnPropertyChanged(nameof(IsTotalKnown));
+        OnPropertyChanged(nameof(ShowChapterJump));
     }
+
+    partial void OnRowsChanged(ObservableCollection<ProgressRowViewModel> value) =>
+        OnPropertyChanged(nameof(HasProgress));
+
+    partial void OnIsPreviewModeChanged(bool value) => OnPropertyChanged(nameof(ShowChapterJump));
 }
 
 public record TrackingAutoCompleteEventArgs(int LibraryItemId, bool IsManga);
