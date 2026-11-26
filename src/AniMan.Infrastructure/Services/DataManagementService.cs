@@ -23,6 +23,9 @@ public sealed class DataManagementService(
             await using var lib = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             if (lib.Database.IsRelational())
             {
+                // All or nothing for the user's own data: a failure part-way must not leave
+                // the library emptied but its custom statuses or settings still there.
+                await using var tx = await lib.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
                 await lib.LibraryItems.ExecuteDeleteAsync(ct).ConfigureAwait(false);
                 await lib.TrackingStatuses
                     .Where(s => !s.IsDefault)
@@ -30,6 +33,7 @@ public sealed class DataManagementService(
                 await lib.Settings
                     .Where(s => !PreservedSettingKeys.Contains(s.Key))
                     .ExecuteDeleteAsync(ct).ConfigureAwait(false);
+                await tx.CommitAsync(ct).ConfigureAwait(false);
             }
             else
             {
@@ -39,28 +43,35 @@ public sealed class DataManagementService(
                 await lib.SaveChangesAsync(ct).ConfigureAwait(false);
             }
 
-            await using var cat = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            if (cat.Database.IsRelational())
+            // The catalog cache is cleared under the catalog's write gate, so a background
+            // refresh cannot interleave its writes with the reset.
+            await CatalogService.RunExclusiveAsync(async () =>
             {
-                await cat.AnimeStreaming.ExecuteDeleteAsync(ct).ConfigureAwait(false);
-                await cat.Episodes.ExecuteDeleteAsync(ct).ConfigureAwait(false);
-                await cat.MediaGenres.ExecuteDeleteAsync(ct).ConfigureAwait(false);
-                await cat.Genres.ExecuteDeleteAsync(ct).ConfigureAwait(false);
-                await cat.Anime.ExecuteDeleteAsync(ct).ConfigureAwait(false);
-                await cat.Manga.ExecuteDeleteAsync(ct).ConfigureAwait(false);
-            }
-            else
-            {
-                cat.AnimeStreaming.RemoveRange(cat.AnimeStreaming);
-                cat.Episodes.RemoveRange(cat.Episodes);
-                cat.MediaGenres.RemoveRange(cat.MediaGenres);
-                cat.Genres.RemoveRange(cat.Genres);
-                cat.Anime.RemoveRange(cat.Anime);
-                cat.Manga.RemoveRange(cat.Manga);
-                await cat.SaveChangesAsync(ct).ConfigureAwait(false);
-            }
+                await using var cat = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+                if (cat.Database.IsRelational())
+                {
+                    await using var tx = await cat.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+                    await cat.AnimeStreaming.ExecuteDeleteAsync(ct).ConfigureAwait(false);
+                    await cat.Episodes.ExecuteDeleteAsync(ct).ConfigureAwait(false);
+                    await cat.MediaGenres.ExecuteDeleteAsync(ct).ConfigureAwait(false);
+                    await cat.Genres.ExecuteDeleteAsync(ct).ConfigureAwait(false);
+                    await cat.Anime.ExecuteDeleteAsync(ct).ConfigureAwait(false);
+                    await cat.Manga.ExecuteDeleteAsync(ct).ConfigureAwait(false);
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    cat.AnimeStreaming.RemoveRange(cat.AnimeStreaming);
+                    cat.Episodes.RemoveRange(cat.Episodes);
+                    cat.MediaGenres.RemoveRange(cat.MediaGenres);
+                    cat.Genres.RemoveRange(cat.Genres);
+                    cat.Anime.RemoveRange(cat.Anime);
+                    cat.Manga.RemoveRange(cat.Manga);
+                    await cat.SaveChangesAsync(ct).ConfigureAwait(false);
+                }
 
-            CatalogService.ClearCaches();
+                CatalogService.ClearCaches();
+            }, ct).ConfigureAwait(false);
             (settingsService as SettingsService)?.InvalidateCache();
 
             if (Directory.Exists(storagePaths.CoversPath))

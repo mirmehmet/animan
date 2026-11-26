@@ -58,6 +58,57 @@ public class ExportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Export_WritesTimestampsAsUtc()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Original");
+
+        (await Create().ExportAsync(_tempFile)).IsSuccess.Should().BeTrue();
+
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(_tempFile))!;
+        ((string)root["items"]![0]!["addedAt"]!).Should().EndWith("Z", "the file states that its times are UTC");
+    }
+
+    [Fact]
+    public async Task Import_TimestampWithOffset_IsStoredAsTheSameInstantInUtc()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Original");
+        var svc = Create();
+        (await svc.ExportAsync(_tempFile)).IsSuccess.Should().BeTrue();
+
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(_tempFile))!;
+        root["items"]![0]!["episodes"]![0]!["watchedAt"] = "2026-03-01T15:00:00+03:00"; // 12:00 UTC
+        root["items"]![0]!["addedAt"] = "2026-03-01T12:00:00"; // no marker: older backups were UTC
+        await File.WriteAllTextAsync(_tempFile, root.ToJsonString());
+
+        (await svc.ImportAsync(_tempFile, ImportMode.Overwrite)).IsSuccess.Should().BeTrue();
+
+        using var verify = CreateDb();
+        var item = verify.LibraryItems.Include(i => i.EpisodeProgress).Single();
+        item.EpisodeProgress.Single().WatchedAt.Should().Be(new DateTime(2026, 3, 1, 12, 0, 0));
+        item.AddedAt.Should().Be(new DateTime(2026, 3, 1, 12, 0, 0));
+    }
+
+    [Fact]
+    public async Task Import_NameListsWithNullEntries_AreCleaned()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Original");
+        var svc = Create();
+        (await svc.ExportAsync(_tempFile)).IsSuccess.Should().BeTrue();
+
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(_tempFile))!;
+        root["items"]![0]!["snapshot"]!["genres"] = """["Action", null, " "]""";
+        root["items"]![0]!["snapshot"]!["themes"] = """["Gore", null]""";
+        await File.WriteAllTextAsync(_tempFile, root.ToJsonString());
+
+        (await svc.ImportAsync(_tempFile, ImportMode.Overwrite)).IsSuccess.Should().BeTrue();
+
+        using var verify = CreateDb();
+        var snap = verify.Snapshots.Single();
+        snap.Genres.Should().Be("""["Action"]""");
+        snap.Themes.Should().Be("""["Gore"]""");
+    }
+
+    [Fact]
     public async Task Export_ThenImport_Overwrite_RestoresData()
     {
         SeedItem(100, MediaType.Anime, 1, 8, "Original");

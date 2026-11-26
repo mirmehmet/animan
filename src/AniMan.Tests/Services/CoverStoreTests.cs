@@ -111,6 +111,25 @@ public class CoverStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteLeftoverTempFiles_RemovesOnlyOldHalfWrittenDownloads()
+    {
+        var old = Path.Combine(_paths.CoversPath, "1_anime.jpg.abc.tmp");
+        var fresh = Path.Combine(_paths.CoversPath, "2_anime.jpg.def.tmp");
+        var cover = Path.Combine(_paths.CoversPath, "3_anime.jpg");
+        await File.WriteAllBytesAsync(old, [1]);
+        await File.WriteAllBytesAsync(fresh, [1]);
+        await File.WriteAllBytesAsync(cover, [1]);
+        File.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddHours(-2));
+        File.SetLastWriteTimeUtc(cover, DateTime.UtcNow.AddHours(-2));
+
+        _store.DeleteLeftoverTempFiles();
+
+        File.Exists(old).Should().BeFalse("a crash left it behind");
+        File.Exists(fresh).Should().BeTrue("it may still be downloading");
+        File.Exists(cover).Should().BeTrue("finished covers are never touched");
+    }
+
+    [Fact]
     public async Task DownloadAsync_NullUrl_ReturnsNull()
     {
         var result = await _store.DownloadAsync(1, MediaType.Anime, null);

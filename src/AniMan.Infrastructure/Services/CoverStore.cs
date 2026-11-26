@@ -104,6 +104,23 @@ public sealed class CoverStore(
         }
     }
 
+    /// <summary>
+    /// Deletes half-written downloads (<c>*.tmp</c>) left behind by a crash or power loss.
+    /// Only files older than an hour, so a download still running elsewhere is never cut.
+    /// </summary>
+    public void DeleteLeftoverTempFiles()
+    {
+        if (!Directory.Exists(storagePaths.CoversPath))
+            return;
+
+        var cutoff = DateTime.UtcNow.AddHours(-1);
+        foreach (var file in Directory.GetFiles(storagePaths.CoversPath, "*.tmp"))
+        {
+            if (File.GetLastWriteTimeUtc(file) < cutoff)
+                TryDeleteFile(file);
+        }
+    }
+
     private static bool HasNonEmptyFile(string path) =>
         new FileInfo(path) is { Exists: true, Length: > 0 };
 

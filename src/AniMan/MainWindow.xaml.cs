@@ -13,8 +13,9 @@ public partial class MainWindow : FluentWindow
     private readonly INavigationService _navigationService;
     private readonly ISettingsService _settingsService;
     private readonly DiscoverViewModel _discoverViewModel;
+    private readonly BusyOverlayViewModel _busyOverlay;
+    private readonly ISnackbarService _snackbar;
     private readonly ILogger<MainWindow> _logger;
-    private bool _flushedOnClose;
 
     public MainWindow(
         INavigationService navigationService,
@@ -36,6 +37,8 @@ public partial class MainWindow : FluentWindow
         _navigationService = navigationService;
         _settingsService = settingsService;
         _discoverViewModel = discoverViewModel;
+        _busyOverlay = busyOverlay;
+        _snackbar = snackbarService;
         _logger = logger;
         navigationService.SetNavigationControl(RootNavigation);
         contentDialogService.SetDialogHost(RootContentDialogHost);
@@ -80,33 +83,39 @@ public partial class MainWindow : FluentWindow
         }
     }
 
-    private async void OnWindowClosing(object? sender, CancelEventArgs e)
+    private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
-        if (_flushedOnClose)
-            return;
-
-        if (Views.Detail.DetailPage.ActiveInstance?.TryGetTarget(out var detailPage) == true &&
-            detailPage.HasPendingEdits)
+        // A backup import is rewriting the library: closing now would cut it off halfway.
+        // (A system shutdown ignores this — the import's transaction then rolls back cleanly.)
+        if (_busyOverlay.IsBusy)
         {
             e.Cancel = true;
-            _flushedOnClose = true;
-            try
-            {
-                await detailPage.FlushPendingEditsAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to flush pending detail edits on window close");
-            }
+            _snackbar.Show(
+                Localization.LocalizationManager.Get("Notify_ImportRunningTitle"),
+                Localization.LocalizationManager.Get("Notify_ImportRunningMessage"),
+                ControlAppearance.Caution,
+                new SymbolIcon(SymbolRegular.Info24),
+                TimeSpan.FromSeconds(4));
+            return;
+        }
 
-            try
-            {
-                Close();
-            }
-            catch (InvalidOperationException)
-            {
-                // Application shutdown is already in progress.
-            }
+        // Saved synchronously: during Application.Shutdown (Windows sign-out, restart after an
+        // import) a cancelled Closing is ignored, so an async save could be cut off and lose
+        // the user's unsaved note. A local SQLite write is fast enough to block for.
+        if (Views.Detail.DetailPage.ActiveInstance is not { } activePage ||
+            !activePage.TryGetTarget(out var detailPage) ||
+            !detailPage.HasPendingEdits)
+        {
+            return;
+        }
+
+        try
+        {
+            detailPage.FlushPendingEditsBlocking();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save pending detail edits on window close");
         }
     }
 }

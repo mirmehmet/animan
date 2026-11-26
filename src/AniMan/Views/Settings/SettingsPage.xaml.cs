@@ -138,6 +138,7 @@ public partial class SettingsPage : UserControl
                 _ => (ImportMode?)null
             };
             if (mode is null) return;
+            if (mode == ImportMode.Overwrite && !await ConfirmReplaceAsync()) return;
 
             var result = await RunImportWithProgressAsync(dlg.FileName, mode.Value);
 
@@ -213,6 +214,30 @@ public partial class SettingsPage : UserControl
         lines.Add(string.Empty);
         lines.Add(LocalizationManager.Get("Settings_ImportRestartContent"));
         return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// "Replace" deletes the whole library, so it gets its own confirmation naming how much will go.
+    /// An empty library has nothing to lose and is not asked about.
+    /// </summary>
+    private async Task<bool> ConfirmReplaceAsync()
+    {
+        var count = await _viewModel.CountLibraryItemsAsync();
+        if (count == 0) return true;
+
+        var dialog = new ContentDialog
+        {
+            Title = LocalizationManager.Get("Settings_ImportReplaceConfirmTitle"),
+            Content = new System.Windows.Controls.TextBlock
+            {
+                Text = string.Format(LocalizationManager.Culture,
+                    LocalizationManager.Get("Settings_ImportReplaceConfirmContent"), count),
+                TextWrapping = TextWrapping.Wrap
+            },
+            PrimaryButtonText = LocalizationManager.Get("Settings_ImportReplaceConfirmButton"),
+            CloseButtonText = LocalizationManager.Get("Common_Cancel")
+        };
+        return await _dialogService.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
     }
 
     private async Task ShowMessageAsync(string title, string content)

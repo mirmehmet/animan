@@ -342,4 +342,9 @@
   <data name="Settings_LastBackup" xml:space="preserve"><value>Son yedek: {0}</value></data>
   <data name="Settings_LastBackupNever" xml:space="preserve"><value>Henüz yedek alınmadı</value></data>
   <data name="Common_Retry" xml:space="preserve"><value>Tekrar Dene</value></data>
+  <data name="Settings_ImportReplaceConfirmTitle" xml:space="preserve"><value>Kütüphanen tamamen değiştirilsin mi?</value></data>
+  <data name="Settings_ImportReplaceConfirmContent" xml:space="preserve"><value>Kütüphanendeki {0} serinin tamamı, ilerlemeleri ve notlarıyla birlikte silinecek; yerine yedektekiler gelecek. Bu işlem geri alınamaz.</value></data>
+  <data name="Settings_ImportReplaceConfirmButton" xml:space="preserve"><value>Evet, değiştir</value></data>
+  <data name="Notify_ImportRunningTitle" xml:space="preserve"><value>İçe aktarma sürüyor</value></data>
+  <data name="Notify_ImportRunningMessage" xml:space="preserve"><value>Pencereyi işlem bitince kapatabilirsin.</value></data>
 </root>

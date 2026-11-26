@@ -78,6 +78,7 @@ public partial class App : Application
             // Purge soft-deleted items older than 30 days on every startup
             var tracking = Services.GetRequiredService<ITrackingService>();
             await tracking.PurgeExpiredTrashAsync();
+            Services.GetRequiredService<CoverStore>().DeleteLeftoverTempFiles();
 
             var mainWindow = Services.GetRequiredService<MainWindow>();
             mainWindow.Show();
@@ -194,6 +195,19 @@ public partial class App : Application
 
         var libraryFactory = Services.GetRequiredService<IDbContextFactory<LibraryDbContext>>();
         await using var library = await libraryFactory.CreateDbContextAsync();
+        try
+        {
+            var backup = await LibraryMigrationBackup.BackupIfMigrationsPendingAsync(
+                library, Path.Combine(AppDataPath, "backups"));
+            if (backup is not null)
+                AppLogger.Information("Library backed up before update: {Path}", backup);
+        }
+        catch (Exception ex)
+        {
+            // A failed copy must not lock the user out of the app; the migrations themselves
+            // are covered by tests that run them against populated older databases.
+            AppLogger.Error(ex, "Could not back up the library before the update; migrating anyway");
+        }
         await library.Database.MigrateAsync();
     }
 

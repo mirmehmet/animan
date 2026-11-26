@@ -240,6 +240,28 @@ public partial class DetailViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Saves the series note synchronously, for app shutdown (Windows sign-out or restart),
+    /// where the asynchronous save would be cut off. Safe on the UI thread: the tracking
+    /// service never resumes on the caller's context.
+    /// </summary>
+    public void SaveSeriesNoteBlocking()
+    {
+        if (!HasUnsavedSeriesNote) return;
+        var snapshot = SeriesNote;
+        var result = _tracking.SaveNoteAsync(LibraryItemId, null, null, snapshot).GetAwaiter().GetResult();
+        if (result.IsSuccess)
+            _lastSavedSeriesNote = snapshot;
+    }
+
+    /// <summary>Saves a rating synchronously, for app shutdown (see <see cref="SaveSeriesNoteBlocking"/>).</summary>
+    public void SaveRatingBlocking(decimal? rating)
+    {
+        if (IsPreviewMode || LibraryItemId <= 0 || rating == UserRating) return;
+        if (_tracking.SetRatingAsync(LibraryItemId, rating).GetAwaiter().GetResult().IsSuccess)
+            UserRating = rating;
+    }
+
     private async Task RunSaveSeriesNoteLoopAsync()
     {
         while (!IsPreviewMode && LibraryItemId > 0 && SeriesNote != _lastSavedSeriesNote)

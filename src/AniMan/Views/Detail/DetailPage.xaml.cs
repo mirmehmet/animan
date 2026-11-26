@@ -80,6 +80,21 @@ public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls
         await vm.SaveSeriesNoteCommand.ExecuteAsync(null);
     }
 
+    /// <summary>
+    /// Last-chance save when the app is going away without waiting for us (Windows sign-out,
+    /// restart): <c>Application.Shutdown</c> ignores a cancelled Closing, so the async flush
+    /// in MainWindow could be cut off. Runs synchronously on the UI thread.
+    /// </summary>
+    internal void FlushPendingEditsBlocking()
+    {
+        if (DataContext is not DetailViewModel vm || vm.IsPreviewMode || vm.LibraryItemId <= 0)
+            return;
+
+        if (RatingParser.TryParse(RatingTextBox.Text, out var parsed))
+            vm.SaveRatingBlocking(parsed);
+        vm.SaveSeriesNoteBlocking();
+    }
+
     // Fires on every navigation to this page (robust against page caching).
     public async Task OnNavigatedToAsync()
     {

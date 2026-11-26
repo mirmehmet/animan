@@ -21,6 +21,24 @@ public sealed class CatalogService(
 
     public static void ClearCaches() => NegativeStreamingCache.Clear();
 
+    /// <summary>
+    /// Runs <paramref name="work"/> while holding the catalog write gate, so no cache refresh
+    /// writes in between (used by the full data reset). <paramref name="work"/> must not call
+    /// back into CatalogService writes — the gate is not re-entrant.
+    /// </summary>
+    internal static async Task RunExclusiveAsync(Func<Task> work, CancellationToken ct)
+    {
+        await WriteGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await work().ConfigureAwait(false);
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+    }
+
     public async Task<Result<IReadOnlyList<CachedAnime>>> SearchAnimeAsync(
         string query, CancellationToken ct = default)
     {

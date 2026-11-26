@@ -23,7 +23,8 @@ public sealed class ExportService(
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new UtcDateTimeConverter() }
     };
 
     public async Task<Result> ExportAsync(string filePath, CancellationToken ct = default)
@@ -202,14 +203,17 @@ public sealed class ExportService(
                     }
 
                     var key = (dto.MalId, mediaType);
+
+                    // Both modes: the first entry for a title wins and later repeats are skipped.
+                    // In Overwrite a repeat used to hit the unique index and fail the whole import.
+                    if (!seenKeys.Add(key))
+                    {
+                        skipped++;
+                        continue;
+                    }
+
                     if (mode == ImportMode.Merge)
                     {
-                        if (!seenKeys.Add(key))
-                        {
-                            skipped++;
-                            continue;
-                        }
-
                         if (existingTrashedByKey.TryGetValue(key, out var trashedLocal))
                         {
                             if (dto.DeletedAt is not null)
@@ -448,7 +452,7 @@ public sealed class ExportService(
                 Season = s.Season,
                 Year = s.Year,
                 MalScore = s.MalScore,
-                Genres = string.IsNullOrWhiteSpace(s.Genres) ? "[]" : s.Genres,
+                Genres = JsonArrayOrNull(s.Genres) ?? "[]",
                 CoverLocalPath = null,
                 CoverOriginalUrl = HttpUrlGuard.SanitizeWebUrl(s.CoverOriginalUrl),
                 StreamingPlatforms = s.StreamingPlatforms,
@@ -521,12 +525,20 @@ public sealed class ExportService(
     /// Keeps an imported JSON-array column only if it really is a JSON array of strings, so a
     /// hand-edited or damaged backup can't plant text the detail page would fail to parse.
     /// </summary>
+    /// <summary>
+    /// A JSON array of names from a backup file, or null when it is not one. Null or blank
+    /// entries (a hand-edited file) are dropped: the rest of the app treats every entry as a name.
+    /// </summary>
     private static string? JsonArrayOrNull(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
         try
         {
-            return JsonSerializer.Deserialize<List<string>>(json) is not null ? json : null;
+            var names = JsonSerializer.Deserialize<List<string?>>(json);
+            if (names is null) return null;
+            if (names.All(n => !string.IsNullOrWhiteSpace(n))) return json; // already clean: keep as written
+
+            return JsonSerializer.Serialize(names.Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
         }
         catch (JsonException)
         {

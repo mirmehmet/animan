@@ -6,6 +6,7 @@ using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -59,18 +60,49 @@ public class ImportAtomicityTests : IDisposable
         var svc = Create();
         (await svc.ExportAsync(_tempFile)).IsSuccess.Should().BeTrue();
 
-        // Corrupt the backup: duplicate the single item so the second insert
-        // violates the unique (MalId, MediaType) index mid-import.
+        // Add a second item and make the database refuse it, so the import fails after the
+        // Overwrite wipe has already run inside the transaction.
         var root = JsonNode.Parse(await File.ReadAllTextAsync(_tempFile))!;
         var items = root["items"]!.AsArray();
-        items.Add(items[0]!.DeepClone());
+        var poisoned = items[0]!.DeepClone();
+        poisoned["malId"] = 999;
+        items.Add(poisoned);
         await File.WriteAllTextAsync(_tempFile, root.ToJsonString());
+
+        await using (var db = await _factory.CreateDbContextAsync())
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE TRIGGER test_refuse_999 BEFORE INSERT ON LibraryItems WHEN NEW.MalId = 999 " +
+                "BEGIN SELECT RAISE(ABORT, 'simulated insert failure'); END;");
+        }
 
         var result = await svc.ImportAsync(_tempFile, ImportMode.Overwrite);
 
         result.IsSuccess.Should().BeFalse();
         using var verify = _factory.CreateDbContext();
         verify.LibraryItems.Single().MalId.Should().Be(100, "the Overwrite wipe must roll back with the failed insert");
+    }
+
+    [Fact]
+    public async Task Import_Overwrite_RepeatedItemInFile_KeepsTheFirst_AndSucceeds()
+    {
+        SeedItem(100, MediaType.Anime, statusId: 1);
+        var svc = Create();
+        (await svc.ExportAsync(_tempFile)).IsSuccess.Should().BeTrue();
+
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(_tempFile))!;
+        var items = root["items"]!.AsArray();
+        var repeat = items[0]!.DeepClone();
+        repeat["snapshot"]!["title"] = "Second copy";
+        items.Add(repeat);
+        await File.WriteAllTextAsync(_tempFile, root.ToJsonString());
+
+        var result = await svc.ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeTrue("a repeated entry used to hit the unique index and abort the whole import");
+        result.Value!.Skipped.Should().Be(1);
+        using var verify = _factory.CreateDbContext();
+        verify.LibraryItems.Include(i => i.Snapshot).Single().Snapshot!.Title.Should().Be("Title 100");
     }
 
     [Fact]
