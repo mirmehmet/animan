@@ -33,6 +33,7 @@ internal static partial class AniListMapper
 
     public static AnimeDto ToAnimeDto(AniListMedia media) => new()
     {
+        IsPartial = true,
         MalId = media.IdMal!.Value,
         Title = PreferredTitle(media.Title),
         TitleJapanese = media.Title?.Native,
@@ -61,6 +62,7 @@ internal static partial class AniListMapper
 
     public static MangaDto ToMangaDto(AniListMedia media) => new()
     {
+        IsPartial = true,
         MalId = media.IdMal!.Value,
         Title = PreferredTitle(media.Title),
         TitleJapanese = media.Title?.Native,

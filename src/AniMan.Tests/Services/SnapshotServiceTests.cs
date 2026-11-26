@@ -224,6 +224,63 @@ public class SnapshotServiceTests : IDisposable
         _catalogServiceMock.Verify(c => c.GetAnimeAsync(50, true, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task ReSnapshotAsync_FallbackData_NeverOverwritesACompleteSnapshot()
+    {
+        var itemId = SeedLegacyItem(60, MediaType.Anime, MediaDataVersion.Current);
+        await using (var db = await _libraryFactory.CreateDbContextAsync())
+        {
+            var snap = await db.Snapshots.SingleAsync(s => s.LibraryItemId == itemId);
+            snap.MalScore = 8.9;
+            snap.Themes = """["Gore"]""";
+            await db.SaveChangesAsync();
+        }
+
+        _catalogServiceMock
+            .Setup(c => c.GetAnimeAsync(60, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
+            {
+                Id = 60, Title = "AniList Title", Score = 7.5, TotalEpisodes = 26,
+                DataVersion = MediaDataVersion.Partial, FetchedAt = DateTime.UtcNow
+            }));
+        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
+            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
+
+        var result = await CreateService().ReSnapshotAsync(itemId);
+
+        result.IsSuccess.Should().BeTrue();
+        await using var verify = await _libraryFactory.CreateDbContextAsync();
+        var stored = await verify.Snapshots.SingleAsync(s => s.LibraryItemId == itemId);
+        stored.Title.Should().Be("Shingeki no Kyojin");
+        stored.MalScore.Should().Be(8.9);
+        stored.Themes.Should().Be("""["Gore"]""");
+        stored.Genres.Should().Be("""["Action"]""");
+        stored.DataVersion.Should().Be(MediaDataVersion.Current);
+        stored.TotalEpisodes.Should().Be(26, "a gap the snapshot had is still filled");
+    }
+
+    [Fact]
+    public async Task FillExtendedMetadata_FallbackData_AddsOnlyWhatIsMissing_AndStaysIncomplete()
+    {
+        var itemId = SeedLegacyItem(61, MediaType.Anime);
+        _catalogServiceMock
+            .Setup(c => c.GetAnimeAsync(61, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
+            {
+                Id = 61, Title = "x", TitleEnglish = "Attack on Titan", DurationMinutes = 24,
+                DataVersion = MediaDataVersion.Partial, FetchedAt = DateTime.UtcNow
+            }));
+
+        var result = await CreateService().FillExtendedMetadataAsync(itemId);
+
+        result.IsSuccess.Should().BeFalse("only partial data was available; the backfill should count it as not done");
+        await using var verify = await _libraryFactory.CreateDbContextAsync();
+        var stored = await verify.Snapshots.SingleAsync(s => s.LibraryItemId == itemId);
+        stored.TitleEnglish.Should().Be("Attack on Titan");
+        stored.DurationMinutes.Should().Be(24);
+        stored.DataVersion.Should().BeLessThan(MediaDataVersion.Current, "it is completed later from the primary source");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     // ── Extended metadata ─────────────────────────────────────────────────────

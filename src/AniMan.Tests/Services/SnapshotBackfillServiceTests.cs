@@ -7,6 +7,7 @@ using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
 using AniMan.Tests.Integration;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -31,8 +32,11 @@ public class SnapshotBackfillServiceTests : IDisposable
             .Callback<int, CancellationToken>((id, _) => _calls.Add(id))
             .ReturnsAsync(success ? Result.Success() : Result.Failure("offline"));
 
-    private int Seed(int malId, int dataVersion, DateTime updatedAt, bool trashed = false)
+    /// <param name="fallbackFilled">Leaves themes/demographics null, as only the fallback source does;
+    /// primary-source data always carries a (possibly empty) list.</param>
+    private int Seed(int malId, int dataVersion, DateTime updatedAt, bool trashed = false, bool fallbackFilled = false)
     {
+        var lists = dataVersion == MediaDataVersion.Current && !fallbackFilled ? "[]" : null;
         using var db = _factory.CreateDbContext();
         var item = new LibraryItem
         {
@@ -40,7 +44,8 @@ public class SnapshotBackfillServiceTests : IDisposable
             AddedAt = updatedAt, UpdatedAt = updatedAt, DeletedAt = trashed ? updatedAt : null,
             Snapshot = new MediaSnapshot
             {
-                Title = $"#{malId}", Genres = "[]", SnapshotAt = updatedAt, DataVersion = dataVersion
+                Title = $"#{malId}", Genres = "[]", SnapshotAt = updatedAt, DataVersion = dataVersion,
+                Themes = lists, Demographics = lists
             }
         };
         db.LibraryItems.Add(item);
@@ -98,6 +103,45 @@ public class SnapshotBackfillServiceTests : IDisposable
 
         await act.Should().NotThrowAsync();
         _calls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RunAsync_CompleteLookingFallbackSnapshot_IsRepairedAndFilled()
+    {
+        var real = Seed(1, MediaDataVersion.Current, DateTime.UtcNow);
+        var misstamped = Seed(2, MediaDataVersion.Current, DateTime.UtcNow, fallbackFilled: true);
+        Respond(success: true);
+
+        await Create().RunAsync(CancellationToken.None);
+
+        _calls.Should().Equal([misstamped], "only the fallback-filled snapshot is sent back for completion");
+        _calls.Should().NotContain(real);
+    }
+
+    [Fact]
+    public async Task Repair_ChangesOnlyTheVersionMarker_AndRunsOnce()
+    {
+        var id = Seed(1, MediaDataVersion.Current, DateTime.UtcNow, fallbackFilled: true);
+        var service = Create();
+
+        await service.RepairMisstampedFallbackDataAsync(CancellationToken.None);
+
+        await using (var db = await _factory.CreateDbContextAsync())
+        {
+            var snap = await db.Snapshots.SingleAsync(s => s.LibraryItemId == id);
+            snap.DataVersion.Should().Be(MediaDataVersion.Partial);
+            snap.Title.Should().Be("#1", "the repair never touches the data itself");
+
+            // Pretend the backfill completed it; a second launch must not mark it again.
+            snap.DataVersion = MediaDataVersion.Current;
+            await db.SaveChangesAsync();
+        }
+
+        await service.RepairMisstampedFallbackDataAsync(CancellationToken.None);
+
+        await using var verify = await _factory.CreateDbContextAsync();
+        (await verify.Snapshots.SingleAsync(s => s.LibraryItemId == id)).DataVersion
+            .Should().Be(MediaDataVersion.Current, "the repair is one-time");
     }
 
     public void Dispose() => _factory.Dispose();

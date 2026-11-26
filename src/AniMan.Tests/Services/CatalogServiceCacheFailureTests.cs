@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AniMan.Tests.TestDoubles;
 
 namespace AniMan.Tests.Services;
 
@@ -22,6 +23,7 @@ namespace AniMan.Tests.Services;
 /// The database here is deliberately left without a schema, reproducing that exact
 /// failure ("no such table") rather than simulating it with a mock.
 /// </summary>
+[Collection(CatalogStateCollection.Name)]
 public class CatalogServiceCacheFailureTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -66,7 +68,7 @@ public class CatalogServiceCacheFailureTests : IDisposable
 
         int[] expectedIds = [1, 2];
         result.IsSuccess.Should().BeTrue("the API call succeeded; only caching failed");
-        result.Value!.Select(a => a.Id).Should().BeEquivalentTo(expectedIds);
+        result.Value!.Items.Select(a => a.Id).Should().BeEquivalentTo(expectedIds);
 
         // Proves the recovery path actually ran: if the fixture ever gained a schema,
         // these tests would pass while guarding nothing.
@@ -83,7 +85,7 @@ public class CatalogServiceCacheFailureTests : IDisposable
         var result = await CreateService().GetTopMangaAsync();
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Single().Id.Should().Be(7);
+        result.Value!.Items.Single().Id.Should().Be(7);
     }
 
     [Fact]

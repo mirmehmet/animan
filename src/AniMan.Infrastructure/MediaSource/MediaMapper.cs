@@ -35,7 +35,7 @@ internal static partial class MediaMapper
         DurationMinutes = dto.DurationMinutes ?? ParseDurationMinutes(dto.Duration),
         AgeRating = NullIfBlank(dto.Rating),
         Source = NullIfBlank(dto.Source),
-        DataVersion = MediaDataVersion.Current,
+        DataVersion = dto.IsPartial ? MediaDataVersion.Partial : MediaDataVersion.Current,
         FetchedAt = DateTime.UtcNow
     };
 
@@ -61,7 +61,7 @@ internal static partial class MediaMapper
         Themes = ToJsonNames(dto.Themes),
         Demographics = ToJsonNames(dto.Demographics),
         Authors = ToJsonNames(dto.Authors),
-        DataVersion = MediaDataVersion.Current,
+        DataVersion = dto.IsPartial ? MediaDataVersion.Partial : MediaDataVersion.Current,
         FetchedAt = DateTime.UtcNow
     };
 

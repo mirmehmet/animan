@@ -8,9 +8,11 @@ using AniMan.Tests.Integration;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using AniMan.Tests.TestDoubles;
 
 namespace AniMan.Tests.Services;
 
+[Collection(CatalogStateCollection.Name)]
 public class DataManagementServiceTests : IDisposable
 {
     private readonly SqliteContextFactory<LibraryDbContext> _libraryFactory;

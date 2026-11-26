@@ -61,7 +61,10 @@ public sealed class FallbackMediaClient(
             return secondaryResult;
         }
 
-        return primaryResult.IsSuccess ? primaryResult : secondaryResult;
+        // Neither source has platforms. Only the primary may say "there are none": if it failed,
+        // report the failure so the cached platforms are kept instead of being replaced by
+        // the secondary's empty answer.
+        return primaryResult;
     }
 
     public Task<Result<PagedResult<AnimeDto>>> GetCurrentSeasonAsync(

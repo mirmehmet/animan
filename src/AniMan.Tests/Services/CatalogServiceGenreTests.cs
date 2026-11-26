@@ -10,6 +10,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AniMan.Tests.TestDoubles;
 
 namespace AniMan.Tests.Services;
 
@@ -18,6 +19,7 @@ namespace AniMan.Tests.Services;
 /// <c>MalId = 0</c> and must be given an id by name. Getting this wrong splits a genre into
 /// two rows — the same "Action" once from each source — which would double it up in Stats.
 /// </summary>
+[Collection(CatalogStateCollection.Name)]
 public class CatalogServiceGenreTests : IDisposable
 {
     private const int GeneratedIdBase = 10000;

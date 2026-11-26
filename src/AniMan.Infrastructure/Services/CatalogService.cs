@@ -208,43 +208,45 @@ public sealed class CatalogService(
         }
     }
 
-    public async Task<Result<IReadOnlyList<CachedAnime>>> GetTopAnimeAsync(
+    public async Task<Result<PagedList<CachedAnime>>> GetTopAnimeAsync(
         int page = 1, CancellationToken ct = default)
     {
         try
         {
             var result = await sourceClient.GetTopAnimeAsync(page, ct).ConfigureAwait(false);
             if (!result.IsSuccess)
-                return Result<IReadOnlyList<CachedAnime>>.Failure(result.Error!, result.Kind);
+                return Result<PagedList<CachedAnime>>.Failure(result.Error!, result.Kind);
 
             var anime = await UpsertAnimeListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
-            return Result<IReadOnlyList<CachedAnime>>.Success(anime);
+            return Result<PagedList<CachedAnime>>.Success(
+                new PagedList<CachedAnime>(anime, result.Value.Pagination?.HasNextPage ?? false));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "GetTopAnime page {Page} failed", page);
-            return Result<IReadOnlyList<CachedAnime>>.Failure("Failed to load top anime.");
+            return Result<PagedList<CachedAnime>>.Failure("Failed to load top anime.");
         }
     }
 
-    public async Task<Result<IReadOnlyList<CachedManga>>> GetTopMangaAsync(
+    public async Task<Result<PagedList<CachedManga>>> GetTopMangaAsync(
         int page = 1, CancellationToken ct = default)
     {
         try
         {
             var result = await sourceClient.GetTopMangaAsync(page, ct).ConfigureAwait(false);
             if (!result.IsSuccess)
-                return Result<IReadOnlyList<CachedManga>>.Failure(result.Error!, result.Kind);
+                return Result<PagedList<CachedManga>>.Failure(result.Error!, result.Kind);
 
             var manga = await UpsertMangaListAsync(result.Value!.Data ?? [], ct).ConfigureAwait(false);
-            return Result<IReadOnlyList<CachedManga>>.Success(manga);
+            return Result<PagedList<CachedManga>>.Success(
+                new PagedList<CachedManga>(manga, result.Value.Pagination?.HasNextPage ?? false));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "GetTopManga page {Page} failed", page);
-            return Result<IReadOnlyList<CachedManga>>.Failure("Failed to load top manga.");
+            return Result<PagedList<CachedManga>>.Failure("Failed to load top manga.");
         }
     }
 
@@ -378,9 +380,13 @@ public sealed class CatalogService(
             return Result<CachedAnime>.Failure(apiResult.Error ?? "No data from the media source", apiResult.Kind);
 
         var anime = MediaMapper.ToAnime(apiResult.Value.Data);
+        // Answer with the stored row after the merge: when the fallback source filled only
+        // gaps, the MAL data already cached is the better answer (snapshots are built from it).
+        var stored = anime;
         await TryCacheAsync($"anime {malId}",
-            () => UpsertAnimeAsync(anime, apiResult.Value.Data, ct)).ConfigureAwait(false);
-        return Result<CachedAnime>.Success(anime);
+            async () => stored = await UpsertAnimeAsync(anime, apiResult.Value.Data, ct).ConfigureAwait(false))
+            .ConfigureAwait(false);
+        return Result<CachedAnime>.Success(stored);
     }
 
     private async Task<Result<CachedManga>> FetchAndCacheMangaAsync(
@@ -391,9 +397,11 @@ public sealed class CatalogService(
             return Result<CachedManga>.Failure(apiResult.Error ?? "No data from the media source", apiResult.Kind);
 
         var manga = MediaMapper.ToManga(apiResult.Value.Data);
+        var stored = manga;
         await TryCacheAsync($"manga {malId}",
-            () => UpsertMangaAsync(manga, apiResult.Value.Data, ct)).ConfigureAwait(false);
-        return Result<CachedManga>.Success(manga);
+            async () => stored = await UpsertMangaAsync(manga, apiResult.Value.Data, ct).ConfigureAwait(false))
+            .ConfigureAwait(false);
+        return Result<CachedManga>.Success(stored);
     }
 
     private async Task<Result<IReadOnlyList<CachedEpisode>>> FetchAndCacheEpisodesAsync(
@@ -456,6 +464,15 @@ public sealed class CatalogService(
             return Result<IReadOnlyList<CachedEpisode>>.Success(allEpisodes);
         }
 
+        // An empty answer is "nothing to add", never "the episodes are gone": the fallback
+        // source has no episode lists at all, so it must not replace titled cached episodes.
+        if (allEpisodes.Count == 0 && existingCached.Count > 0)
+        {
+            logger.LogDebug("Source returned no episodes for anime {Id}; keeping {Count} cached episodes",
+                malId, existingCached.Count);
+            return Result<IReadOnlyList<CachedEpisode>>.Success(existingCached);
+        }
+
         // Placeholder fallback: the source lists no episodes but we know the total
         if (allEpisodes.Count == 0 && totalEpisodes > 0)
         {
@@ -491,20 +508,31 @@ public sealed class CatalogService(
         return Result<IReadOnlyList<CachedEpisode>>.Success(allEpisodes);
     }
 
-    private async Task UpsertAnimeAsync(CachedAnime anime, AnimeDto dto, CancellationToken ct)
+    /// <summary>Writes <paramref name="anime"/> through <see cref="EntityMerge"/> and returns the stored row.</summary>
+    private async Task<CachedAnime> UpsertAnimeAsync(CachedAnime anime, AnimeDto dto, CancellationToken ct)
     {
+        CachedAnime stored = anime;
         await WriteGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
             var existing = await db.Anime.FindAsync([anime.Id], ct).ConfigureAwait(false);
+            var fillOnly = false;
             if (existing is null)
+            {
                 db.Anime.Add(anime);
+            }
             else
-                db.Entry(existing).CurrentValues.SetValues(anime);
+            {
+                fillOnly = EntityMerge.FillOnly(existing.DataVersion, anime.DataVersion);
+                EntityMerge.Apply(db.Entry(existing), anime, fillOnly);
+                stored = existing;
+            }
 
-            await UpsertGenresAsync(db, [(anime.Id, MediaMapper.ExtractAnimeGenres(dto))], "anime", ct).ConfigureAwait(false);
+            // The fallback source's genre names differ from MAL's; they never replace MAL's links.
+            if (!fillOnly)
+                await UpsertGenresAsync(db, [(anime.Id, MediaMapper.ExtractAnimeGenres(dto))], "anime", ct).ConfigureAwait(false);
 
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
         }
@@ -516,28 +544,41 @@ public sealed class CatalogService(
         // Fetch streaming info outside WriteGate so background tasks never block or re-enter.
         QueueBackgroundRefresh("streaming", anime.Id,
             () => FetchAndCacheStreamingAsync(anime.Id, CancellationToken.None));
+        return stored;
     }
 
-    private async Task UpsertMangaAsync(CachedManga manga, MangaDto dto, CancellationToken ct)
+    /// <summary>Writes <paramref name="manga"/> through <see cref="EntityMerge"/> and returns the stored row.</summary>
+    private async Task<CachedManga> UpsertMangaAsync(CachedManga manga, MangaDto dto, CancellationToken ct)
     {
+        CachedManga stored = manga;
         await WriteGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
             var existing = await db.Manga.FindAsync([manga.Id], ct).ConfigureAwait(false);
+            var fillOnly = false;
             if (existing is null)
+            {
                 db.Manga.Add(manga);
+            }
             else
-                db.Entry(existing).CurrentValues.SetValues(manga);
+            {
+                fillOnly = EntityMerge.FillOnly(existing.DataVersion, manga.DataVersion);
+                EntityMerge.Apply(db.Entry(existing), manga, fillOnly);
+                stored = existing;
+            }
 
-            await UpsertGenresAsync(db, [(manga.Id, MediaMapper.ExtractMangaGenres(dto))], "manga", ct).ConfigureAwait(false);
+            if (!fillOnly)
+                await UpsertGenresAsync(db, [(manga.Id, MediaMapper.ExtractMangaGenres(dto))], "manga", ct).ConfigureAwait(false);
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
         }
         finally
         {
             WriteGate.Release();
         }
+
+        return stored;
     }
 
     /// <summary>
@@ -717,17 +758,28 @@ public sealed class CatalogService(
                     .Where(a => ids.Contains(a.Id))
                     .ToDictionaryAsync(a => a.Id, ct).ConfigureAwait(false);
 
-                foreach (var anime in mapped)
+                var genreWrites = new List<(int, IReadOnlyList<CachedGenre>)>();
+                for (var i = 0; i < mapped.Count; i++)
                 {
+                    var anime = mapped[i];
+                    var fillOnly = false;
                     if (existingMap.TryGetValue(anime.Id, out var existing))
-                        db.Entry(existing).CurrentValues.SetValues(anime);
+                    {
+                        // List entries are often thinner than the full record: merge, never blank out.
+                        fillOnly = EntityMerge.FillOnly(existing.DataVersion, anime.DataVersion);
+                        EntityMerge.Apply(db.Entry(existing), anime, fillOnly);
+                        mapped[i] = existing;
+                    }
                     else
+                    {
                         db.Anime.Add(anime);
+                    }
+
+                    if (!fillOnly)
+                        genreWrites.Add((anime.Id, MediaMapper.ExtractAnimeGenres(uniqueDtos[i])));
                 }
 
-                await UpsertGenresAsync(db,
-                    mapped.Zip(uniqueDtos, (a, d) => (a.Id, MediaMapper.ExtractAnimeGenres(d))).ToList(),
-                    "anime", ct).ConfigureAwait(false);
+                await UpsertGenresAsync(db, genreWrites, "anime", ct).ConfigureAwait(false);
 
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
@@ -764,17 +816,27 @@ public sealed class CatalogService(
                     .Where(m => ids.Contains(m.Id))
                     .ToDictionaryAsync(m => m.Id, ct).ConfigureAwait(false);
 
-                foreach (var manga in mapped)
+                var genreWrites = new List<(int, IReadOnlyList<CachedGenre>)>();
+                for (var i = 0; i < mapped.Count; i++)
                 {
+                    var manga = mapped[i];
+                    var fillOnly = false;
                     if (existingMap.TryGetValue(manga.Id, out var existing))
-                        db.Entry(existing).CurrentValues.SetValues(manga);
+                    {
+                        fillOnly = EntityMerge.FillOnly(existing.DataVersion, manga.DataVersion);
+                        EntityMerge.Apply(db.Entry(existing), manga, fillOnly);
+                        mapped[i] = existing;
+                    }
                     else
+                    {
                         db.Manga.Add(manga);
+                    }
+
+                    if (!fillOnly)
+                        genreWrites.Add((manga.Id, MediaMapper.ExtractMangaGenres(uniqueDtos[i])));
                 }
 
-                await UpsertGenresAsync(db,
-                    mapped.Zip(uniqueDtos, (m, d) => (m.Id, MediaMapper.ExtractMangaGenres(d))).ToList(),
-                    "manga", ct).ConfigureAwait(false);
+                await UpsertGenresAsync(db, genreWrites, "manga", ct).ConfigureAwait(false);
 
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }

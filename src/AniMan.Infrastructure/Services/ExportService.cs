@@ -461,7 +461,9 @@ public sealed class ExportService(
                 Source = s.Source,
                 Authors = JsonArrayOrNull(s.Authors),
                 // Older files carry no version: their snapshots are Legacy and get backfilled.
-                DataVersion = s.DataVersion is >= MediaDataVersion.Legacy and <= MediaDataVersion.Current
+                // Partial (fallback-source data) is kept as such, so it is still completed later.
+                DataVersion = s.DataVersion is MediaDataVersion.Partial
+                              or (>= MediaDataVersion.Legacy and <= MediaDataVersion.Current)
                     ? s.DataVersion.Value
                     : MediaDataVersion.Legacy
             };

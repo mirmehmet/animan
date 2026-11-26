@@ -16,8 +16,11 @@ namespace AniMan.Infrastructure.Services;
 public sealed class SnapshotBackfillService(
     IDbContextFactory<LibraryDbContext> libraryFactory,
     ISnapshotService snapshotService,
-    ILogger<SnapshotBackfillService> logger)
+    ILogger<SnapshotBackfillService> logger,
+    IDbContextFactory<CatalogDbContext>? catalogFactory = null)
 {
+    /// <summary>Set once <see cref="RepairMisstampedFallbackDataAsync"/> has run (a full reset clears it; it then runs on an empty library).</summary>
+    internal const string RepairDoneKey = "Repair.FallbackStampedCurrent.v1";
     /// <summary>After this many failures in a row the source is likely down or the
     /// machine offline; stop instead of burning through the whole list.</summary>
     private const int MaxConsecutiveFailures = 5;
@@ -32,6 +35,7 @@ public sealed class SnapshotBackfillService(
         try
         {
             await Task.Delay(StartupDelay, ct).ConfigureAwait(false);
+            await RepairMisstampedFallbackDataAsync(ct).ConfigureAwait(false);
 
             List<int> pending;
             await using (var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
@@ -87,6 +91,62 @@ public sealed class SnapshotBackfillService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Snapshot backfill aborted");
+        }
+    }
+
+    /// <summary>
+    /// One-time repair for data written before fallback rows were told apart: the fallback
+    /// source has no themes or demographics at all, while the primary sends a (possibly empty)
+    /// list, so a "complete" row with neither was almost certainly filled by the fallback.
+    /// Only the version marker changes — no field is touched — and the backfill then completes
+    /// these rows. A row marked by mistake just gets fetched once more.
+    /// </summary>
+    internal async Task RepairMisstampedFallbackDataAsync(CancellationToken ct)
+    {
+        try
+        {
+            await using var library = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            if (await library.Settings.AnyAsync(s => s.Key == RepairDoneKey, ct).ConfigureAwait(false))
+                return;
+
+            var snapshots = await library.Snapshots
+                .Where(s => s.DataVersion == MediaDataVersion.Current && s.Themes == null && s.Demographics == null)
+                .ExecuteUpdateAsync(set => set.SetProperty(s => s.DataVersion, MediaDataVersion.Partial), ct)
+                .ConfigureAwait(false);
+
+            int anime = 0, manga = 0;
+            if (catalogFactory is not null)
+            {
+                await using var catalog = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+                anime = await catalog.Anime
+                    .Where(a => a.DataVersion == MediaDataVersion.Current && a.Themes == null && a.Demographics == null)
+                    .ExecuteUpdateAsync(set => set.SetProperty(a => a.DataVersion, MediaDataVersion.Partial), ct)
+                    .ConfigureAwait(false);
+                manga = await catalog.Manga
+                    .Where(m => m.DataVersion == MediaDataVersion.Current && m.Themes == null && m.Demographics == null)
+                    .ExecuteUpdateAsync(set => set.SetProperty(m => m.DataVersion, MediaDataVersion.Partial), ct)
+                    .ConfigureAwait(false);
+            }
+
+            library.Settings.Add(new Core.Domain.Models.AppSetting
+            {
+                Key = RepairDoneKey,
+                Value = DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+            });
+            await library.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            if (snapshots + anime + manga > 0)
+            {
+                logger.LogInformation(
+                    "Marked fallback-filled data for completion: {Snapshots} snapshots, {Anime} anime, {Manga} manga",
+                    snapshots, anime, manga);
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            // Never blocks the backfill: the repair simply runs again next launch.
+            logger.LogWarning(ex, "Fallback data repair failed");
         }
     }
 }

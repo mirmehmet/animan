@@ -157,6 +157,22 @@ public class FallbackMediaClientTests
     }
 
     [Fact]
+    public async Task GetAnimeStreaming_PrimaryFailsAndSecondaryHasNone_ReportsTheFailure()
+    {
+        // An empty answer would be cached as "no platforms" and wipe the stored ones.
+        _primary.Setup(c => c.GetAnimeStreamingAsync(5114, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure("offline", ErrorKind.NoConnection));
+        _secondary.Setup(c => c.GetAnimeStreamingAsync(5114, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+
+        var result = await CreateClient().GetAnimeStreamingAsync(5114);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.NoConnection);
+    }
+
+    [Fact]
     public async Task GetCurrentSeason_PrimaryFails_FallsBack()
     {
         _primary.Setup(c => c.GetCurrentSeasonAsync(It.IsAny<CancellationToken>()))

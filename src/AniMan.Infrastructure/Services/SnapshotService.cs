@@ -6,6 +6,7 @@ using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 
 namespace AniMan.Infrastructure.Services;
@@ -86,7 +87,7 @@ public sealed class SnapshotService(
                 }
                 else
                 {
-                    db.Entry(existing.Snapshot).CurrentValues.SetValues(snapshot);
+                    MergeIntoSnapshot(db.Entry(existing.Snapshot), snapshot);
                 }
 
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -162,9 +163,14 @@ public sealed class SnapshotService(
 
             var existing = await db.Snapshots.FindAsync([libraryItemId], ct).ConfigureAwait(false);
             if (existing is null)
+            {
                 db.Snapshots.Add(fresh);
+            }
             else
-                db.Entry(existing).CurrentValues.SetValues(fresh);
+            {
+                MergeIntoSnapshot(db.Entry(existing), fresh);
+                fresh = existing;
+            }
 
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
             logger.LogInformation("Re-snapshot complete for LibraryItem {Id}", libraryItemId);
@@ -203,20 +209,23 @@ public sealed class SnapshotService(
 
             // force: the catalog row for this title may itself predate the extended fields.
             Action<MediaSnapshot> apply;
+            int dataVersion;
             if (mediaType == MediaType.Anime)
             {
                 var result = await catalogService.GetAnimeAsync(malId, force: true, ct).ConfigureAwait(false);
                 if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
                 var a = result.Value!;
+                dataVersion = a.DataVersion;
+                // Only ever adds: a value the source did not send keeps what the snapshot has.
                 apply = s =>
                 {
-                    s.TitleEnglish = a.TitleEnglish;
-                    s.Themes = a.Themes;
-                    s.Demographics = a.Demographics;
-                    s.DurationMinutes = a.DurationMinutes;
-                    s.AgeRating = a.AgeRating;
-                    s.Source = a.Source;
-                    s.DataVersion = a.DataVersion;
+                    s.TitleEnglish = a.TitleEnglish ?? s.TitleEnglish;
+                    s.Themes = a.Themes ?? s.Themes;
+                    s.Demographics = a.Demographics ?? s.Demographics;
+                    s.DurationMinutes = a.DurationMinutes ?? s.DurationMinutes;
+                    s.AgeRating = a.AgeRating ?? s.AgeRating;
+                    s.Source = a.Source ?? s.Source;
+                    s.DataVersion = Math.Max(s.DataVersion, a.DataVersion);
                 };
             }
             else
@@ -224,13 +233,14 @@ public sealed class SnapshotService(
                 var result = await catalogService.GetMangaAsync(malId, force: true, ct).ConfigureAwait(false);
                 if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
                 var m = result.Value!;
+                dataVersion = m.DataVersion;
                 apply = s =>
                 {
-                    s.TitleEnglish = m.TitleEnglish;
-                    s.Themes = m.Themes;
-                    s.Demographics = m.Demographics;
-                    s.Authors = m.Authors;
-                    s.DataVersion = m.DataVersion;
+                    s.TitleEnglish = m.TitleEnglish ?? s.TitleEnglish;
+                    s.Themes = m.Themes ?? s.Themes;
+                    s.Demographics = m.Demographics ?? s.Demographics;
+                    s.Authors = m.Authors ?? s.Authors;
+                    s.DataVersion = Math.Max(s.DataVersion, m.DataVersion);
                 };
             }
 
@@ -251,6 +261,12 @@ public sealed class SnapshotService(
 
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
+
+            // Only fallback data was available: whatever it could add is saved, but the item is
+            // still incomplete. Reported as a failure so the backfill's "stop after N failures in a
+            // row" also stops it from re-fetching the whole library while the primary source is down.
+            if (dataVersion < MediaDataVersion.Current)
+                return Result.Failure("Only partial (fallback) data is available right now.", ErrorKind.ServiceUnavailable);
 
             return Result.Success();
         }
@@ -312,6 +328,19 @@ public sealed class SnapshotService(
     };
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The snapshot is the user's own copy of a title's data: fresh data may extend or update
+    /// it, never erase it, and fallback-source data only fills its gaps (see <see cref="EntityMerge"/>).
+    /// </summary>
+    private static void MergeIntoSnapshot(EntityEntry<MediaSnapshot> stored, MediaSnapshot fresh)
+    {
+        // An empty genre list means the catalog had none to give, not that the title lost its genres.
+        if (fresh.Genres == "[]")
+            fresh.Genres = stored.Entity.Genres;
+
+        EntityMerge.Apply(stored, fresh, EntityMerge.FillOnly(stored.Entity.DataVersion, fresh.DataVersion));
+    }
 
     private string? ResolveExistingCoverOnDisk(string? previousPath, int malId, MediaType mediaType)
     {

@@ -4,6 +4,10 @@ namespace AniMan.Infrastructure.MediaSource.Dtos;
 
 public record AnimeDto
 {
+    /// <summary>True when built by the fallback source: MAL-only fields are missing, not empty.</summary>
+    [JsonIgnore]
+    public bool IsPartial { get; init; }
+
     [JsonPropertyName("mal_id")]
     public int MalId { get; init; }
 

@@ -10,9 +10,11 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AniMan.Tests.TestDoubles;
 
 namespace AniMan.Tests.Services;
 
+[Collection(CatalogStateCollection.Name)]
 public class CatalogServiceTests : IDisposable
 {
     private readonly SqliteContextFactory<CatalogDbContext> _factory;

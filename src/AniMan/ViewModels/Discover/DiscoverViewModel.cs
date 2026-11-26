@@ -24,8 +24,6 @@ public enum DiscoverTab { Anime, Manga }
 /// </summary>
 public partial class DiscoverViewModel : ObservableObject, IDisposable
 {
-    /// <summary>Items per page returned by the source; a full page implies another may follow.</summary>
-    private const int PageSize = 25;
 
     private readonly ICatalogService _catalog;
     private readonly ISnapshotService _snapshot;
@@ -174,8 +172,8 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
 
                 if (result.IsSuccess)
                 {
-                    state.HasNextPage = result.Value!.Count >= PageSize;
-                    SetCards(state, result.Value!.Select(ToCard));
+                    state.HasNextPage = result.Value!.HasNextPage;
+                    SetCards(state, result.Value.Items.Select(ToCard));
                 }
                 else
                 {
@@ -189,8 +187,8 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
 
                 if (result.IsSuccess)
                 {
-                    state.HasNextPage = result.Value!.Count >= PageSize;
-                    SetCards(state, result.Value!.Select(ToCard));
+                    state.HasNextPage = result.Value!.HasNextPage;
+                    SetCards(state, result.Value.Items.Select(ToCard));
                 }
                 else
                 {

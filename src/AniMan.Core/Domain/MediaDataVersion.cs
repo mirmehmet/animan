@@ -12,6 +12,14 @@ namespace AniMan.Core.Domain;
 /// </summary>
 public static class MediaDataVersion
 {
+    /// <summary>
+    /// Data from the fallback source (AniList) while the primary was unavailable: no MAL rank,
+    /// themes, demographics or age rating, and an AniList score. It never overwrites MAL data
+    /// and is refreshed like Legacy. Negative on purpose: 0 is the CLR default, and the columns'
+    /// database default (Legacy) would silently replace it on insert.
+    /// </summary>
+    public const int Partial = -1;
+
     /// <summary>Data written before extended metadata existed.</summary>
     public const int Legacy = 1;
 

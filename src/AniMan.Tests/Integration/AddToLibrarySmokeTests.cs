@@ -10,6 +10,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AniMan.Tests.TestDoubles;
 
 namespace AniMan.Tests.Integration;
 
@@ -18,6 +19,7 @@ namespace AniMan.Tests.Integration;
 /// databases, with only the media-source client mocked. Exercises
 /// CatalogService → catalog cache → SnapshotService → library write.
 /// </summary>
+[Collection(CatalogStateCollection.Name)]
 public class AddToLibrarySmokeTests : IDisposable
 {
     private readonly SqliteContextFactory<LibraryDbContext> _libraryFactory = new(o => new LibraryDbContext(o));
