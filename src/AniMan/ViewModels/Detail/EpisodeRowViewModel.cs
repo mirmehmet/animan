@@ -15,7 +15,10 @@ public partial class EpisodeRowViewModel : ObservableObject
 
     public int LibraryItemId { get; init; }
     public int EpisodeNumber { get; init; }
-    public string? Title { get; init; }
+
+    /// <summary>Filled in after the row is shown — titles may need the network, rows never do.</summary>
+    [ObservableProperty]
+    private string? _title;
 
     /// <summary>Localized "Ep N" label (e.g. "Bölüm 3" in Turkish).</summary>
     public string EpisodeLabel =>

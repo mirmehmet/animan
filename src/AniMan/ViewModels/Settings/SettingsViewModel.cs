@@ -227,7 +227,6 @@ public partial class SettingsViewModel(
 
     // ── Data reset ────────────────────────────────────────────────────
 
-    [RelayCommand]
     public async Task<Result> DeleteAllDataAsync()
     {
         var result = await dataManagementService.ResetAllDataAsync();

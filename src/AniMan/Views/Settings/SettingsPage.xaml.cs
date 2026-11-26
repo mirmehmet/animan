@@ -266,15 +266,21 @@ public partial class SettingsPage : UserControl
             var result = await _dialogService.ShowAsync(dialog, CancellationToken.None);
             if (result != ContentDialogResult.Primary) return;
 
-            await _viewModel.DeleteAllDataCommand.ExecuteAsync(null);
+            // Called directly (not through a command) so the outcome is not lost: a failed
+            // reset must never be reported as "all data deleted".
+            var reset = await _viewModel.DeleteAllDataAsync();
 
-            var success = new ContentDialog
+            var outcome = new ContentDialog
             {
-                Title = LocalizationManager.Get("Settings_DeleteAllDataSuccessTitle"),
-                Content = LocalizationManager.Get("Settings_DeleteAllDataSuccessContent"),
+                Title = LocalizationManager.Get(reset.IsSuccess
+                    ? "Settings_DeleteAllDataSuccessTitle"
+                    : "Settings_DeleteAllDataFailedTitle"),
+                Content = LocalizationManager.Get(reset.IsSuccess
+                    ? "Settings_DeleteAllDataSuccessContent"
+                    : "Settings_DeleteAllDataFailedContent"),
                 CloseButtonText = LocalizationManager.Get("Common_Ok")
             };
-            await _dialogService.ShowAsync(success, CancellationToken.None);
+            await _dialogService.ShowAsync(outcome, CancellationToken.None);
         }
         catch (Exception ex)
         {

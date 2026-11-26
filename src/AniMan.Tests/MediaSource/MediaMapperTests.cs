@@ -30,6 +30,13 @@ public class MediaMapperTests
     public void ParseDurationMinutes_UnknownOrEmpty_IsNull(string? input) =>
         MediaMapper.ParseDurationMinutes(input).Should().BeNull();
 
+    [Theory]
+    [InlineData("99999999999 min per ep")] // does not fit an int
+    [InlineData("2000000 hr")]             // fits an int, overflows the seconds
+    [InlineData("٢٤ min per ep")]          // Arabic-Indic digits: \d matches, int parsing does not
+    public void ParseDurationMinutes_GarbageFromTheNetwork_IsNullInsteadOfThrowing(string input) =>
+        MediaMapper.ParseDurationMinutes(input).Should().BeNull();
+
     /// <summary>Trimmed from a live Tenrai /anime/5114/full response (2026-11-22).</summary>
     private const string TenraiAnimeJson = """
         {

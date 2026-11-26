@@ -44,6 +44,9 @@ public static class CoverImageLoader
             var bmp = new BitmapImage();
             bmp.BeginInit();
             bmp.CacheOption = BitmapCacheOption.OnLoad;
+            // A refreshed cover is written to the same path; without this WPF's URI-keyed
+            // image cache can keep serving the old picture.
+            bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
             bmp.UriSource = new Uri(info.FullName, UriKind.Absolute);
             bmp.DecodePixelWidth = decodePixelWidth;
             bmp.EndInit();

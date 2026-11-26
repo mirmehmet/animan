@@ -225,6 +225,61 @@ public class CatalogServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAnimeEpisodesAsync_StaleEpisodes_AnswersFromCacheAtOnce_AndRefreshesInBackground()
+    {
+        // The anime row is fresh (re-stamped by a season/top list), the episodes are not:
+        // freshness must follow the episodes' own fetch time.
+        _db.Anime.Add(MakeCachedAnime(90, daysOld: 0, totalEpisodes: 2));
+        _db.Episodes.AddRange(
+            new CachedEpisode { AnimeId = 90, EpisodeNumber = 1, Title = "Old 1", FetchedAt = DateTime.UtcNow.AddDays(-14) },
+            new CachedEpisode { AnimeId = 90, EpisodeNumber = 2, Title = "Old 2", FetchedAt = DateTime.UtcNow.AddDays(-14) });
+        await _db.SaveChangesAsync();
+
+        var upstream = new TaskCompletionSource<Result<PagedResult<AnimeEpisodeDto>>>();
+        _sourceMock
+            .Setup(j => j.GetAnimeEpisodesAsync(90, 1, It.IsAny<CancellationToken>()))
+            .Returns(upstream.Task);
+
+        var result = await CreateService().GetAnimeEpisodesAsync(90);
+
+        // Answered while the upstream call is still pending — nothing waits on the network.
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Select(e => e.Title).Should().Equal("Old 1", "Old 2");
+
+        upstream.SetResult(Result<PagedResult<AnimeEpisodeDto>>.Success(new PagedResult<AnimeEpisodeDto>
+        {
+            Data = [new AnimeEpisodeDto { MalId = 1, Title = "New 1" }, new AnimeEpisodeDto { MalId = 2, Title = "New 2" }],
+            Pagination = new PaginationDto { HasNextPage = false }
+        }));
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        string?[] titles = [];
+        while (DateTime.UtcNow < deadline)
+        {
+            await using var check = await _factory.CreateDbContextAsync();
+            titles = await check.Episodes.AsNoTracking().Where(e => e.AnimeId == 90)
+                .OrderBy(e => e.EpisodeNumber).Select(e => e.Title).ToArrayAsync();
+            if (titles.SequenceEqual(["New 1", "New 2"])) break;
+            await Task.Delay(20);
+        }
+        titles.Should().Equal(["New 1", "New 2"], "the background refresh replaces the stale titles");
+    }
+
+    [Fact]
+    public async Task GetAnimeEpisodesAsync_FreshEpisodesUnderAStaleAnimeRow_DoesNotRefetch()
+    {
+        _db.Anime.Add(MakeCachedAnime(91, daysOld: 30, totalEpisodes: 1));
+        _db.Episodes.Add(new CachedEpisode { AnimeId = 91, EpisodeNumber = 1, Title = "Ep 1", FetchedAt = DateTime.UtcNow });
+        await _db.SaveChangesAsync();
+
+        var result = await CreateService().GetAnimeEpisodesAsync(91);
+        await Task.Delay(100); // a wrongly queued background refresh would call the source by now
+
+        result.Value!.Should().ContainSingle(e => e.Title == "Ep 1");
+        _sourceMock.Verify(j => j.GetAnimeEpisodesAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetAnimeStreamingAsync_CacheHit_DoesNotCallTheSource()
     {
         _db.Anime.Add(MakeCachedAnime(1, daysOld: 0));

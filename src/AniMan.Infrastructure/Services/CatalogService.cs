@@ -160,8 +160,23 @@ public sealed class CatalogService(
                 .OrderBy(e => e.EpisodeNumber)
                 .ToListAsync(ct).ConfigureAwait(false);
 
-            if (cached.Count > 0 && !await IsStaleAsync(anime.FetchedAt, ct).ConfigureAwait(false))
+            if (cached.Count > 0)
+            {
+                // Freshness follows the episodes' own fetch time: the anime row is re-stamped
+                // whenever the title shows up in a season/search/top list, which would otherwise
+                // keep an airing show's episode list "fresh" forever.
+                // Stale-while-revalidate, like the anime/manga rows: answer from the cache at once
+                // (also offline) and refresh in the background.
+                var oldestFetch = cached.Min(e => e.FetchedAt);
+                if (await IsStaleAsync(oldestFetch, ct).ConfigureAwait(false))
+                {
+                    var totalEpisodes = anime.TotalEpisodes;
+                    QueueBackgroundRefresh("episodes", malId,
+                        () => FetchAndCacheEpisodesAsync(malId, totalEpisodes, cached, CancellationToken.None));
+                }
+
                 return Result<IReadOnlyList<CachedEpisode>>.Success(cached);
+            }
 
             return await FetchAndCacheEpisodesAsync(malId, anime.TotalEpisodes, cached, ct).ConfigureAwait(false);
         }

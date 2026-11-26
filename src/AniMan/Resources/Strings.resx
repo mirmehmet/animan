@@ -305,6 +305,8 @@
   <data name="Settings_DeleteAllDataConfirm" xml:space="preserve"><value>Delete Everything</value></data>
   <data name="Settings_DeleteAllDataSuccessTitle" xml:space="preserve"><value>Done</value></data>
   <data name="Settings_DeleteAllDataSuccessContent" xml:space="preserve"><value>All data has been deleted.</value></data>
+  <data name="Settings_DeleteAllDataFailedTitle" xml:space="preserve"><value>Deletion did not complete</value></data>
+  <data name="Settings_DeleteAllDataFailedContent" xml:space="preserve"><value>Not all data could be deleted; some of it may still be there. Please try again. The log file has the details.</value></data>
 
   <data name="Settings_Font" xml:space="preserve"><value>Font</value></data>
 

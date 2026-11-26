@@ -111,23 +111,30 @@ internal static partial class MediaMapper
     /// "24 min per ep" → 24, "1 hr 45 min" → 105, "2 hr" → 120, "45 sec per ep" → 1.
     /// Returns null for "Unknown", blank, or anything without a recognisable amount.
     /// </summary>
+    /// <summary>A week — far above any real episode; anything longer is treated as garbage.</summary>
+    private const long MaxDurationSeconds = 7L * 24 * 3600;
+
     public static int? ParseDurationMinutes(string? duration)
     {
         if (string.IsNullOrWhiteSpace(duration)) return null;
 
-        var seconds = 0;
+        long seconds = 0;
         foreach (Match m in DurationPart().Matches(duration))
         {
-            var amount = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+            // TryParse: the text comes from the network, and \d also matches non-ASCII digits
+            // or numbers too long for an int — one bad value must not fail the whole mapping.
+            if (!int.TryParse(m.Groups["n"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var amount))
+                continue;
+
             seconds += m.Groups["unit"].Value.ToLowerInvariant() switch
             {
-                "hr" => amount * 3600,
-                "min" => amount * 60,
+                "hr" => amount * 3600L,
+                "min" => amount * 60L,
                 _ => amount
             };
         }
 
-        if (seconds <= 0) return null;
+        if (seconds <= 0 || seconds > MaxDurationSeconds) return null;
         // Anything shorter than a minute still counts as one, so a short is never "0 min".
         return Math.Max(1, (int)Math.Round(seconds / 60.0, MidpointRounding.AwayFromZero));
     }

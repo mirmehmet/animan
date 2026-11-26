@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using AniMan.Core.Common;
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -138,10 +139,7 @@ public partial class DetailViewModel : ObservableObject
             if (IsManga)
                 await LoadChaptersAsync();
             else
-            {
-                await LoadEpisodesAsync();
-                await LoadStreamingAsync(Item!.MalId);
-            }
+                await LoadEpisodesAndExtrasAsync(forceStreaming: false);
         }
         finally
         {
@@ -246,6 +244,11 @@ public partial class DetailViewModel : ObservableObject
         var result = await _snapshot.ReSnapshotAsync(LibraryItemId);
         if (!result.IsSuccess) return;
 
+        // Re-read the item: the rows are rebuilt from its progress and notes, and the copy
+        // loaded when the page opened does not know about marks made since then.
+        var fresh = await _tracking.GetItemAsync(LibraryItemId);
+        if (fresh.IsSuccess)
+            Item = fresh.Value!;
         if (Item is not null)
             Item.Snapshot = result.Value;
 
@@ -255,14 +258,9 @@ public partial class DetailViewModel : ObservableObject
         await LoadProgressAsync();
 
         if (IsManga)
-        {
             await LoadChaptersAsync();
-        }
         else if (Item is not null)
-        {
-            await LoadEpisodesAsync();
-            await LoadStreamingAsync(Item.MalId, force: true);
-        }
+            await LoadEpisodesAndExtrasAsync(forceStreaming: true);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -270,6 +268,7 @@ public partial class DetailViewModel : ObservableObject
     private async Task InitializePreviewAsync(int malId, MediaType mediaType)
     {
         IsPreviewMode = true;
+        IsManga = mediaType == MediaType.Manga;
         _previewMalId = malId;
         _previewMediaType = mediaType;
         IsLoading = true;
@@ -491,9 +490,48 @@ public partial class DetailViewModel : ObservableObject
         TotalCount = result.Value.Total;
     }
 
-    private async Task LoadEpisodesAsync()
+    /// <summary>
+    /// Shows the episode rows straight from local data, then fills in episode titles and
+    /// streaming platforms side by side. Neither of those may hold the list back: they can
+    /// need the network, and offline that is a slow failure.
+    /// </summary>
+    private async Task LoadEpisodesAndExtrasAsync(bool forceStreaming)
     {
-        if (Item?.Snapshot is null) return;
+        if (Item is null) return;
+        var rows = BuildEpisodeRows();
+        await Task.WhenAll(
+            LoadEpisodeTitlesAsync(Item.MalId, rows),
+            LoadStreamingAsync(Item.MalId, forceStreaming));
+    }
+
+    private async Task LoadEpisodeTitlesAsync(int malId, IReadOnlyList<EpisodeRowViewModel> rows)
+    {
+        if (rows.Count == 0) return;
+        try
+        {
+            // Best-effort: without titles the rows keep their "Ep N" label.
+            var result = await _catalog.GetAnimeEpisodesAsync(malId);
+            if (!result.IsSuccess) return;
+
+            var titles = new Dictionary<int, string?>();
+            foreach (var ce in result.Value!)
+                titles[ce.EpisodeNumber] = ce.Title;
+
+            foreach (var row in rows)
+            {
+                if (titles.TryGetValue(row.EpisodeNumber, out var title))
+                    row.Title = title;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Episode titles could not be loaded for anime {MalId}", malId);
+        }
+    }
+
+    private List<EpisodeRowViewModel> BuildEpisodeRows()
+    {
+        if (Item?.Snapshot is null) return [];
 
         var episodeProgress = Item.EpisodeProgress
             .GroupBy(ep => ep.EpisodeNumber)
@@ -505,13 +543,6 @@ public partial class DetailViewModel : ObservableObject
 
         int total = Item.Snapshot.TotalEpisodes ?? 0;
 
-        // Episode titles (best-effort; list shows "Ep N" if unavailable).
-        var titleMap = new Dictionary<int, string?>();
-        var episodesResult = await _catalog.GetAnimeEpisodesAsync(Item.MalId);
-        if (episodesResult.IsSuccess)
-            foreach (var ce in episodesResult.Value!)
-                titleMap[ce.EpisodeNumber] = ce.Title;
-
         var rows = new List<EpisodeRowViewModel>();
         for (int i = 1; i <= total; i++)
         {
@@ -519,7 +550,6 @@ public partial class DetailViewModel : ObservableObject
             {
                 LibraryItemId = LibraryItemId,
                 EpisodeNumber = i,
-                Title = titleMap.GetValueOrDefault(i),
                 HasNote = episodeNotes.Contains(i)
             };
             var watched = episodeProgress.TryGetValue(i, out var ep) && ep.IsWatched;
@@ -532,6 +562,7 @@ public partial class DetailViewModel : ObservableObject
         }
 
         Episodes = new ObservableCollection<EpisodeRowViewModel>(rows);
+        return rows;
     }
 
     private Task LoadChaptersAsync()
@@ -570,6 +601,13 @@ public partial class DetailViewModel : ObservableObject
         return Task.CompletedTask;
     }
 
+    /// <summary>Asks the page to offer "mark as completed" — unless the title already is.</summary>
+    private void RequestAutoCompleteIfNeeded(bool isManga)
+    {
+        if (CurrentStatusId == TrackingStatusIds.Completed) return;
+        AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, isManga));
+    }
+
     // ── Episode handlers ──────────────────────────────────────────────────────
 
     // async void: event handlers must never let an exception escape to the dispatcher.
@@ -580,7 +618,7 @@ public partial class DetailViewModel : ObservableObject
             await LoadProgressAsync();
 
             if (WatchedCount == TotalCount && TotalCount > 0)
-                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: false));
+                RequestAutoCompleteIfNeeded(isManga: false);
         }
         catch (Exception ex)
         {
@@ -609,7 +647,7 @@ public partial class DetailViewModel : ObservableObject
             await LoadProgressAsync();
 
             if (result.Value!.AutoCompleteNeeded)
-                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: false));
+                RequestAutoCompleteIfNeeded(isManga: false);
         }
         catch (Exception ex)
         {
@@ -634,7 +672,7 @@ public partial class DetailViewModel : ObservableObject
             await LoadProgressAsync();
 
             if (WatchedCount == TotalCount && TotalCount > 0)
-                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: true));
+                RequestAutoCompleteIfNeeded(isManga: true);
         }
         catch (Exception ex)
         {
@@ -660,7 +698,7 @@ public partial class DetailViewModel : ObservableObject
             await LoadProgressAsync();
 
             if (result.Value!.AutoCompleteNeeded)
-                AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga: true));
+                RequestAutoCompleteIfNeeded(isManga: true);
         }
         catch (Exception ex)
         {

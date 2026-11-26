@@ -305,6 +305,8 @@
   <data name="Settings_DeleteAllDataConfirm" xml:space="preserve"><value>Her Şeyi Sil</value></data>
   <data name="Settings_DeleteAllDataSuccessTitle" xml:space="preserve"><value>Tamamlandı</value></data>
   <data name="Settings_DeleteAllDataSuccessContent" xml:space="preserve"><value>Tüm veriler silindi.</value></data>
+  <data name="Settings_DeleteAllDataFailedTitle" xml:space="preserve"><value>Silme tamamlanamadı</value></data>
+  <data name="Settings_DeleteAllDataFailedContent" xml:space="preserve"><value>Verilerin hepsi silinemedi, bir kısmı hâlâ duruyor olabilir. Lütfen tekrar dene. Ayrıntılar log dosyasında.</value></data>
 
   <data name="Settings_Font" xml:space="preserve"><value>Yazı Tipi</value></data>
 

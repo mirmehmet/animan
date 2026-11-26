@@ -206,6 +206,48 @@ public class TenraiClientTests : IDisposable
         h.Calls.Should().Be(1, "a 4xx answer is final");
     }
 
+    [Fact]
+    public async Task DnsFailure_IsNotRetried_SoOfflineFailsFast()
+    {
+        var calls = 0;
+        using var http = new HttpClient(new DelegatingMockHandler((req, ct) =>
+        {
+            calls++;
+            throw new HttpRequestException(HttpRequestError.NameResolutionError, "No such host is known.");
+        }))
+        { BaseAddress = new Uri("https://api.tenrai.org/v1/") };
+        var time = new FakeTimeProvider();
+        using var limiter = new TenraiRateLimiter(NullLogger<TenraiRateLimiter>.Instance, time);
+        var client = new TenraiClient(http, limiter, NullLogger<TenraiClient>.Instance, time);
+
+        // No virtual time is advanced: a retry would wait on the back-off and never finish.
+        var task = client.SearchAnimeAsync("bebop");
+        (await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(5)))).Should().Be(task);
+
+        (await task).IsSuccess.Should().BeFalse();
+        calls.Should().Be(1, "an offline machine gets its answer at once instead of after 7 s of retries");
+    }
+
+    [Fact]
+    public async Task ConnectionFailure_IsStillRetried()
+    {
+        var calls = 0;
+        using var http = new HttpClient(new DelegatingMockHandler((req, ct) =>
+        {
+            calls++;
+            throw new HttpRequestException(HttpRequestError.ConnectionError, "Connection refused.");
+        }))
+        { BaseAddress = new Uri("https://api.tenrai.org/v1/") };
+        var time = new FakeTimeProvider();
+        using var limiter = new TenraiRateLimiter(NullLogger<TenraiRateLimiter>.Instance, time);
+        var client = new TenraiClient(http, limiter, NullLogger<TenraiClient>.Instance, time);
+
+        var result = await RunInVirtualTimeAsync(client.SearchAnimeAsync("bebop"), time);
+
+        result.IsSuccess.Should().BeFalse();
+        calls.Should().Be(4, "a refused connection can be a server blip, so it keeps its retries");
+    }
+
     public void Dispose() => _limiter.Dispose();
 }
 

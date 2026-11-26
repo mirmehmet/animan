@@ -55,9 +55,15 @@ public sealed class TenraiClient : IMediaSourceClient
             .Build();
     }
 
-    /// <summary>Retry server-side and rate-limit failures; a 4xx answer is final.</summary>
+    /// <summary>
+    /// Retry server-side and rate-limit failures; a 4xx answer is final. A failed DNS lookup is
+    /// final too: it almost always means the machine is offline, and retrying only adds seconds
+    /// of back-off (and holds rate-limit permits) before the cached data can be shown.
+    /// </summary>
     private static bool IsTransient(Outcome<HttpResponseMessage> outcome)
     {
+        if (outcome.Exception is HttpRequestException { HttpRequestError: HttpRequestError.NameResolutionError })
+            return false;
         if (outcome.Exception is HttpRequestException) return true;
         if (outcome.Result is not { } response) return false;
 
