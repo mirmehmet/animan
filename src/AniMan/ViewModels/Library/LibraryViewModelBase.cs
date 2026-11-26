@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using AniMan.Core.Common;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -31,8 +32,18 @@ public abstract partial class LibraryViewModelBase : ObservableObject
 
     private readonly ITrackingService _tracking;
     private readonly ISettingsService _settings;
+    private readonly ILibraryVersion _libraryVersion;
     private readonly MediaType _mediaType;
     private List<LibraryCardViewModel> _allItems = [];
+
+    /// <summary>Library version the cards were built at; -1 = never loaded successfully.</summary>
+    private long _loadedVersion = -1;
+
+    /// <summary>
+    /// Above this many moves/inserts a filter change replaces the list instead of editing it
+    /// (see <see cref="CollectionSync.TryApply{T}"/>).
+    /// </summary>
+    private const int MaxInPlaceChanges = 60;
     private int _coverLoadVersion;
     private bool _sortLoaded;
 
@@ -112,7 +123,9 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     public bool HasTotalItems => _allItems.Count > 0;
     public bool IsEmptyLibrary => !IsLoading && _allItems.Count == 0 && LoadErrorMessage is null;
     public bool IsNoResults => !IsLoading && _allItems.Count > 0 && Items.Count == 0;
-    public bool HasContent => !IsLoading && Items.Count > 0;
+    // Not hidden while a reload runs: the previous list stays on screen (and keeps its scroll
+    // position) until the new one is ready.
+    public bool HasContent => Items.Count > 0;
 
     public bool HasActiveFilters => ActiveFilters.Count > 0;
     public bool ShowActiveFilterBar => HasActiveFilters && !IsFilterPanelOpen;
@@ -132,10 +145,12 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     public LibraryLayoutViewModel Layout { get; }
 
     protected LibraryViewModelBase(
-        ITrackingService tracking, ISettingsService settings, LibraryLayoutViewModel layout, MediaType mediaType)
+        ITrackingService tracking, ISettingsService settings, LibraryLayoutViewModel layout,
+        ILibraryVersion libraryVersion, MediaType mediaType)
     {
         _tracking = tracking;
         _settings = settings;
+        _libraryVersion = libraryVersion;
         _mediaType = mediaType;
         Layout = layout;
         Layout.CoverResolutionChanged += (_, width) => _ = LoadCoversAsync(width);
@@ -149,12 +164,22 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         ];
     }
 
-    /// <summary>Watched/read count and total for the given item, per media type.</summary>
-    protected abstract (int Watched, int? Total) GetProgress(LibraryItem item);
+    /// <summary>Total episodes (anime) or chapters (manga) from the snapshot.</summary>
+    protected abstract int? GetTotal(MediaSnapshot? snapshot);
 
+    /// <summary>
+    /// Loads the library — or does nothing when it has not changed since the last load, so
+    /// coming back from a detail page keeps the list, its covers and the scroll position.
+    /// </summary>
     [RelayCommand]
     private async Task LoadAsync()
     {
+        // Read before loading: a write that lands during the load bumps the version again
+        // and is picked up on the next visit.
+        var version = _libraryVersion.Current;
+        if (version == _loadedVersion && LoadErrorMessage is null)
+            return;
+
         IsLoading = true;
         LoadErrorMessage = null; // a retry hides the old error while it runs
         OnStateChanged();
@@ -163,7 +188,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             await LoadSortPreferenceOnceAsync();
             await Layout.EnsureLoadedAsync();
 
-            var result = await _tracking.GetLibraryAsync(_mediaType.ToString().ToLowerInvariant());
+            var result = await _tracking.GetLibraryOverviewAsync(_mediaType);
             if (!result.IsSuccess)
             {
                 // An error screen only when there is nothing to show: a failed reload keeps
@@ -173,6 +198,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             }
 
             LoadErrorMessage = null;
+            _loadedVersion = version;
             _allItems = result.Value!.Select(ToCard).ToList();
 
             _ = LoadCoversAsync(Layout.CoverDecodeWidth);
@@ -263,7 +289,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     {
         ApplyFilter();
         if (_sortLoaded)
-            _ = _settings.SetAsync(SortSettingKey, value.ToString());
+            _settings.SaveInBackground(SortSettingKey, value.ToString());
     }
 
     partial void OnYearFromChanged(int value) => OnFilterChanged();
@@ -292,9 +318,9 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         }
     }
 
-    private LibraryCardViewModel ToCard(LibraryItem item)
+    private LibraryCardViewModel ToCard(LibraryOverviewItem entry)
     {
-        var (watched, total) = GetProgress(item);
+        var item = entry.Item;
         var snap = item.Snapshot;
         return new LibraryCardViewModel
         {
@@ -309,8 +335,8 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             UserRating = item.UserRating,
             MalScore = snap?.MalScore,
             IsFavorite = item.IsFavorite,
-            ProgressWatched = watched,
-            ProgressTotal = total,
+            ProgressWatched = entry.ProgressDone,
+            ProgressTotal = GetTotal(snap),
             Format = NullIfBlank(snap?.Type),
             Year = ResolveYear(snap),
             Genres = ParseNames(snap?.Genres),
@@ -408,7 +434,11 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         if (!filter.IsEmpty)
             filtered = filtered.Where(c => LibraryFilterEngine.Matches(c, filter));
 
-        Items = new ObservableCollection<LibraryCardViewModel>(LibraryFilterEngine.Sort(filtered, SortMode));
+        // Edit the bound list in place when the change is small (typing in the search box,
+        // ticking a chip): cards that stay keep their containers. A large change replaces it.
+        var result = LibraryFilterEngine.Sort(filtered, SortMode).ToList();
+        if (!CollectionSync.TryApply(Items, result, MaxInPlaceChanges))
+            Items = new ObservableCollection<LibraryCardViewModel>(result);
         foreach (var group in FilterGroups)
             group.RefreshSelectionState();
         RebuildActiveFilters(filter);

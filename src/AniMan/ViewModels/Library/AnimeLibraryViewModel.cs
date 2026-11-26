@@ -4,9 +4,9 @@ using AniMan.Core.Interfaces;
 
 namespace AniMan.ViewModels.Library;
 
-public sealed class AnimeLibraryViewModel(ITrackingService tracking, ISettingsService settings, LibraryLayoutViewModel layout)
-    : LibraryViewModelBase(tracking, settings, layout, MediaType.Anime)
+public sealed class AnimeLibraryViewModel(
+    ITrackingService tracking, ISettingsService settings, LibraryLayoutViewModel layout, ILibraryVersion libraryVersion)
+    : LibraryViewModelBase(tracking, settings, layout, libraryVersion, MediaType.Anime)
 {
-    protected override (int Watched, int? Total) GetProgress(LibraryItem item) =>
-        (item.EpisodeProgress?.Count(e => e.IsWatched) ?? 0, item.Snapshot?.TotalEpisodes);
+    protected override int? GetTotal(MediaSnapshot? snapshot) => snapshot?.TotalEpisodes;
 }

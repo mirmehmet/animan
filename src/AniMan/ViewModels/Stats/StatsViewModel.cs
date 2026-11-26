@@ -27,7 +27,11 @@ public partial class StatsViewModel : ObservableObject
     private static readonly double[] HeatOpacity = [0, 0.3, 0.5, 0.75, 1.0];
 
     private readonly ITrackingService _tracking;
+    private readonly ILibraryVersion _libraryVersion;
     private readonly Dictionary<MediaType, LoadedLibrary> _cache = [];
+
+    /// <summary>Library version the cache was filled at; -1 = never.</summary>
+    private long _cacheVersion = -1;
 
     /// <summary>Localized load failure per media type; a failed load is not cached, so the next visit retries.</summary>
     private readonly Dictionary<MediaType, string> _loadErrors = [];
@@ -69,7 +73,11 @@ public partial class StatsViewModel : ObservableObject
     /// <summary>Raised when a chart element was clicked; the page navigates to the library.</summary>
     public event EventHandler<LibraryFilterRequest>? OpenLibraryRequested;
 
-    public StatsViewModel(ITrackingService tracking) => _tracking = tracking;
+    public StatsViewModel(ITrackingService tracking, ILibraryVersion libraryVersion)
+    {
+        _tracking = tracking;
+        _libraryVersion = libraryVersion;
+    }
 
     partial void OnTasteRowsChanged(IReadOnlyList<TasteRowViewModel> value) => OnPropertyChanged(nameof(HasTaste));
     partial void OnTopGenresChanged(IReadOnlyList<RankedBarViewModel> value) => OnPropertyChanged(nameof(HasGenres));
@@ -81,14 +89,25 @@ public partial class StatsViewModel : ObservableObject
             RebuildPeriod();
     }
 
-    /// <summary>Reloads from the database (the library may have changed since last visit).</summary>
+    /// <summary>
+    /// Shows the statistics, reading the library again only if it changed since the last
+    /// visit. Every visit still rebuilds the view, so date-based parts (today, the current
+    /// period) stay current.
+    /// </summary>
     [RelayCommand]
     public async Task LoadAsync()
     {
         IsLoading = true;
         try
         {
-            _cache.Clear();
+            // Read before loading: a write that lands during the load bumps the version
+            // again and is picked up on the next visit.
+            var version = _libraryVersion.Current;
+            if (version != _cacheVersion)
+            {
+                _cache.Clear();
+                _cacheVersion = version;
+            }
             await EnsureLoadedAsync(MediaType);
             Rebuild();
         }

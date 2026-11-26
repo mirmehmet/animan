@@ -12,6 +12,10 @@ namespace AniMan.ViewModels.Dashboard;
 public partial class DashboardViewModel : ObservableObject, IDisposable
 {
     private readonly ITrackingService _tracking;
+    private readonly ILibraryVersion _libraryVersion;
+
+    /// <summary>Library version the counters and rows were built at; -1 = never.</summary>
+    private long _loadedLibraryVersion = -1;
     private readonly ICatalogService _catalog;
     private readonly IHttpClientFactory _httpClientFactory;
     private CancellationTokenSource? _seasonCoverCts;
@@ -43,9 +47,11 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     public DashboardViewModel(
         ITrackingService tracking,
         ICatalogService catalog,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        ILibraryVersion libraryVersion)
     {
         _tracking = tracking;
+        _libraryVersion = libraryVersion;
         _catalog = catalog;
         _httpClientFactory = httpClientFactory;
     }
@@ -123,16 +129,24 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) { }
     }
 
+    /// <summary>Builds the counters and "continue" rows; skipped while the library is unchanged since the last visit.</summary>
     private async Task LoadLibraryAsync()
     {
+        var version = _libraryVersion.Current;
+        if (version == _loadedLibraryVersion) return;
+
         IsLoadingLibrary = true;
         try
         {
-            var animeResult = await _tracking.GetLibraryAsync("anime");
-            var mangaResult = await _tracking.GetLibraryAsync("manga");
+            var animeResult = await _tracking.GetLibraryOverviewAsync(MediaType.Anime);
+            var mangaResult = await _tracking.GetLibraryOverviewAsync(MediaType.Manga);
 
-            var animeItems = animeResult.IsSuccess ? animeResult.Value! : [];
-            var mangaItems = mangaResult.IsSuccess ? mangaResult.Value! : [];
+            // A failed read is retried on the next visit rather than remembered as "empty".
+            if (animeResult.IsSuccess && mangaResult.IsSuccess)
+                _loadedLibraryVersion = version;
+
+            var animeItems = animeResult.IsSuccess ? animeResult.Value!.Select(o => o.Item).ToList() : [];
+            var mangaItems = mangaResult.IsSuccess ? mangaResult.Value!.Select(o => o.Item).ToList() : [];
 
             TotalAnime = animeItems.Count;
             TotalManga = mangaItems.Count;

@@ -7,7 +7,32 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
 
-    <ItemsControl ItemsSource="{Binding Episodes}"
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- 1–100, 101–200 … for long series; one range is drawn at a time. -->
+        <ItemsControl ItemsSource="{Binding EpisodePager.Ranges}" Margin="0,0,0,8"
+                      Visibility="{Binding EpisodePager.HasRanges, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <RadioButton Style="{StaticResource StatusPillRadio}" Margin="0,0,6,6"
+                                 Content="{Binding Label}"
+                                 IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                 Command="{Binding DataContext.EpisodePager.SelectCommand,
+                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 CommandParameter="{Binding}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+    <ItemsControl ItemsSource="{Binding EpisodePager.Visible}"
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling">
         <ItemsControl.ItemsPanel>
@@ -66,4 +91,5 @@
             </DataTemplate>
         </ItemsControl.ItemTemplate>
     </ItemsControl>
+    </StackPanel>
 </UserControl>

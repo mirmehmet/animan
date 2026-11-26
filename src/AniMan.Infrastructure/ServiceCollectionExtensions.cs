@@ -41,12 +41,14 @@ public static class ServiceCollectionExtensions
         }.ToString();
 
         var pragmaInterceptor = new SqlitePragmaInterceptor();
+        var libraryWrites = new LibraryWriteInterceptor();
+        services.AddSingleton<ILibraryVersion>(libraryWrites);
 
         services.AddDbContextFactory<CatalogDbContext>(options =>
             options.UseSqlite(catalogConnectionString).AddInterceptors(pragmaInterceptor));
 
         services.AddDbContextFactory<LibraryDbContext>(options =>
-            options.UseSqlite(libraryConnectionString).AddInterceptors(pragmaInterceptor));
+            options.UseSqlite(libraryConnectionString).AddInterceptors(pragmaInterceptor, libraryWrites));
 
         services.AddSingleton(new StoragePaths(appDataPath, coversPath));
         services.AddSingleton<ISettingsService, SettingsService>();

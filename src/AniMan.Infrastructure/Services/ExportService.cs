@@ -39,7 +39,10 @@ public sealed class ExportService(
                 .Select(s => new StatusDto(s.Name, s.IsDefault, s.DisplayOrder, s.Color))
                 .ToListAsync(ct).ConfigureAwait(false);
 
+            // Split: six collections in one JOIN would repeat every row once per combination
+            // of progress rows, notes and overrides.
             var items = await db.LibraryItems.AsNoTracking()
+                .AsSplitQuery()
                 .Include(i => i.Status)
                 .Include(i => i.Snapshot)
                 .Include(i => i.EpisodeProgress)

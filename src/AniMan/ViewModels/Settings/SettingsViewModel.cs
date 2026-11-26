@@ -208,10 +208,8 @@ public partial class SettingsViewModel(
     /// <summary>Every title a replace-import would delete: anime, manga and the trash.</summary>
     public async Task<int> CountLibraryItemsAsync()
     {
-        var anime = await trackingService.GetLibraryAsync("anime");
-        var manga = await trackingService.GetLibraryAsync("manga");
-        var trash = await trackingService.GetTrashAsync();
-        return (anime.Value?.Count ?? 0) + (manga.Value?.Count ?? 0) + (trash.Value?.Count ?? 0);
+        var count = await trackingService.CountAllItemsAsync();
+        return count.IsSuccess ? count.Value : 0;
     }
 
     public Task<Result<ImportSummary>> ImportAsync(

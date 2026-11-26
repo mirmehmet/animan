@@ -51,6 +51,10 @@ public partial class DetailViewModel : ObservableObject
     [ObservableProperty] private BitmapImage? _coverImage;
     [ObservableProperty] private ObservableCollection<EpisodeRowViewModel> _episodes = [];
     [ObservableProperty] private ObservableCollection<ChapterRowViewModel> _chapters = [];
+
+    /// <summary>What the list shows of <see cref="Episodes"/>/<see cref="Chapters"/>: one 100-row range at a time.</summary>
+    public ProgressPager<EpisodeRowViewModel> EpisodePager { get; } = new(r => r.EpisodeNumber, r => r.IsWatched);
+    public ProgressPager<ChapterRowViewModel> ChapterPager { get; } = new(r => r.ChapterNumber, r => r.IsRead);
     [ObservableProperty] private int _watchedCount;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private string _seriesNote = string.Empty;
@@ -126,16 +130,11 @@ public partial class DetailViewModel : ObservableObject
             }
 
             // Check if already in library (navigated from Discover)
-            var libraryResult = await _tracking.GetLibraryAsync(
-                args.MediaType == MediaType.Anime ? "anime" : "manga", ct);
-            if (libraryResult.IsSuccess)
+            var found = await _tracking.FindItemIdAsync(args.MalId, args.MediaType, ct);
+            if (found is { IsSuccess: true, Value: int itemId })
             {
-                var found = libraryResult.Value!.FirstOrDefault(i => i.MalId == args.MalId);
-                if (found != null)
-                {
-                    await InitializeAsync(found.Id, ct);
-                    return;
-                }
+                await InitializeAsync(itemId, ct);
+                return;
             }
 
             await InitializePreviewAsync(args.MalId, args.MediaType, ct);
@@ -711,6 +710,7 @@ public partial class DetailViewModel : ObservableObject
         }
 
         Episodes = new ObservableCollection<EpisodeRowViewModel>(rows);
+        EpisodePager.Reset(rows);
         return rows;
     }
 
@@ -748,6 +748,7 @@ public partial class DetailViewModel : ObservableObject
         }
 
         Chapters = new ObservableCollection<ChapterRowViewModel>(rows);
+        ChapterPager.Reset(rows);
     }
 
     private void OnProgressSaveFailed(object? sender, ErrorKind kind) =>

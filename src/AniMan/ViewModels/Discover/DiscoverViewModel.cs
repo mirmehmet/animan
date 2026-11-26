@@ -260,18 +260,9 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
 
     private async Task LoadLibrarySetAsync(CancellationToken ct)
     {
-        var anime = await _tracking.GetLibraryAsync("anime", ct: ct);
-        var manga = await _tracking.GetLibraryAsync("manga", ct: ct);
-
-        var set = new HashSet<(int MalId, MediaType MediaType)>();
-        if (anime.IsSuccess)
-            foreach (var item in anime.Value!)
-                set.Add((item.MalId, MediaType.Anime));
-        if (manga.IsSuccess)
-            foreach (var item in manga.Value!)
-                set.Add((item.MalId, MediaType.Manga));
-
-        _librarySet = set;
+        var keys = await _tracking.GetLibraryKeysAsync(ct);
+        // A copy: cards added from this page are marked in it right away.
+        _librarySet = keys.IsSuccess ? [.. keys.Value!] : [];
     }
 
     /// <summary>Replaces a tab's cards (the previous page becomes garbage) and loads their covers.</summary>

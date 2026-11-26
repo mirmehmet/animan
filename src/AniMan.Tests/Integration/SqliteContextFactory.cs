@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace AniMan.Tests.Integration;
 
@@ -24,10 +25,13 @@ internal sealed class SqliteContextFactory<TContext> : IDbContextFactory<TContex
     private readonly SqliteConnection _keepAlive;
     private readonly string _connectionString;
     private readonly Func<DbContextOptions<TContext>, TContext> _ctor;
+    private readonly IInterceptor[] _interceptors;
 
-    public SqliteContextFactory(Func<DbContextOptions<TContext>, TContext> ctor)
+    /// <param name="interceptors">Added to every context, like the app's factories add theirs.</param>
+    public SqliteContextFactory(Func<DbContextOptions<TContext>, TContext> ctor, params IInterceptor[] interceptors)
     {
         _ctor = ctor;
+        _interceptors = interceptors;
         _connectionString = new SqliteConnectionStringBuilder
         {
             // Unique name: test classes run in parallel and must never share a database.
@@ -49,6 +53,7 @@ internal sealed class SqliteContextFactory<TContext> : IDbContextFactory<TContex
     {
         var options = new DbContextOptionsBuilder<TContext>()
             .UseSqlite(_connectionString)
+            .AddInterceptors(_interceptors)
             .Options;
         return _ctor(options);
     }

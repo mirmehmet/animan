@@ -46,6 +46,102 @@ public sealed class TrackingService(
         }
     }
 
+    public async Task<Result<IReadOnlyList<LibraryOverviewItem>>> GetLibraryOverviewAsync(
+        MediaType mediaType, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            // Snapshot and status come along; progress rows stay in the database and only
+            // their count is read, so a long-running series costs one number, not a row each.
+            var rows = await db.LibraryItems.AsNoTracking()
+                .Where(i => i.MediaType == mediaType && i.DeletedAt == null)
+                .OrderByDescending(i => i.UpdatedAt)
+                .Select(i => new
+                {
+                    Item = i,
+                    i.Snapshot,
+                    i.Status,
+                    Done = mediaType == MediaType.Anime
+                        ? i.EpisodeProgress.Count(e => e.IsWatched)
+                        : i.ChapterProgress.Count(c => c.IsRead)
+                })
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            return Result<IReadOnlyList<LibraryOverviewItem>>.Success(
+            [
+                .. rows.Select(r =>
+                {
+                    r.Item.Snapshot = r.Snapshot;
+                    r.Item.Status = r.Status;
+                    return new LibraryOverviewItem(r.Item, r.Done);
+                })
+            ]);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetLibraryOverview failed for {Type}", mediaType);
+            return Result<IReadOnlyList<LibraryOverviewItem>>.Failure(LoadError, ErrorKind.LocalData);
+        }
+    }
+
+    public async Task<Result<IReadOnlySet<(int MalId, MediaType MediaType)>>> GetLibraryKeysAsync(
+        CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var keys = await db.LibraryItems.AsNoTracking()
+                .Where(i => i.DeletedAt == null)
+                .Select(i => new { i.MalId, i.MediaType })
+                .ToListAsync(ct).ConfigureAwait(false);
+            return Result<IReadOnlySet<(int, MediaType)>>.Success(
+                keys.Select(k => (k.MalId, k.MediaType)).ToHashSet());
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetLibraryKeys failed");
+            return Result<IReadOnlySet<(int, MediaType)>>.Failure(LoadError, ErrorKind.LocalData);
+        }
+    }
+
+    public async Task<Result<int?>> FindItemIdAsync(
+        int malId, MediaType mediaType, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            var id = await db.LibraryItems.AsNoTracking()
+                .Where(i => i.MalId == malId && i.MediaType == mediaType && i.DeletedAt == null)
+                .Select(i => (int?)i.Id)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+            return Result<int?>.Success(id);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "FindItemId failed for {MalId} {Type}", malId, mediaType);
+            return Result<int?>.Failure(LoadError, ErrorKind.LocalData);
+        }
+    }
+
+    public async Task<Result<int>> CountAllItemsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+            return Result<int>.Success(await db.LibraryItems.CountAsync(ct).ConfigureAwait(false));
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "CountAllItems failed");
+            return Result<int>.Failure(LoadError, ErrorKind.LocalData);
+        }
+    }
+
     public async Task<Result<LibraryItem>> GetItemAsync(
         int libraryItemId, CancellationToken ct = default)
     {

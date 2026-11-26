@@ -11,7 +11,7 @@ namespace AniMan.ViewModels.Library;
 /// The cover-size slider shared by the anime and manga library pages (one setting for both,
 /// persisted). Exposes the card geometry and info level for the current step, and tells the
 /// pages when covers should be re-decoded at a new resolution — debounced, so dragging the
-/// slider through several steps reloads once, after it settles.
+/// slider through several steps reloads covers and saves the setting once, after it settles.
 /// </summary>
 public sealed partial class LibraryLayoutViewModel : ObservableObject
 {
@@ -36,6 +36,8 @@ public sealed partial class LibraryLayoutViewModel : ObservableObject
         _reloadTimer.Tick += (_, _) =>
         {
             _reloadTimer.Stop();
+            _settings.SaveInBackground(SettingKey, Step.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
             var width = CoverDecodeWidth;
             if (width == _lastDecodeWidth) return;
             _lastDecodeWidth = width;
@@ -91,7 +93,6 @@ public sealed partial class LibraryLayoutViewModel : ObservableObject
     {
         if (!_loaded) return;
 
-        _ = _settings.SetAsync(SettingKey, Step.ToString(System.Globalization.CultureInfo.InvariantCulture));
         _reloadTimer.Stop();
         _reloadTimer.Start();
     }
