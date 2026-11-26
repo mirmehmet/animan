@@ -14,7 +14,7 @@ public sealed class DataManagementService(
     ISettingsService? settingsService = null) : IDataManagementService
 {
     private static readonly string[] PreservedSettingKeys =
-        ["Theme", "Language", "FontFamily", "Font", "StartupPage", "CacheRefreshDays"];
+        ["Theme", "Language", "FontFamily", "StartupPage", "CacheRefreshDays"];
 
     public async Task<Result> ResetAllDataAsync(CancellationToken ct = default)
     {

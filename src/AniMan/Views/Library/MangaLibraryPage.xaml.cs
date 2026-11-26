@@ -36,11 +36,6 @@ public partial class MangaLibraryPage : UserControl
         try
         {
             await _viewModel.LoadCommand.ExecuteAsync(null);
-            if (LibraryNavigationState.PendingMangaStatusId.HasValue)
-            {
-                _viewModel.ActiveStatusId = LibraryNavigationState.PendingMangaStatusId.Value;
-                LibraryNavigationState.PendingMangaStatusId = null;
-            }
 
             // Arriving from Stats with a filter (e.g. a clicked genre or year).
             if (LibraryNavigationState.TakeFilter(Core.Domain.Enums.MediaType.Manga) is { } request)

@@ -219,16 +219,8 @@ public sealed class TrackingService(
     }
 
     // ── Item field updates ────────────────────────────────────────────────────
-
-    public Task<Result> UpdateScoreAsync(
-        int libraryItemId, int? score, CancellationToken ct = default)
-    {
-        if (score is < 1 or > 10)
-            return Task.FromResult(Result.Failure("Score must be between 1 and 10"));
-
-        return MutateItemAsync(libraryItemId, nameof(UpdateScoreAsync),
-            item => item.Score = score, ct);
-    }
+    // The legacy Score, RewatchCount and LastRewatchDate columns have no setters here:
+    // they are only filled from older backups, and are kept (and exported) so that data survives.
 
     public Task<Result> UpdateStatusAsync(
         int libraryItemId, int statusId, CancellationToken ct = default) =>
@@ -246,14 +238,6 @@ public sealed class TrackingService(
         int libraryItemId, CancellationToken ct = default) =>
         MutateItemAsync(libraryItemId, nameof(ToggleFavoriteAsync),
             item => item.IsFavorite = !item.IsFavorite, ct);
-
-    public Task<Result> IncrementRewatchAsync(
-        int libraryItemId, DateOnly? date, CancellationToken ct = default) =>
-        MutateItemAsync(libraryItemId, nameof(IncrementRewatchAsync), item =>
-        {
-            item.RewatchCount++;
-            if (date.HasValue) item.LastRewatchDate = date;
-        }, ct);
 
     public Task<Result> SetRatingAsync(
         int libraryItemId, decimal? rating, CancellationToken ct = default)

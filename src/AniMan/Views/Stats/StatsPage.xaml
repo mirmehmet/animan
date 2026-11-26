@@ -346,6 +346,8 @@
                     <Border Style="{StaticResource StatCard}">
                         <StackPanel>
                             <TextBlock Text="{loc:Loc Stats_TopGenres}" Style="{StaticResource CardTitle}"/>
+                            <TextBlock Text="{loc:Loc Stats_GenresEmpty}" Style="{StaticResource ChartCaption}" TextWrapping="Wrap"
+                                       Visibility="{Binding HasGenres, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                             <ItemsControl ItemsSource="{Binding TopGenres}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:RankedBarViewModel}">

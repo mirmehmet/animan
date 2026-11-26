@@ -17,7 +17,6 @@
 
             <!-- Converters -->
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-            <conv:CountToVisibilityConverter       x:Key="CountToVisibilityConverter"/>
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
             <conv:EqualityConverter                x:Key="EqualityConverter"/>
             <conv:DaysRemainingConverter           x:Key="DaysRemainingConverter"/>

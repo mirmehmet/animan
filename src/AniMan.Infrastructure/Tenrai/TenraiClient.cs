@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using AniMan.Core.Common;
+using AniMan.Infrastructure.MediaSource;
 using AniMan.Infrastructure.MediaSource.Dtos;
 using Microsoft.Extensions.Logging;
 using Polly;

@@ -17,7 +17,6 @@ public partial class MainWindow : FluentWindow
     private bool _flushedOnClose;
 
     public MainWindow(
-        MainWindowViewModel viewModel,
         INavigationService navigationService,
         IContentDialogService contentDialogService,
         ISettingsService settingsService,
@@ -26,7 +25,6 @@ public partial class MainWindow : FluentWindow
         ILogger<MainWindow> logger)
     {
         InitializeComponent();
-        DataContext = viewModel;
         BusyOverlay.DataContext = busyOverlay;
         // The overlay blocks the mouse; disabling navigation also stops keyboard access behind it.
         busyOverlay.PropertyChanged += (_, e) =>

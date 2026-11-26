@@ -295,7 +295,6 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             StatusId = item.StatusId,
             StatusName = TrackingStatusDisplay.GetDisplayName(item.StatusId, item.Status?.Name),
             StatusColor = item.Status?.Color,
-            Score = item.Score,
             UserRating = item.UserRating,
             MalScore = snap?.MalScore,
             IsFavorite = item.IsFavorite,

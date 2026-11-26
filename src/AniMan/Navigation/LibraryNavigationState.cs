@@ -11,19 +11,8 @@ public sealed record LibraryFilterRequest(
 
 public static class LibraryNavigationState
 {
-    public static int? PendingAnimeStatusId { get; set; }
-    public static int? PendingMangaStatusId { get; set; }
-
     /// <summary>Set before navigating to a library page; consumed once by that page.</summary>
     public static LibraryFilterRequest? PendingFilter { get; set; }
-
-    public static void RequestFavorites(MediaType mediaType)
-    {
-        if (mediaType == MediaType.Anime)
-            PendingAnimeStatusId = 99;
-        else
-            PendingMangaStatusId = 99;
-    }
 
     /// <summary>Returns and clears the pending filter if it targets <paramref name="mediaType"/>.</summary>
     public static LibraryFilterRequest? TakeFilter(MediaType mediaType)

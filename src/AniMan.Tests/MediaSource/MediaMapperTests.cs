@@ -3,7 +3,7 @@ using AniMan.Core.Domain;
 using AniMan.Infrastructure.AniList;
 using AniMan.Infrastructure.AniList.Dtos;
 using AniMan.Infrastructure.MediaSource.Dtos;
-using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource;
 using FluentAssertions;
 
 namespace AniMan.Tests.MediaSource;

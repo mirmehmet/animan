@@ -19,7 +19,6 @@ public class SnapshotServiceTests : IDisposable
     private readonly SqliteContextFactory<LibraryDbContext> _libraryFactory;
     private readonly SqliteContextFactory<CatalogDbContext> _catalogFactory;
     private readonly LibraryDbContext _libraryDb;
-    private readonly CatalogDbContext _catalogDb;
     private readonly Mock<ICatalogService> _catalogServiceMock;
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
     private readonly StoragePaths _paths;
@@ -29,7 +28,6 @@ public class SnapshotServiceTests : IDisposable
         _libraryFactory = new SqliteContextFactory<LibraryDbContext>(opts => new LibraryDbContext(opts));
         _catalogFactory = new SqliteContextFactory<CatalogDbContext>(opts => new CatalogDbContext(opts));
         _libraryDb = _libraryFactory.CreateDbContext();
-        _catalogDb = _catalogFactory.CreateDbContext();
 
         _catalogServiceMock = new Mock<ICatalogService>();
         _httpClientFactoryMock = new Mock<IHttpClientFactory>();
@@ -413,7 +411,6 @@ public class SnapshotServiceTests : IDisposable
     public void Dispose()
     {
         _libraryDb.Dispose();
-        _catalogDb.Dispose();
         _libraryFactory.Dispose();
         _catalogFactory.Dispose();
         if (Directory.Exists(_paths.CoversPath))

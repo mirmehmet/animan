@@ -23,7 +23,6 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isLoadingLibrary;
     [ObservableProperty] private bool _isLoadingSeason;
     [ObservableProperty] private string? _seasonErrorMessage;
-    [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueItems = [];
     [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueWatchingItems = [];
     [ObservableProperty] private ObservableCollection<LibraryItemSummary> _continueReadingItems = [];
     [ObservableProperty] private ObservableCollection<SeasonCardViewModel> _thisSeasonItems = [];
@@ -171,7 +170,6 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
 
             ContinueWatchingItems = new ObservableCollection<LibraryItemSummary>(watchingAnime);
             ContinueReadingItems = new ObservableCollection<LibraryItemSummary>(readingManga);
-            ContinueItems = new ObservableCollection<LibraryItemSummary>(watchingAnime.Concat(readingManga).Take(10));
 
             OnPropertyChanged(nameof(HasContinueWatchingItems));
             OnPropertyChanged(nameof(HasContinueReadingItems));

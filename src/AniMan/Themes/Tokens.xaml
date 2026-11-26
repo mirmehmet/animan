@@ -5,19 +5,12 @@
     <!-- Corner Radii -->
     <CornerRadius x:Key="CornerSm">8</CornerRadius>
     <CornerRadius x:Key="CornerMd">12</CornerRadius>
-    <CornerRadius x:Key="CornerLg">16</CornerRadius>
-    <CornerRadius x:Key="CornerPill">999</CornerRadius>
     <CornerRadius x:Key="CornerTag">6</CornerRadius>
     <CornerRadius x:Key="CornerCardTop">12,12,0,0</CornerRadius>
     <CornerRadius x:Key="CornerCardBottom">0,0,12,12</CornerRadius>
 
     <!-- Typography Scale -->
-    <sys:Double x:Key="Font.Caption">11</sys:Double>
-    <sys:Double x:Key="Font.Body">13</sys:Double>
-    <sys:Double x:Key="Font.Subtitle">15</sys:Double>
-    <sys:Double x:Key="Font.SectionTitle">16</sys:Double>
     <sys:Double x:Key="Font.PageTitle">26</sys:Double>
-    <sys:Double x:Key="Font.Display">32</sys:Double>
 
     <!-- Animation Durations -->
     <Duration x:Key="Anim.Fast">0:0:0.12</Duration>

@@ -1,7 +1,7 @@
 using AniMan.Core.Common;
 using AniMan.Infrastructure.MediaSource.Dtos;
 
-namespace AniMan.Infrastructure.Tenrai;
+namespace AniMan.Infrastructure.MediaSource;
 
 public interface IMediaSourceClient
 {

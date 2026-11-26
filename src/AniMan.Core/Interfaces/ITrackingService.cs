@@ -15,10 +15,8 @@ public interface ITrackingService
     Task<Result<TrackingResult>> MarkUpToHereAsync(int libraryItemId, int episodeNumber, CancellationToken ct = default);
     Task<Result<TrackingResult>> SetChapterReadAsync(int libraryItemId, int chapterNumber, bool read, CancellationToken ct = default);
     Task<Result<TrackingResult>> MarkChaptersUpToAsync(int libraryItemId, int chapterNumber, CancellationToken ct = default);
-    Task<Result> UpdateScoreAsync(int libraryItemId, int? score, CancellationToken ct = default);
     Task<Result> UpdateStatusAsync(int libraryItemId, int statusId, CancellationToken ct = default);
     Task<Result> ToggleFavoriteAsync(int libraryItemId, CancellationToken ct = default);
-    Task<Result> IncrementRewatchAsync(int libraryItemId, DateOnly? date, CancellationToken ct = default);
     Task<Result<Note>> SaveNoteAsync(int libraryItemId, int? episodeNumber, int? chapterNumber, string content, CancellationToken ct = default);
     Task<Result<ProgressInfo>> GetProgressAsync(int libraryItemId, CancellationToken ct = default);
 

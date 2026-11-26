@@ -425,8 +425,6 @@ public class ExportServiceTests : IDisposable
         var result = await svc.ImportAsync(_tempFile, ImportMode.Overwrite);
 
         result.IsSuccess.Should().BeTrue();
-        // Query via the item: the InMemory provider doesn't cascade-delete the
-        // old snapshot on Overwrite (real SQLite does), so Snapshots may hold both.
         using var verify = CreateDb();
         verify.LibraryItems.Include(i => i.Snapshot).Single()
             .Snapshot!.CoverLocalPath.Should().Be(localCover);

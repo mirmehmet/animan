@@ -3,7 +3,7 @@ using AniMan.Core.Domain.Enums;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource;
 using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
 using FluentAssertions;

@@ -6,7 +6,7 @@ using AniMan.Core.Domain;
 using AniMan.Core.Domain.Models;
 using AniMan.Infrastructure.MediaSource.Dtos;
 
-namespace AniMan.Infrastructure.Tenrai;
+namespace AniMan.Infrastructure.MediaSource;
 
 internal static partial class MediaMapper
 {

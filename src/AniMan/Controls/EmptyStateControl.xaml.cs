@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Input;
 using Wpf.Ui.Controls;
 
 namespace AniMan.Controls;
@@ -18,14 +17,6 @@ public partial class EmptyStateControl : System.Windows.Controls.UserControl
         DependencyProperty.Register(nameof(Subtitle), typeof(string),
             typeof(EmptyStateControl), new PropertyMetadata(string.Empty));
 
-    public static readonly DependencyProperty ActionTextProperty =
-        DependencyProperty.Register(nameof(ActionText), typeof(string),
-            typeof(EmptyStateControl), new PropertyMetadata(string.Empty));
-
-    public static readonly DependencyProperty ActionCommandProperty =
-        DependencyProperty.Register(nameof(ActionCommand), typeof(ICommand),
-            typeof(EmptyStateControl), new PropertyMetadata(null));
-
     public SymbolRegular Icon
     {
         get => (SymbolRegular)GetValue(IconProperty);
@@ -42,18 +33,6 @@ public partial class EmptyStateControl : System.Windows.Controls.UserControl
     {
         get => (string)GetValue(SubtitleProperty);
         set => SetValue(SubtitleProperty, value);
-    }
-
-    public string ActionText
-    {
-        get => (string)GetValue(ActionTextProperty);
-        set => SetValue(ActionTextProperty, value);
-    }
-
-    public ICommand? ActionCommand
-    {
-        get => (ICommand?)GetValue(ActionCommandProperty);
-        set => SetValue(ActionCommandProperty, value);
     }
 
     public EmptyStateControl()

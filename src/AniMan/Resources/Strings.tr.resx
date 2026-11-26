@@ -92,6 +92,7 @@
   <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Durum</value></data>
   <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Puanların</value></data>
   <data name="Stats_TopGenres" xml:space="preserve"><value>En çok türler</value></data>
+  <data name="Stats_GenresEmpty" xml:space="preserve"><value>Bu seriler için henüz tür bilgisi yok.</value></data>
   <data name="Stats_Completed" xml:space="preserve"><value>Tamamlanan</value></data>
   <data name="Stats_ReadingNow" xml:space="preserve"><value>Okunuyor</value></data>
   <data name="Stats_OfTitlesFormat" xml:space="preserve"><value>{0} seriden</value></data>

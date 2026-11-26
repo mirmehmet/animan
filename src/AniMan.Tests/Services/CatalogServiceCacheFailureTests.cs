@@ -1,7 +1,7 @@
 using AniMan.Core.Common;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
-using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource;
 using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.Services;
 using FluentAssertions;

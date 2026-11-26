@@ -26,23 +26,5 @@
                    HorizontalAlignment="Center"
                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
 
-        <!-- CTA button — hidden when ActionText is empty -->
-        <ui:Button Margin="0,16,0,0"
-                   HorizontalAlignment="Center"
-                   Appearance="Secondary"
-                   Content="{Binding ActionText, ElementName=Root}"
-                   Command="{Binding ActionCommand, ElementName=Root}"
-                   AutomationProperties.Name="{Binding ActionText, ElementName=Root}">
-            <ui:Button.Style>
-                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding ActionText, ElementName=Root}" Value="">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </ui:Button.Style>
-        </ui:Button>
-
     </StackPanel>
 </UserControl>

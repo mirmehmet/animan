@@ -155,7 +155,6 @@ public partial class App : Application
         services.AddInfrastructure(AppDataPath);
 
         services.AddSingleton<MainWindow>();
-        services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<Wpf.Ui.Abstractions.INavigationViewPageProvider>(
             sp => new ServiceProviderPageProvider(sp));
         services.AddSingleton<INavigationService, NavigationService>();

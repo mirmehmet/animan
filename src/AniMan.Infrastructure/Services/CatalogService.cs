@@ -5,7 +5,7 @@ using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.MediaSource.Dtos;
-using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 

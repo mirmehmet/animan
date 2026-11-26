@@ -38,7 +38,6 @@ public partial class LibraryCardViewModel : ObservableObject, ILibraryEntry
     public int StatusId { get; init; }
     public string StatusName { get; init; } = string.Empty;
     public string? StatusColor { get; init; }
-    public int? Score { get; init; }
     public decimal? UserRating { get; init; }
     public double? MalScore { get; init; }
     public bool IsFavorite { get; init; }

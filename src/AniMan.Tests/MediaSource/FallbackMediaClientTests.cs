@@ -1,5 +1,4 @@
 using AniMan.Core.Common;
-using AniMan.Infrastructure.Tenrai;
 using AniMan.Infrastructure.MediaSource.Dtos;
 using AniMan.Infrastructure.MediaSource;
 using FluentAssertions;

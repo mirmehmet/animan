@@ -20,8 +20,6 @@ public sealed class Result<T>
 
     public static Result<T> Success(T value) => new(value);
     public static Result<T> Failure(string error) => new(error);
-
-    public static implicit operator Result<T>(T value) => Success(value);
 }
 
 public sealed class Result

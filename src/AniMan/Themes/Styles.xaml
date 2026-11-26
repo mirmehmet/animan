@@ -45,25 +45,11 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
-    <Style x:Key="SectionHeaderText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
-        <Setter Property="FontSize" Value="{StaticResource Font.SectionTitle}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Margin" Value="0,0,0,10"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
-    </Style>
-
     <Style x:Key="SectionSubheaderText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Margin" Value="2,18,0,8"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
-    </Style>
-
-    <Style x:Key="CaptionText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
-        <Setter Property="FontSize" Value="{StaticResource Font.Caption}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
     </Style>
 

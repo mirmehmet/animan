@@ -4,7 +4,7 @@ using System.Text.Json;
 using AniMan.Core.Common;
 using AniMan.Infrastructure.AniList.Dtos;
 using AniMan.Infrastructure.MediaSource.Dtos;
-using AniMan.Infrastructure.Tenrai;
+using AniMan.Infrastructure.MediaSource;
 using Microsoft.Extensions.Logging;
 
 namespace AniMan.Infrastructure.AniList;

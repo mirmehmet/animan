@@ -92,6 +92,7 @@
   <data name="Stats_StatusBreakdown" xml:space="preserve"><value>Status</value></data>
   <data name="Stats_ScoreDistribution" xml:space="preserve"><value>Your scores</value></data>
   <data name="Stats_TopGenres" xml:space="preserve"><value>Top genres</value></data>
+  <data name="Stats_GenresEmpty" xml:space="preserve"><value>No genre data yet for these titles.</value></data>
   <data name="Stats_Completed" xml:space="preserve"><value>Completed</value></data>
   <data name="Stats_ReadingNow" xml:space="preserve"><value>Reading now</value></data>
   <data name="Stats_OfTitlesFormat" xml:space="preserve"><value>of {0} titles</value></data>

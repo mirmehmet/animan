@@ -60,7 +60,6 @@ public partial class SettingsViewModel(
     ];
 
     [ObservableProperty] private StartupPageOption? _selectedStartupPageOption;
-    [ObservableProperty] private string _selectedStartupPage = "Dashboard";
 
     // ── About ─────────────────────────────────────────────────────────────────
 
@@ -106,7 +105,6 @@ public partial class SettingsViewModel(
             SelectedLanguage = Languages.FirstOrDefault(l => l.Code == language) ?? Languages[0];
 
             var startupKey = await settingsService.GetStartupPageAsync();
-            SelectedStartupPage = startupKey;
             SelectedStartupPageOption = StartupPageOptions.FirstOrDefault(
                 o => string.Equals(o.Key, startupKey, StringComparison.OrdinalIgnoreCase)) ?? StartupPageOptions[0];
 
@@ -157,7 +155,6 @@ public partial class SettingsViewModel(
         if (!_initialized || value is null) return;
         try
         {
-            SelectedStartupPage = value.Key;
             await settingsService.SetStartupPageAsync(value.Key);
         }
         catch (Exception ex)
