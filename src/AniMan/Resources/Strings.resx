@@ -142,6 +142,10 @@
   <data name="Detail_Episodes" xml:space="preserve"><value>Episodes</value></data>
   <data name="Detail_Note" xml:space="preserve"><value>Note</value></data>
   <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Select up to here</value></data>
+  <data name="Detail_ClearLaterTitle" xml:space="preserve"><value>Clear later marks?</value></data>
+  <data name="Detail_ClearLaterContent" xml:space="preserve"><value>{1} episodes after episode {0} are marked as watched. Continuing removes those marks and their watch dates.</value></data>
+  <data name="Detail_ClearLaterContentManga" xml:space="preserve"><value>{1} chapters after chapter {0} are marked as read. Continuing removes those marks and their read dates.</value></data>
+  <data name="Detail_ClearLaterConfirm" xml:space="preserve"><value>Clear marks</value></data>
   <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Ep {0}</value></data>
   <data name="Detail_Chapters" xml:space="preserve"><value>Chapters</value></data>
   <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> chapters</value></data>
@@ -339,6 +343,8 @@
   <data name="Notify_AddToLibraryFailed" xml:space="preserve"><value>Couldn't add to library</value></data>
   <data name="Notify_RestoreFailed" xml:space="preserve"><value>Couldn't restore</value></data>
   <data name="Notify_EmptyTrashFailed" xml:space="preserve"><value>Couldn't empty the trash</value></data>
+  <data name="Notify_StatusUpdateFailed" xml:space="preserve"><value>Couldn't update the status</value></data>
+  <data name="Notify_ProgressSaveFailed" xml:space="preserve"><value>Couldn't save your progress</value></data>
   <data name="Settings_LastBackup" xml:space="preserve"><value>Last backup: {0}</value></data>
   <data name="Settings_LastBackupNever" xml:space="preserve"><value>No backup yet</value></data>
   <data name="Common_Retry" xml:space="preserve"><value>Try again</value></data>

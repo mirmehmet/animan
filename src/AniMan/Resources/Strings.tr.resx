@@ -142,6 +142,10 @@
   <data name="Detail_Episodes" xml:space="preserve"><value>Bölümler</value></data>
   <data name="Detail_Note" xml:space="preserve"><value>Not</value></data>
   <data name="Detail_MarkUpToHere" xml:space="preserve"><value>Buraya kadar seç</value></data>
+  <data name="Detail_ClearLaterTitle" xml:space="preserve"><value>Sonraki işaretler kaldırılsın mı?</value></data>
+  <data name="Detail_ClearLaterContent" xml:space="preserve"><value>{0}. bölümden sonra izlenmiş {1} bölüm var. Devam edersen bu bölümlerin işareti ve izlenme tarihleri silinir.</value></data>
+  <data name="Detail_ClearLaterContentManga" xml:space="preserve"><value>{0}. bölümden sonra okunmuş {1} bölüm var. Devam edersen bu bölümlerin işareti ve okunma tarihleri silinir.</value></data>
+  <data name="Detail_ClearLaterConfirm" xml:space="preserve"><value>İşaretleri kaldır</value></data>
   <data name="Detail_EpisodeNumberFormat" xml:space="preserve"><value>Bölüm {0}</value></data>
   <data name="Detail_Chapters" xml:space="preserve"><value>Bölümler</value></data>
   <data name="Detail_ChaptersSuffix" xml:space="preserve"><value> bölüm</value></data>
@@ -339,6 +343,8 @@
   <data name="Notify_AddToLibraryFailed" xml:space="preserve"><value>Kütüphaneye eklenemedi</value></data>
   <data name="Notify_RestoreFailed" xml:space="preserve"><value>Geri yüklenemedi</value></data>
   <data name="Notify_EmptyTrashFailed" xml:space="preserve"><value>Çöp kutusu boşaltılamadı</value></data>
+  <data name="Notify_StatusUpdateFailed" xml:space="preserve"><value>Durum güncellenemedi</value></data>
+  <data name="Notify_ProgressSaveFailed" xml:space="preserve"><value>İlerleme kaydedilemedi</value></data>
   <data name="Settings_LastBackup" xml:space="preserve"><value>Son yedek: {0}</value></data>
   <data name="Settings_LastBackupNever" xml:space="preserve"><value>Henüz yedek alınmadı</value></data>
   <data name="Common_Retry" xml:space="preserve"><value>Tekrar Dene</value></data>

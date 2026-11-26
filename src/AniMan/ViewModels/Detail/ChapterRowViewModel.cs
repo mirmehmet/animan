@@ -1,3 +1,4 @@
+using AniMan.Core.Common;
 using AniMan.Core.Interfaces;
 using AniMan.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -10,6 +11,7 @@ public partial class ChapterRowViewModel : ObservableObject
 {
     private readonly ITrackingService _tracking;
     private readonly ILogger _logger;
+    private readonly SemaphoreSlim _progressGate;
     private bool _suppress;
     private bool _isSaving;
 
@@ -41,10 +43,18 @@ public partial class ChapterRowViewModel : ObservableObject
     public event EventHandler<ChapterRowViewModel>? MarkUpToHereRequested;
     public event EventHandler<ChapterRowViewModel>? NoteRequested;
 
-    public ChapterRowViewModel(ITrackingService tracking, ILogger logger)
+    /// <summary>The change could not be saved; the checkbox has already been put back.</summary>
+    public event EventHandler<ErrorKind>? SaveFailed;
+
+    /// <param name="progressGate">
+    /// Shared by every row of the page and by "mark up to here", so progress writes for one
+    /// title never interleave and the database cannot end up different from the checkboxes.
+    /// </param>
+    public ChapterRowViewModel(ITrackingService tracking, ILogger logger, SemaphoreSlim progressGate)
     {
         _tracking = tracking;
         _logger = logger;
+        _progressGate = progressGate;
     }
 
     /// <summary>Sets the initial read state and date without triggering persistence.</summary>
@@ -68,12 +78,23 @@ public partial class ChapterRowViewModel : ObservableObject
             while (true)
             {
                 var desired = IsRead;
-                var result = await _tracking.SetChapterReadAsync(LibraryItemId, ChapterNumber, desired);
+                Result<TrackingResult> result;
+                await _progressGate.WaitAsync();
+                try
+                {
+                    result = await _tracking.SetChapterReadAsync(LibraryItemId, ChapterNumber, desired);
+                }
+                finally
+                {
+                    _progressGate.Release();
+                }
+
                 if (!result.IsSuccess)
                 {
                     _suppress = true;
                     IsRead = !desired;
                     _suppress = false;
+                    SaveFailed?.Invoke(this, result.Kind);
                     return;
                 }
 
@@ -91,6 +112,7 @@ public partial class ChapterRowViewModel : ObservableObject
             _suppress = true;
             IsRead = !value;
             _suppress = false;
+            SaveFailed?.Invoke(this, ErrorKind.Unexpected);
         }
         finally
         {

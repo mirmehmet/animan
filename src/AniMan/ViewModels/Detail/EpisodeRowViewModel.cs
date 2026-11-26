@@ -1,3 +1,4 @@
+using AniMan.Core.Common;
 using AniMan.Core.Interfaces;
 using AniMan.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -10,6 +11,7 @@ public partial class EpisodeRowViewModel : ObservableObject
 {
     private readonly ITrackingService _tracking;
     private readonly ILogger _logger;
+    private readonly SemaphoreSlim _progressGate;
     private bool _suppress;
     private bool _isSaving;
 
@@ -45,10 +47,18 @@ public partial class EpisodeRowViewModel : ObservableObject
     public event EventHandler<EpisodeRowViewModel>? MarkUpToHereRequested;
     public event EventHandler<EpisodeRowViewModel>? NoteRequested;
 
-    public EpisodeRowViewModel(ITrackingService tracking, ILogger logger)
+    /// <summary>The change could not be saved; the checkbox has already been put back.</summary>
+    public event EventHandler<ErrorKind>? SaveFailed;
+
+    /// <param name="progressGate">
+    /// Shared by every row of the page and by "mark up to here", so progress writes for one
+    /// title never interleave and the database cannot end up different from the checkboxes.
+    /// </param>
+    public EpisodeRowViewModel(ITrackingService tracking, ILogger logger, SemaphoreSlim progressGate)
     {
         _tracking = tracking;
         _logger = logger;
+        _progressGate = progressGate;
     }
 
     /// <summary>Sets the initial watched state and date without triggering persistence.</summary>
@@ -72,12 +82,23 @@ public partial class EpisodeRowViewModel : ObservableObject
             while (true)
             {
                 var desired = IsWatched;
-                var result = await _tracking.SetEpisodeWatchedAsync(LibraryItemId, EpisodeNumber, desired);
+                Result<TrackingResult> result;
+                await _progressGate.WaitAsync();
+                try
+                {
+                    result = await _tracking.SetEpisodeWatchedAsync(LibraryItemId, EpisodeNumber, desired);
+                }
+                finally
+                {
+                    _progressGate.Release();
+                }
+
                 if (!result.IsSuccess)
                 {
                     _suppress = true;
                     IsWatched = !desired;
                     _suppress = false;
+                    SaveFailed?.Invoke(this, result.Kind);
                     return;
                 }
 
@@ -95,6 +116,7 @@ public partial class EpisodeRowViewModel : ObservableObject
             _suppress = true;
             IsWatched = !value;
             _suppress = false;
+            SaveFailed?.Invoke(this, ErrorKind.Unexpected);
         }
         finally
         {

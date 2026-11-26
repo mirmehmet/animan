@@ -46,6 +46,8 @@ public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls
         viewModel.AddToLibraryFromPreviewRequested += OnAddToLibraryFromPreviewRequested;
         viewModel.NoteEditRequested += OnNoteEditRequested;
         viewModel.SoftDeleteCompleted += OnSoftDeleteCompleted;
+        viewModel.ActionFailed += (_, e) => _snackbar.ShowFailure(e.TitleKey, e.Kind);
+        viewModel.ConfirmClearLaterProgress = ConfirmClearLaterProgressAsync;
         Unloaded += (_, _) =>
         {
             if (ActiveInstance?.TryGetTarget(out var active) == true && ReferenceEquals(active, this))
@@ -109,7 +111,32 @@ public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls
         if (ActiveInstance?.TryGetTarget(out var active) == true && ReferenceEquals(active, this))
             ActiveInstance = null;
 
+        ((DetailViewModel)DataContext).CancelLoads();
         await FlushPendingEditsAsync();
+    }
+
+    private async Task<bool> ConfirmClearLaterProgressAsync(ClearLaterProgressRequest request)
+    {
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                Title = LocalizationManager.Get("Detail_ClearLaterTitle"),
+                Content = string.Format(LocalizationManager.Culture,
+                    LocalizationManager.Get(request.IsManga ? "Detail_ClearLaterContentManga" : "Detail_ClearLaterContent"),
+                    request.Number, request.LaterMarks),
+                PrimaryButtonText = LocalizationManager.Get("Detail_ClearLaterConfirm"),
+                CloseButtonText = LocalizationManager.Get("Common_Cancel")
+            };
+
+            return await _dialogService.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
+        }
+        catch (Exception ex)
+        {
+            // No answer means no: nothing is cleared.
+            _logger.LogError(ex, "Clear-later-progress confirmation failed");
+            return false;
+        }
     }
 
     private void OnGoBackClicked(object sender, RoutedEventArgs e) =>
