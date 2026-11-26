@@ -160,6 +160,20 @@ public class AniListMapperTests
     }
 
     [Fact]
+    public void ToStreamingDtos_DropsLinksIntoTheLocalNetwork()
+    {
+        IReadOnlyList<AniListExternalLink> links =
+        [
+            new() { Site = "Router", Url = "http://192.168.1.1/admin", Type = "STREAMING" },
+            new() { Site = "Local", Url = "http://localhost:8080/", Type = "STREAMING" },
+            new() { Site = "Crunchyroll", Url = "https://www.crunchyroll.com/series/x", Type = "STREAMING" }
+        ];
+
+        AniListMapper.ToStreamingDtos(links)
+            .Select(s => s.Name).Should().Equal("Crunchyroll");
+    }
+
+    [Fact]
     public void ToStreamingDtos_NullLinks_ReturnsEmpty() =>
         AniListMapper.ToStreamingDtos(null).Should().BeEmpty();
 

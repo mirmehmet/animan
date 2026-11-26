@@ -523,6 +523,53 @@ public class ExportServiceTests : IDisposable
             .Snapshot!.CoverLocalPath.Should().BeNull();
     }
 
+    [Fact]
+    public async Task Import_CoverUrlOutsideTheKnownCdns_IsKeptButNeverDownloaded()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Trusted");
+        SeedItem(200, MediaType.Anime, 1, 8, "Untrusted");
+        using (var db = CreateDb())
+        {
+            var snaps = db.Snapshots.Include(s => s.LibraryItem).ToList();
+            snaps.Single(s => s.LibraryItem!.MalId == 100).CoverOriginalUrl = "https://cdn.myanimelist.net/images/anime/1/100.jpg";
+            snaps.Single(s => s.LibraryItem!.MalId == 200).CoverOriginalUrl = "https://tracker.example/cover.jpg";
+            db.SaveChanges();
+        }
+        await Create().ExportAsync(_tempFile);
+
+        var handler = new RecordingJpegHandler();
+        var coverStore = new CoverStore(
+            Mock.Of<IHttpClientFactory>(f => f.CreateClient("covers") == new HttpClient(handler)),
+            _paths, NullLogger<CoverStore>.Instance);
+        var svc = new ExportService(_factory, coverStore, NullLogger<ExportService>.Instance);
+
+        var result = await svc.ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.Value!.CoversFailed.Should().Be(1, "the skipped cover is reported like a failed one");
+        handler.Hosts.Should().Equal("cdn.myanimelist.net");
+        using var verify = CreateDb();
+        var untrusted = verify.LibraryItems.Include(i => i.Snapshot).Single(i => i.MalId == 200).Snapshot!;
+        untrusted.CoverLocalPath.Should().BeNull();
+        untrusted.CoverOriginalUrl.Should().Be("https://tracker.example/cover.jpg",
+            "the backup's data is kept as it was, only the download is refused");
+        verify.LibraryItems.Include(i => i.Snapshot).Single(i => i.MalId == 100)
+            .Snapshot!.CoverLocalPath.Should().NotBeNull();
+    }
+
+    private sealed class RecordingJpegHandler : HttpMessageHandler
+    {
+        public List<string> Hosts { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            lock (Hosts) Hosts.Add(request.RequestUri!.Host);
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0xE0])
+            });
+        }
+    }
+
     // ── Backward compatibility: backups from earlier releases ─────────────────
 
     /// <summary>Offline cover store: imports try to download covers, tests must not hit the network.</summary>

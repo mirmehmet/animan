@@ -4,8 +4,10 @@ namespace AniMan.Infrastructure.Http;
 
 /// <summary>
 /// Enforces one or more independent "N requests per window" budgets. A permit is taken
-/// from every window before the request runs and returned one window-length later, so
-/// several budgets (e.g. 3/second and 60/minute) can be combined.
+/// from every window before the request runs and returned one window-length after the
+/// request <em>started</em> — upstream budgets count requests sent, and timing from the start
+/// means a request that hangs cannot hold the queue for longer than one window.
+/// Several budgets (e.g. 3/second and 60/minute) can be combined.
 /// <para>
 /// Windows are acquired in the order supplied — widest first, so a caller never holds a
 /// short-lived permit while queuing for a long-lived one.
@@ -67,15 +69,10 @@ public sealed class SlidingWindowRateLimiter : IDisposable
         _logger.LogDebug("{Name} slot acquired — remaining per window: {Remaining}",
             _name, string.Join(", ", _windows.Select(w => w.Gate.CurrentCount)));
 
-        try
-        {
-            return await request().ConfigureAwait(false);
-        }
-        finally
-        {
-            foreach (var window in _windows)
-                _ = ReleaseAfterAsync(window);
-        }
+        foreach (var window in _windows)
+            _ = ReleaseAfterAsync(window);
+
+        return await request().ConfigureAwait(false);
     }
 
     private async Task ReleaseAfterAsync(Window window)

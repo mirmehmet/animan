@@ -83,7 +83,10 @@ internal static partial class AniListMapper
         // Serializations, themes, demographics, authors: no AniList equivalent in our query.
     };
 
-    /// <summary>Keeps only the links AniList marks as streaming services with valid http(s) URLs.</summary>
+    /// <summary>
+    /// Keeps only the links AniList marks as streaming services whose URL (if any) is a public
+    /// http(s) address — never localhost or a LAN host.
+    /// </summary>
     public static IReadOnlyList<StreamingDto> ToStreamingDtos(
         IReadOnlyList<AniListExternalLink>? links) =>
         links is null
@@ -91,11 +94,11 @@ internal static partial class AniListMapper
             : [.. links
                 .Where(l => string.Equals(l.Type, "STREAMING", StringComparison.OrdinalIgnoreCase)
                             && !string.IsNullOrWhiteSpace(l.Site)
-                            && (l.Url is null || HttpUrlGuard.IsAllowedWebUrl(l.Url, out _)))
+                            && (l.Url is null || HttpUrlGuard.SanitizeExternalWebUrl(l.Url) is not null))
                 .Select(l => new StreamingDto
                 {
                     Name = l.Site!,
-                    Url = HttpUrlGuard.SanitizeWebUrl(l.Url)
+                    Url = HttpUrlGuard.SanitizeExternalWebUrl(l.Url)
                 })];
 
     // ── Field translation ─────────────────────────────────────────────────────

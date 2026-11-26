@@ -13,7 +13,7 @@ public class CoverStoreTests : IDisposable
     private sealed class StubHandler : HttpMessageHandler
     {
         public int Calls;
-        public byte[] Payload = [1, 2, 3];
+        public byte[] Payload = [.. Jpeg];
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken ct)
@@ -25,6 +25,9 @@ public class CoverStoreTests : IDisposable
             });
         }
     }
+
+    /// <summary>The smallest payload the store accepts: a JPEG signature plus a byte.</summary>
+    private static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0];
 
     private readonly StubHandler _handler = new();
     private readonly StoragePaths _paths;
@@ -81,7 +84,7 @@ public class CoverStoreTests : IDisposable
 
         result.Should().Be(_store.GetLocalPath(42, MediaType.Manga));
         _handler.Calls.Should().Be(1);
-        (await File.ReadAllBytesAsync(result!)).Should().Equal(1, 2, 3);
+        (await File.ReadAllBytesAsync(result!)).Should().Equal(Jpeg);
         Directory.GetFiles(_paths.CoversPath, "*.tmp").Should().BeEmpty();
     }
 
@@ -98,6 +101,34 @@ public class CoverStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task DownloadAsync_NonImageBody_IsNotCachedAsACover()
+    {
+        // e.g. a CDN error page served with 200 OK
+        _handler.Payload = "<html><body>Rate limited</body></html>"u8.ToArray();
+
+        var result = await _store.DownloadAsync(42, MediaType.Anime, "https://example.com/cover.jpg");
+
+        result.Should().BeNull();
+        File.Exists(_store.GetLocalPath(42, MediaType.Anime)).Should().BeFalse(
+            "a cached non-image would count as a valid cover and never be fetched again");
+        Directory.GetFiles(_paths.CoversPath, "*.tmp").Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0xFF, 0xD8, 0xFF, 0xDB }, true)]                                  // JPEG
+    [InlineData(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0 }, true)]        // PNG
+    [InlineData(new byte[] { 0x47, 0x49, 0x46, 0x38, 0x39, 0x61 }, true)]                      // GIF89a
+    [InlineData(new byte[] { 0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4, 0x57, 0x45, 0x42, 0x50 }, true)] // RIFF....WEBP
+    [InlineData(new byte[] { 0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4, 0x57, 0x41, 0x56, 0x45 }, false)] // RIFF....WAVE
+    [InlineData(new byte[] { 0x52, 0x49, 0x46, 0x46 }, false)]                                 // truncated RIFF
+    [InlineData(new byte[] { 0xFF, 0xD8 }, false)]                                             // truncated JPEG
+    [InlineData(new byte[] { 0x3C, 0x68, 0x74, 0x6D, 0x6C }, false)]                           // "<html"
+    public void IsSupportedImage_ChecksTheFileSignature(byte[] bytes, bool expected)
+    {
+        CoverStore.IsSupportedImage(bytes).Should().Be(expected);
+    }
+
+    [Fact]
     public async Task EnsureAsync_ZeroByteExistingFile_RedownloadsValidCover()
     {
         var canonical = _store.GetLocalPath(77, MediaType.Anime);
@@ -107,7 +138,7 @@ public class CoverStoreTests : IDisposable
 
         result.Should().Be(canonical);
         _handler.Calls.Should().Be(1);
-        (await File.ReadAllBytesAsync(canonical)).Should().Equal(1, 2, 3);
+        (await File.ReadAllBytesAsync(canonical)).Should().Equal(Jpeg);
     }
 
     [Fact]

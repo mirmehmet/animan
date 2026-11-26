@@ -83,6 +83,27 @@ public class SlidingWindowRateLimiterTests
     }
 
     [Fact]
+    public async Task HungRequest_ReturnsItsPermitOneWindowAfterItStarted()
+    {
+        var time = new FakeTimeProvider();
+        using var limiter = new SlidingWindowRateLimiter(
+            "Test", NullLogger.Instance, time, (1, TimeSpan.FromSeconds(1)));
+
+        // The upstream never answers this one.
+        var never = new TaskCompletionSource<int>();
+        _ = limiter.ExecuteAsync(() => never.Task);
+
+        var next = limiter.ExecuteAsync(() => Task.FromResult(7));
+        next.IsCompleted.Should().BeFalse("the only permit is in use");
+
+        time.Advance(TimeSpan.FromSeconds(1));
+        (await Task.WhenAny(next, Task.Delay(RealTimeGuard))).Should().Be(next,
+            "a request that hangs must not hold the queue past its window");
+        (await next).Should().Be(7);
+        never.SetCanceled();
+    }
+
+    [Fact]
     public async Task SustainedLoad_DrainsAsTimeAdvances()
     {
         var time = new FakeTimeProvider();

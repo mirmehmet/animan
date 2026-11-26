@@ -131,4 +131,13 @@ public class MediaMapperTests
         anime.Source.Should().Be("Light novel", "AniList's enum is translated to MyAnimeList's wording");
         anime.Themes.Should().BeNull("AniList has no equivalent");
     }
+
+    [Theory]
+    [InlineData("https://www.netflix.com/title/1", "https://www.netflix.com/title/1")]
+    [InlineData("http://192.168.1.1/admin", null)]
+    [InlineData("http://localhost:8080/", null)]
+    [InlineData("javascript:alert(1)", null)]
+    public void ToStreaming_KeepsOnlyPublicWebLinks(string url, string? expected) =>
+        MediaMapper.ToStreaming(new StreamingDto { Name = "X", Url = url }, animeId: 1)
+            .Url.Should().Be(expected);
 }

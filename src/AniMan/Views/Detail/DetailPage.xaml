@@ -114,7 +114,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button Background="{Binding Background}" Foreground="White"
-                                            Tag="{Binding Url}" Margin="0,0,6,4" Padding="10,5"
+                                            Margin="0,0,6,4" Padding="10,5"
                                             Cursor="Hand" Click="OnStreamingPlatformClicked"
                                             BorderThickness="0">
                                         <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold"

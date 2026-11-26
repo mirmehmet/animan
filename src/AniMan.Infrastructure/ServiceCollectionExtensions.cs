@@ -97,10 +97,14 @@ public static class ServiceCollectionExtensions
     /// Primary handler of the "covers" client. Every connection — including each redirect
     /// hop — goes through <see cref="ConnectSafeExternalAsync"/>, which re-checks the
     /// resolved addresses, so a public hostname cannot be used to reach a private one.
+    /// The system proxy is bypassed on purpose: through a proxy the callback would only see
+    /// the proxy's address, which blocks every cover behind a local proxy (Clash, Fiddler) and
+    /// leaves the real target unchecked behind a public one.
     /// Internal so the guard can be exercised by tests.
     /// </summary>
     internal static SocketsHttpHandler CreateCoverHandler() => new()
     {
+        UseProxy = false,
         AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
         MaxAutomaticRedirections = 5,
         ConnectCallback = ConnectSafeExternalAsync

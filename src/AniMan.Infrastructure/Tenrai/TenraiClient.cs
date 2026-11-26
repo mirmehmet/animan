@@ -19,13 +19,20 @@ public sealed class TenraiClient : IMediaSourceClient
     private readonly TenraiRateLimiter _rateLimiter;
     private readonly ILogger<TenraiClient> _logger;
     private readonly ResiliencePipeline<HttpResponseMessage> _pipeline;
+    private readonly TimeProvider _time;
+
+    /// <summary>
+    /// Longest 429 <c>Retry-After</c> wait worth sitting through. Past it the request fails at
+    /// once, so the AniList fallback can answer instead of the user waiting on Tenrai.
+    /// </summary>
+    internal static readonly TimeSpan MaxRetryAfter = TimeSpan.FromSeconds(10);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    /// <param name="timeProvider">Clock for retry back-off; tests pass a fake one. Defaults to the system clock.</param>
+    /// <param name="timeProvider">Clock for retry back-off and <c>Retry-After</c> dates; tests pass a fake one. Defaults to the system clock.</param>
     public TenraiClient(
         HttpClient http,
         TenraiRateLimiter rateLimiter,
@@ -35,17 +42,22 @@ public sealed class TenraiClient : IMediaSourceClient
         _http = http;
         _rateLimiter = rateLimiter;
         _logger = logger;
+        _time = timeProvider ?? TimeProvider.System;
 
         _pipeline = new ResiliencePipelineBuilder<HttpResponseMessage>
             {
-                TimeProvider = timeProvider ?? TimeProvider.System
+                TimeProvider = _time
             }
             .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
             {
-                MaxRetryAttempts = 3,
+                // One retry rides out a server blip; a longer outage is the AniList
+                // fallback's job, and every extra attempt only delays it.
+                MaxRetryAttempts = 1,
                 Delay = TimeSpan.FromSeconds(1),
-                BackoffType = DelayBackoffType.Exponential,
+                BackoffType = DelayBackoffType.Constant,
                 ShouldHandle = args => ValueTask.FromResult(IsTransient(args.Outcome)),
+                // A 429 says when to come back; null falls back to the 1 s delay above.
+                DelayGenerator = args => ValueTask.FromResult(RetryAfter(args.Outcome.Result)),
                 OnRetry = args =>
                 {
                     args.Outcome.Result?.Dispose();
@@ -58,17 +70,33 @@ public sealed class TenraiClient : IMediaSourceClient
     /// <summary>
     /// Retry server-side and rate-limit failures; a 4xx answer is final. A failed DNS lookup is
     /// final too: it almost always means the machine is offline, and retrying only adds seconds
-    /// of back-off (and holds rate-limit permits) before the cached data can be shown.
+    /// of back-off before the cached data can be shown. A 429 asking for a longer wait than
+    /// <see cref="MaxRetryAfter"/> is final as well.
     /// </summary>
-    private static bool IsTransient(Outcome<HttpResponseMessage> outcome)
+    private bool IsTransient(Outcome<HttpResponseMessage> outcome)
     {
         if (outcome.Exception is HttpRequestException { HttpRequestError: HttpRequestError.NameResolutionError })
             return false;
         if (outcome.Exception is HttpRequestException) return true;
         if (outcome.Result is not { } response) return false;
 
-        return (int)response.StatusCode >= 500 ||
-               response.StatusCode == HttpStatusCode.TooManyRequests;
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            return RetryAfter(response) is not { } wait || wait <= MaxRetryAfter;
+
+        return (int)response.StatusCode >= 500;
+    }
+
+    /// <summary>The wait a 429 response asks for (seconds or an HTTP date), or <c>null</c> if none.</summary>
+    private TimeSpan? RetryAfter(HttpResponseMessage? response)
+    {
+        if (response is not { StatusCode: HttpStatusCode.TooManyRequests, Headers.RetryAfter: { } header })
+            return null;
+
+        if (header.Delta is { } delta)
+            return delta;
+        if (header.Date is { } date)
+            return date > _time.GetUtcNow() ? date - _time.GetUtcNow() : TimeSpan.Zero;
+        return null;
     }
 
     // Tenrai natively supports the `limit` query parameter (e.g., `?q=konosuba&limit=5` returns 5 results).
@@ -114,13 +142,15 @@ public sealed class TenraiClient : IMediaSourceClient
     {
         try
         {
-            using var response = await _pipeline.ExecuteAsync(
-                async token => await _rateLimiter.ExecuteAsync(
-                    async () =>
+            // One rate-limit permit per logical call, retry included: a retry is rare and
+            // single, and charging it a second permit doubled every call's cost in an outage.
+            using var response = await _rateLimiter.ExecuteAsync(
+                () => _pipeline.ExecuteAsync(
+                    async token =>
                     {
                         _logger.LogDebug("GET {Url}", relativeUrl);
                         return await _http.GetAsync(relativeUrl, token).ConfigureAwait(false);
-                    }, token).ConfigureAwait(false),
+                    }, ct).AsTask(),
                 ct).ConfigureAwait(false);
 
             // A 404/400 is a real answer (unknown MAL id, bad query) — don't let it

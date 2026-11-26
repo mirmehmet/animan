@@ -13,13 +13,18 @@ public class CoverConnectionGuardTests
 {
     private const string BlockedMarker = "Blocked cover connection";
 
-    private static HttpClient CreateClient()
+    private static HttpClient CreateClient() =>
+        new(ServiceCollectionExtensions.CreateCoverHandler()) { Timeout = TimeSpan.FromSeconds(3) };
+
+    [Fact]
+    public void CoverHandler_BypassesTheSystemProxy()
     {
-        var handler = ServiceCollectionExtensions.CreateCoverHandler();
-        // A system proxy would make the handler dial the proxy instead of the target
-        // (audit finding AM-014, handled separately); test the guard itself.
-        handler.UseProxy = false;
-        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(3) };
+        // Through a proxy the guard would see the proxy's address instead of the target's:
+        // a local proxy (Clash, Fiddler) would block every cover, a public one would hide
+        // the real destination from the check.
+        using var handler = ServiceCollectionExtensions.CreateCoverHandler();
+
+        handler.UseProxy.Should().BeFalse();
     }
 
     [Theory]

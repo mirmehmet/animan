@@ -85,7 +85,7 @@ internal static partial class MediaMapper
     {
         AnimeId = animeId,
         PlatformName = dto.Name,
-        Url = HttpUrlGuard.SanitizeWebUrl(dto.Url)
+        Url = HttpUrlGuard.SanitizeExternalWebUrl(dto.Url)
     };
 
     // Explicit genres join the regular list: AniMan shows metadata as the source has it

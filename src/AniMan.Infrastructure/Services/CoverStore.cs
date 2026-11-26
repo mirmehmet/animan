@@ -59,6 +59,14 @@ public sealed class CoverStore(
                 return null;
             }
 
+            if (!IsSupportedImage(bytes))
+            {
+                // An HTML error page or a truncated body would otherwise be cached as a
+                // "valid" cover and never be fetched again.
+                logger.LogWarning("Rejected cover payload that is not a JPEG/PNG/WebP/GIF image for {MalId}", malId);
+                return null;
+            }
+
             await File.WriteAllBytesAsync(tmpPath, bytes, ct).ConfigureAwait(false);
             File.Move(tmpPath, filePath, overwrite: true);
             return filePath;
@@ -120,6 +128,16 @@ public sealed class CoverStore(
                 TryDeleteFile(file);
         }
     }
+
+    /// <summary>Checks the file signature of the formats the cover CDNs serve and WPF can decode.</summary>
+    internal static bool IsSupportedImage(ReadOnlySpan<byte> bytes) =>
+        bytes.StartsWith(JpegSignature)
+        || bytes.StartsWith(PngSignature)
+        || bytes.StartsWith("GIF8"u8)
+        || (bytes.Length >= 12 && bytes.StartsWith("RIFF"u8) && bytes[8..12].SequenceEqual("WEBP"u8));
+
+    private static ReadOnlySpan<byte> JpegSignature => [0xFF, 0xD8, 0xFF];
+    private static ReadOnlySpan<byte> PngSignature => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     private static bool HasNonEmptyFile(string path) =>
         new FileInfo(path) is { Exists: true, Length: > 0 };

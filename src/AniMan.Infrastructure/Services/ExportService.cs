@@ -124,6 +124,7 @@ public sealed class ExportService(
 
             var referencedCovers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var pendingCoverDownloads = new List<(LibraryItem Entity, int MalId, MediaType MediaType, string Url)>();
+            var untrustedCovers = 0;
             var imported = 0;
             var skipped = 0;
 
@@ -241,9 +242,15 @@ public sealed class ExportService(
                             snap.CoverLocalPath = existingLocal;
                             referencedCovers.Add(Path.GetFullPath(existingLocal));
                         }
+                        else if (HttpUrlGuard.IsTrustedCoverUrl(snap.CoverOriginalUrl))
+                        {
+                            pendingCoverDownloads.Add((entity, dto.MalId, mediaType, snap.CoverOriginalUrl!));
+                        }
                         else if (!string.IsNullOrWhiteSpace(snap.CoverOriginalUrl))
                         {
-                            pendingCoverDownloads.Add((entity, dto.MalId, mediaType, snap.CoverOriginalUrl));
+                            // Not a MyAnimeList/AniList CDN: the URL is kept with the item, but
+                            // nothing is fetched from it. A later refresh brings the real cover.
+                            untrustedCovers++;
                         }
                     }
 
@@ -257,7 +264,7 @@ public sealed class ExportService(
                     await transaction.CommitAsync(ct).ConfigureAwait(false);
             }
 
-            var coversFailed = 0;
+            var coversFailed = untrustedCovers;
             if (pendingCoverDownloads.Count > 0)
             {
                 var downloaded = new ConcurrentBag<(int LibraryItemId, string Path)>();
@@ -286,7 +293,7 @@ public sealed class ExportService(
                         }
                     }).ConfigureAwait(false);
 
-                coversFailed = coverTotal - downloaded.Count;
+                coversFailed += coverTotal - downloaded.Count;
 
                 if (!downloaded.IsEmpty)
                 {

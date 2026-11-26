@@ -432,6 +432,7 @@ public partial class DetailViewModel : ObservableObject
                     {
                         Name = name,
                         Url = safeUrl,
+                        IsUserLink = true,
                         Background = StreamingPlatformColors.GetBrush(name)
                     });
                 }
@@ -446,7 +447,8 @@ public partial class DetailViewModel : ObservableObject
                 if (string.IsNullOrWhiteSpace(s.PlatformName))
                     continue;
 
-                var safeUrl = HttpUrlGuard.SanitizeWebUrl(s.Url);
+                // Cached rows may predate the mapper's LAN filter, so check again here.
+                var safeUrl = HttpUrlGuard.SanitizeExternalWebUrl(s.Url);
                 if (!string.IsNullOrWhiteSpace(s.Url) && safeUrl is null)
                     continue;
 

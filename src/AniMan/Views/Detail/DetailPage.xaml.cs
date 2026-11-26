@@ -117,8 +117,8 @@ public partial class DetailPage : UserControl, INavigationAware, AniMan.Controls
 
     private void OnStreamingPlatformClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not SWC.Button { Tag: string url }) return;
-        SafeBrowserLauncher.TryOpen(url);
+        if (sender is not SWC.Button { DataContext: StreamingBadgeViewModel { Url: { } url } badge }) return;
+        SafeBrowserLauncher.TryOpen(url, allowLocalNetwork: badge.IsUserLink);
     }
 
     private async void OnNoteEditRequested(object? sender, NoteEditEventArgs e)
