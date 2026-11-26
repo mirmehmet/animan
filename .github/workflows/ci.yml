@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # Every branch, so work branches (e.g. updates2) are tested before they are merged.
+  # Tag pushes are not matched here; release.yml handles those.
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
 
