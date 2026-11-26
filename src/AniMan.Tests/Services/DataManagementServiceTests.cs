@@ -124,12 +124,13 @@ public class DataManagementServiceTests : IDisposable
             (await lib.TrackingStatuses.AnyAsync(s => s.Id == 99)).Should().BeFalse();
             (await lib.TrackingStatuses.CountAsync()).Should().Be(7);
 
-            // Preserved settings remain
-            (await lib.Settings.FindAsync(["Theme"]))?.Value.Should().Be("Dark");
-            (await lib.Settings.FindAsync(["Language"]))?.Value.Should().Be("tr");
-            (await lib.Settings.FindAsync(["StartupPage"]))?.Value.Should().Be("Anime");
-            (await lib.Settings.FindAsync(["FontFamily"]))?.Value.Should().Be("Consolas");
-            (await lib.Settings.FindAsync(["CacheRefreshDays"]))?.Value.Should().Be("14");
+            // Preserved settings remain. Each must exist: a `?.Value.Should()` chain would
+            // silently skip the assertion when the reset wrongly deleted the row.
+            (await SettingValueAsync(lib, "Theme")).Should().Be("Dark");
+            (await SettingValueAsync(lib, "Language")).Should().Be("tr");
+            (await SettingValueAsync(lib, "StartupPage")).Should().Be("Anime");
+            (await SettingValueAsync(lib, "FontFamily")).Should().Be("Consolas");
+            (await SettingValueAsync(lib, "CacheRefreshDays")).Should().Be("14");
 
             // Ephemeral settings purged
             (await lib.Settings.FindAsync(["LastBackupAt"])).Should().BeNull();
@@ -146,6 +147,47 @@ public class DataManagementServiceTests : IDisposable
             (await cat.Genres.CountAsync()).Should().Be(0);
             (await cat.MediaGenres.CountAsync()).Should().Be(0);
         }
+    }
+
+    [Fact]
+    public async Task ResetAllData_DeletesEveryCachedCoverFile()
+    {
+        await File.WriteAllBytesAsync(Path.Combine(_paths.CoversPath, "100_anime.jpg"), [1, 2, 3]);
+        await File.WriteAllBytesAsync(Path.Combine(_paths.CoversPath, "200_manga.jpg"), [4, 5, 6]);
+
+        var result = await _service.ResetAllDataAsync();
+
+        result.IsSuccess.Should().BeTrue();
+        Directory.GetFiles(_paths.CoversPath).Should().BeEmpty("a full reset leaves no cached covers behind");
+    }
+
+    [Fact]
+    public async Task ResetAllData_WhenCatalogStepFails_ReportsFailure()
+    {
+        var service = new DataManagementService(
+            _libraryFactory, new ThrowingFactory<CatalogDbContext>(), _paths,
+            NullLogger<DataManagementService>.Instance);
+
+        var result = await service.ResetAllDataAsync();
+
+        // The Settings page must be able to tell the user the reset did not complete.
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().NotBeNullOrWhiteSpace();
+    }
+
+    private sealed class ThrowingFactory<TContext> : IDbContextFactory<TContext>
+        where TContext : DbContext
+    {
+        public TContext CreateDbContext() =>
+            throw new InvalidOperationException("Simulated database failure");
+    }
+
+    /// <summary>Reads a setting and fails the test when the row is missing.</summary>
+    private static async Task<string> SettingValueAsync(LibraryDbContext db, string key)
+    {
+        var setting = await db.Settings.FindAsync([key]);
+        setting.Should().NotBeNull($"setting '{key}' must survive the reset");
+        return setting!.Value;
     }
 
     public void Dispose()

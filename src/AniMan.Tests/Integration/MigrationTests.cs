@@ -287,11 +287,19 @@ public class MigrationTests
         var notes = await verify.Notes.ToListAsync();
         notes.Should().HaveCount(50);
 
-        // Settings intact
-        (await verify.Settings.FindAsync(["Theme"]))?.Value.Should().Be("Dark");
-        (await verify.Settings.FindAsync(["Language"]))?.Value.Should().Be("tr");
-        (await verify.Settings.FindAsync(["StartupPage"]))?.Value.Should().Be("Anime");
-        (await verify.Settings.FindAsync(["CacheRefreshDays"]))?.Value.Should().Be("14");
+        // Settings intact. Each row must exist: a `?.Value.Should()` chain would silently
+        // skip the assertion if the migration lost the setting.
+        async Task AssertSettingAsync(string key, string expected)
+        {
+            var setting = await verify.Settings.FindAsync([key]);
+            setting.Should().NotBeNull($"setting '{key}' must survive the migration");
+            setting!.Value.Should().Be(expected);
+        }
+
+        await AssertSettingAsync("Theme", "Dark");
+        await AssertSettingAsync("Language", "tr");
+        await AssertSettingAsync("StartupPage", "Anime");
+        await AssertSettingAsync("CacheRefreshDays", "14");
     }
 
     /// <summary>

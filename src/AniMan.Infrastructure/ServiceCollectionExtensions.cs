@@ -80,12 +80,7 @@ public static class ServiceCollectionExtensions
             client.MaxResponseContentBufferSize = MaxCoverResponseBytes;
             client.DefaultRequestHeaders.UserAgent.ParseAdd(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AniMan/1.0");
-        }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-        {
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-            MaxAutomaticRedirections = 5,
-            ConnectCallback = ConnectSafeExternalAsync
-        });
+        }).ConfigurePrimaryHttpMessageHandler(CreateCoverHandler);
 
         services.AddSingleton<CoverStore>();
         services.AddTransient<ICatalogService, CatalogService>();
@@ -97,6 +92,19 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Primary handler of the "covers" client. Every connection — including each redirect
+    /// hop — goes through <see cref="ConnectSafeExternalAsync"/>, which re-checks the
+    /// resolved addresses, so a public hostname cannot be used to reach a private one.
+    /// Internal so the guard can be exercised by tests.
+    /// </summary>
+    internal static SocketsHttpHandler CreateCoverHandler() => new()
+    {
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+        MaxAutomaticRedirections = 5,
+        ConnectCallback = ConnectSafeExternalAsync
+    };
 
     private static async ValueTask<Stream> ConnectSafeExternalAsync(
         SocketsHttpConnectionContext context,

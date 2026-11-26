@@ -24,13 +24,21 @@ public sealed class TenraiClient : IMediaSourceClient
         PropertyNameCaseInsensitive = true
     };
 
-    public TenraiClient(HttpClient http, TenraiRateLimiter rateLimiter, ILogger<TenraiClient> logger)
+    /// <param name="timeProvider">Clock for retry back-off; tests pass a fake one. Defaults to the system clock.</param>
+    public TenraiClient(
+        HttpClient http,
+        TenraiRateLimiter rateLimiter,
+        ILogger<TenraiClient> logger,
+        TimeProvider? timeProvider = null)
     {
         _http = http;
         _rateLimiter = rateLimiter;
         _logger = logger;
 
-        _pipeline = new ResiliencePipelineBuilder<HttpResponseMessage>()
+        _pipeline = new ResiliencePipelineBuilder<HttpResponseMessage>
+            {
+                TimeProvider = timeProvider ?? TimeProvider.System
+            }
             .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
             {
                 MaxRetryAttempts = 3,
