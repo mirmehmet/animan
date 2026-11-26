@@ -18,8 +18,7 @@ public partial class DiscoverPage : SWC.UserControl
     private readonly DiscoverViewModel _vm;
     private readonly IContentDialogService _dialogService;
     private readonly ISnackbarService _snackbar;
-    private readonly NavigationBag _bag;
-    private readonly INavigationService _navigationService;
+    private readonly DetailNavigator _detail;
     private readonly ILogger<DiscoverPage> _logger;
 
     // Set while the view swaps tabs and restores that tab's offset, so the
@@ -30,16 +29,14 @@ public partial class DiscoverPage : SWC.UserControl
         DiscoverViewModel viewModel,
         IContentDialogService dialogService,
         ISnackbarService snackbar,
-        NavigationBag bag,
-        INavigationService navigationService,
+        DetailNavigator detail,
         ILogger<DiscoverPage> logger)
     {
         InitializeComponent();
         _vm = viewModel;
         _dialogService = dialogService;
         _snackbar = snackbar;
-        _bag = bag;
-        _navigationService = navigationService;
+        _detail = detail;
         _logger = logger;
         DataContext = viewModel;
 
@@ -123,9 +120,7 @@ public partial class DiscoverPage : SWC.UserControl
     private void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not DiscoverCardViewModel card) return;
-        var backLabel = "← " + LocalizationManager.Get("Discover_Title");
-        _bag.Put(new DetailNavigationArgs(card.MalId, card.MediaType, null, backLabel));
-        _navigationService.Navigate(typeof(Detail.DetailPage));
+        _detail.Open(card.MalId, card.MediaType, null, "Discover_Title");
     }
 
     private async void OnAddToLibraryRequested(object? sender, AddToLibraryEventArgs e)

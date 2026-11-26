@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AniMan.Core.Common;
 using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
@@ -362,7 +361,7 @@ public sealed class SnapshotService(
                 .Where(mg => mg.MediaId == malId && mg.MediaType == mediaType)
                 .Join(catalogDb.Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name)
                 .ToListAsync(ct).ConfigureAwait(false);
-            return JsonSerializer.Serialize(genres);
+            return NameList.ToJson(genres);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)

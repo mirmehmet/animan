@@ -75,7 +75,7 @@ public partial class App : Application
             LocalizationManager.SetCulture(language);
             ApplyXmlLanguageMetadata();
 
-            // Purge soft-deleted items older than 30 days on every startup
+            // Purge soft-deleted items past TrashPolicy.RetentionDays on every startup
             var tracking = Services.GetRequiredService<ITrackingService>();
             await tracking.PurgeExpiredTrashAsync();
             Services.GetRequiredService<CoverStore>().DeleteLeftoverTempFiles();
@@ -162,6 +162,7 @@ public partial class App : Application
         services.AddSingleton<IContentDialogService, ContentDialogService>();
         services.AddSingleton<ISnackbarService, SnackbarService>();
         services.AddSingleton<NavigationBag>();
+        services.AddSingleton<DetailNavigator>();
         services.AddSingleton<BusyOverlayViewModel>();
 
         // Pages: Main tab pages are Singletons so their VisualTrees are preserved and not leaked/duplicated across navigations.

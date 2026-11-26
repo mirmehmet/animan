@@ -302,11 +302,11 @@ public class TrackingServiceTests : IDisposable
     {
         var svc = Create();
 
-        var anime = await svc.GetLibraryAsync("anime");
+        var anime = await svc.GetLibraryAsync(AniMan.Core.Domain.Enums.MediaType.Anime);
         anime.IsSuccess.Should().BeTrue();
         anime.Value!.Should().ContainSingle(i => i.MalId == 100);
 
-        var manga = await svc.GetLibraryAsync("manga");
+        var manga = await svc.GetLibraryAsync(AniMan.Core.Domain.Enums.MediaType.Manga);
         manga.IsSuccess.Should().BeTrue();
         manga.Value!.Should().ContainSingle(i => i.MalId == 200);
     }

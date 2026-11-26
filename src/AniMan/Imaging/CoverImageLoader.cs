@@ -1,6 +1,9 @@
 using System.Collections.Concurrent;
 using System.IO;
+using System.Net.Http;
+using System.Windows;
 using System.Windows.Media.Imaging;
+using AniMan.Core.Common;
 
 namespace AniMan.Imaging;
 
@@ -20,6 +23,53 @@ public static class CoverImageLoader
     // entries every PruneInterval inserts so paging through lists can't grow the maps forever.
     private const int PruneInterval = 200;
     private static int _insertsSincePrune;
+
+    /// <summary>Largest cover download accepted (same limit as the on-disk cover store).</summary>
+    private const int MaxRemoteCoverBytes = 10 * 1024 * 1024;
+
+    /// <summary>
+    /// Downloads and decodes a cover that is not on disk (Dashboard season cards, Discover,
+    /// detail preview). Only safe external http(s) URLs are fetched, through the guarded
+    /// "covers" client; an already decoded bitmap is reused. Returns <c>null</c> when there is
+    /// no usable cover — offline, a bad URL, an empty or oversized body — and logs that at
+    /// debug level only, since offline every card on a page would log it.
+    /// </summary>
+    /// <exception cref="OperationCanceledException">When <paramref name="ct"/> is cancelled.</exception>
+    public static async Task<BitmapImage?> FromUrlAsync(
+        IHttpClientFactory httpClientFactory, string? url, int decodePixelWidth, CancellationToken ct = default)
+    {
+        if (!HttpUrlGuard.IsAllowedWebUrl(url, out var uri) || !HttpUrlGuard.IsSafeExternalHost(uri))
+            return null;
+
+        var cacheKey = uri.AbsoluteUri;
+        if (TryGetFromUrlCache(cacheKey, decodePixelWidth) is { } cached)
+            return cached;
+
+        try
+        {
+            var http = httpClientFactory.CreateClient("covers");
+            var bytes = await http.GetByteArrayAsync(uri, ct).ConfigureAwait(false);
+            if (bytes.Length == 0 || bytes.Length > MaxRemoteCoverBytes)
+                return null;
+
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.HasShutdownStarted)
+                return null;
+
+            // BitmapImage inherits DispatcherObject — create it on the UI (STA) thread; the
+            // download finished on a thread-pool thread.
+            return await dispatcher.InvokeAsync(() => FromBytes(bytes, decodePixelWidth, cacheKey));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Cover download failed: {Url}", uri);
+            return null;
+        }
+    }
 
     /// <summary>Checks whether a remote URL cover was already decoded at the specified width.</summary>
     public static BitmapImage? TryGetFromUrlCache(string? url, int decodePixelWidth)

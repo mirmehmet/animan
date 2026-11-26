@@ -1,4 +1,5 @@
 using System.Globalization;
+using AniMan.Core.Common;
 using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
@@ -156,7 +157,7 @@ public partial class StatsViewModel : ObservableObject
     {
         if (_cache.ContainsKey(mediaType)) return;
 
-        var result = await _tracking.GetLibraryAsync(mediaType.ToString().ToLowerInvariant());
+        var result = await _tracking.GetLibraryAsync(mediaType);
         if (!result.IsSuccess)
         {
             // Not "no statistics yet": the library exists, it just could not be read.
@@ -203,7 +204,7 @@ public partial class StatsViewModel : ObservableObject
             UnitDates = dates.ToList(),
             CompletedAt = item.CompletedAt,
             Year = LibraryViewModelBase.ResolveYear(snap),
-            Genres = LibraryViewModelBase.ParseNames(snap?.Genres)
+            Genres = NameList.Parse(snap?.Genres)
         };
     }
 

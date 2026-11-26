@@ -356,6 +356,56 @@ public class CatalogServiceTests : IDisposable
         _sourceMock.Verify(s => s.GetAnimeStreamingAsync(99999, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task GetAnimeStreamingAsync_ConcurrentCalls_ShareOneFetch()
+    {
+        var gate = new TaskCompletionSource<Result<SingleResult<IReadOnlyList<StreamingDto>>>>();
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(77, It.IsAny<CancellationToken>()))
+            .Returns(gate.Task);
+
+        var svc = CreateService();
+        var first = svc.GetAnimeStreamingAsync(77, force: true);
+        var second = svc.GetAnimeStreamingAsync(77, force: true);
+        gate.SetResult(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+            new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+
+        (await first).IsSuccess.Should().BeTrue();
+        (await second).IsSuccess.Should().BeTrue();
+        _sourceMock.Verify(s => s.GetAnimeStreamingAsync(77, It.IsAny<CancellationToken>()), Times.Once,
+            "the second caller awaits the fetch already running instead of starting its own");
+    }
+
+    [Fact]
+    public async Task GetAnimeStreamingAsync_FirstCallerCancelled_WaitingCallerFetchesItself()
+    {
+        var calls = 0;
+        var firstFetch = new TaskCompletionSource<Result<SingleResult<IReadOnlyList<StreamingDto>>>>();
+        _sourceMock
+            .Setup(s => s.GetAnimeStreamingAsync(78, It.IsAny<CancellationToken>()))
+            .Returns((int _, CancellationToken ct) =>
+            {
+                if (Interlocked.Increment(ref calls) == 1)
+                {
+                    ct.Register(() => firstFetch.TrySetCanceled(ct));
+                    return firstFetch.Task;
+                }
+                return Task.FromResult(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                    new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+            });
+
+        var svc = CreateService();
+        using var leaving = new CancellationTokenSource();
+        var first = svc.GetAnimeStreamingAsync(78, force: true, leaving.Token);
+        var second = svc.GetAnimeStreamingAsync(78, force: true);
+
+        await leaving.CancelAsync();
+
+        await FluentActions.Awaiting(() => first).Should().ThrowAsync<OperationCanceledException>();
+        (await second).IsSuccess.Should().BeTrue("its own page is still open");
+        calls.Should().Be(2);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static CachedAnime MakeCachedAnime(int id, int daysOld, int? totalEpisodes = null) => new()

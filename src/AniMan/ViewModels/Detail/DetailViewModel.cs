@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Net.Http;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using AniMan.Core.Common;
@@ -22,7 +21,6 @@ namespace AniMan.ViewModels.Detail;
     Justification = "Transient view model; see the comment above.")]
 public partial class DetailViewModel : ObservableObject
 {
-    private const int MaxCoverBytes = 10 * 1024 * 1024;
     private const int PreviewDecodeWidth = 200;
 
     private readonly ITrackingService _tracking;
@@ -49,12 +47,11 @@ public partial class DetailViewModel : ObservableObject
     [ObservableProperty] private LibraryItem? _item;
     [ObservableProperty] private MediaSnapshot? _mediaSnapshot;
     [ObservableProperty] private BitmapImage? _coverImage;
-    [ObservableProperty] private ObservableCollection<EpisodeRowViewModel> _episodes = [];
-    [ObservableProperty] private ObservableCollection<ChapterRowViewModel> _chapters = [];
+    /// <summary>Episode rows (anime) or chapter rows (manga) of the title, one per number.</summary>
+    [ObservableProperty] private ObservableCollection<ProgressRowViewModel> _rows = [];
 
-    /// <summary>What the list shows of <see cref="Episodes"/>/<see cref="Chapters"/>: one 100-row range at a time.</summary>
-    public ProgressPager<EpisodeRowViewModel> EpisodePager { get; } = new(r => r.EpisodeNumber, r => r.IsWatched);
-    public ProgressPager<ChapterRowViewModel> ChapterPager { get; } = new(r => r.ChapterNumber, r => r.IsRead);
+    /// <summary>What the list shows of <see cref="Rows"/>: one 100-row range at a time.</summary>
+    public ProgressPager<ProgressRowViewModel> Pager { get; } = new(r => r.Number, r => r.IsDone);
     [ObservableProperty] private int _watchedCount;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private string _seriesNote = string.Empty;
@@ -72,8 +69,7 @@ public partial class DetailViewModel : ObservableObject
     public bool HasUnsavedSeriesNote => !IsPreviewMode && LibraryItemId > 0 && SeriesNote != _lastSavedSeriesNote;
     public bool HasStreamingPlatforms => StreamingPlatforms.Count > 0;
     public bool HasProgress => TotalCount > 0;
-    public bool HasEpisodes => !IsManga && TotalCount > 0;
-    public bool HasChapters => IsManga && TotalCount > 0;
+    public string ProgressListTitle => Localization.LocalizationManager.Get(IsManga ? "Detail_Chapters" : "Detail_Episodes");
     public string ProgressSuffix => IsManga
         ? Localization.LocalizationManager.Get("Detail_ChaptersSuffix")
         : Localization.LocalizationManager.Get("Detail_EpisodesSuffix");
@@ -87,9 +83,9 @@ public partial class DetailViewModel : ObservableObject
     public string EnglishTitleDisplay => MediaMetadataDisplay.EnglishTitle(MediaSnapshot?.Title, MediaSnapshot?.TitleEnglish);
     public bool HasEnglishTitle => EnglishTitleDisplay.Length > 0;
     public string DurationDisplay => MediaMetadataDisplay.Duration(MediaSnapshot?.DurationMinutes, MediaSnapshot?.TotalEpisodes);
-    public string DemographicsDisplay => string.Join(", ", DeserializeGenres(MediaSnapshot?.Demographics));
-    public string AuthorsDisplay => string.Join(" · ", DeserializeGenres(MediaSnapshot?.Authors));
-    public IReadOnlyList<string> Themes => DeserializeGenres(MediaSnapshot?.Themes);
+    public string DemographicsDisplay => string.Join(", ", NameList.Parse(MediaSnapshot?.Demographics));
+    public string AuthorsDisplay => string.Join(" · ", NameList.Parse(MediaSnapshot?.Authors));
+    public IReadOnlyList<string> Themes => NameList.Parse(MediaSnapshot?.Themes);
 
     public event EventHandler<TrackingAutoCompleteEventArgs>? AutoCompleteRequested;
     public event EventHandler<(int MalId, MediaType MediaType)>? AddToLibraryFromPreviewRequested;
@@ -118,7 +114,7 @@ public partial class DetailViewModel : ObservableObject
 
     public async Task InitializeFromArgsAsync(DetailNavigationArgs args)
     {
-        BackLabel = (args.BackLabel ?? string.Empty).TrimStart('←', ' ');
+        BackLabel = args.BackLabel ?? string.Empty;
         var ct = BeginLoad();
 
         try
@@ -179,10 +175,10 @@ public partial class DetailViewModel : ObservableObject
 
             LoadCoverImage();
             LoadSeriesNote();
-            Genres = DeserializeGenres(MediaSnapshot?.Genres);
+            Genres = NameList.Parse(MediaSnapshot?.Genres);
             await LoadProgressAsync();
             if (IsManga)
-                BuildChapterRows();
+                BuildRows();
             else
                 await LoadEpisodesAndExtrasAsync(forceStreaming: false, ct);
         }
@@ -377,13 +373,13 @@ public partial class DetailViewModel : ObservableObject
             Item.Snapshot = result.Value;
 
         MediaSnapshot = result.Value;
-        Genres = DeserializeGenres(MediaSnapshot?.Genres);
+        Genres = NameList.Parse(MediaSnapshot?.Genres);
         LoadCoverImage();
         await LoadProgressAsync();
 
         if (IsManga)
         {
-            BuildChapterRows();
+            BuildRows();
         }
         else if (Item is not null)
         {
@@ -493,18 +489,6 @@ public partial class DetailViewModel : ObservableObject
         SafeBrowserLauncher.TryOpen($"https://myanimelist.net/{type}/{id}");
     }
 
-    private static IReadOnlyList<string> DeserializeGenres(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-        try
-        {
-            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
 
     private async Task LoadStreamingAsync(int malId, bool force, CancellationToken ct)
     {
@@ -579,40 +563,13 @@ public partial class DetailViewModel : ObservableObject
 
     private async Task LoadCoverFromUrlAsync(string? url, CancellationToken ct)
     {
-        if (!HttpUrlGuard.IsAllowedWebUrl(url, out var uri) ||
-            !HttpUrlGuard.IsSafeExternalHost(uri))
-        {
-            return;
-        }
-
-        var cacheKey = uri.AbsoluteUri;
-        var cached = Imaging.CoverImageLoader.TryGetFromUrlCache(cacheKey, PreviewDecodeWidth);
-        if (cached is not null)
-        {
-            CoverImage = cached;
-            return;
-        }
-
         try
         {
-            var http = _httpClientFactory.CreateClient("covers");
-            var bytes = await http.GetByteArrayAsync(uri, ct);
-            if (bytes.Length == 0 || bytes.Length > MaxCoverBytes)
-                return;
-
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher is null || dispatcher.HasShutdownStarted)
-                return;
-
-            await dispatcher.InvokeAsync(() =>
-                CoverImage = Imaging.CoverImageLoader.FromBytes(bytes, PreviewDecodeWidth, cacheKey));
+            if (await Imaging.CoverImageLoader.FromUrlAsync(_httpClientFactory, url, PreviewDecodeWidth, ct) is { } image)
+                CoverImage = image;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "URL cover load failed for preview {MalId}", _previewMalId);
         }
     }
 
@@ -642,13 +599,13 @@ public partial class DetailViewModel : ObservableObject
     private async Task LoadEpisodesAndExtrasAsync(bool forceStreaming, CancellationToken ct)
     {
         if (Item is null) return;
-        var rows = BuildEpisodeRows();
+        var rows = BuildRows();
         await Task.WhenAll(
             LoadEpisodeTitlesAsync(Item.MalId, rows, ct),
             LoadStreamingAsync(Item.MalId, forceStreaming, ct));
     }
 
-    private async Task LoadEpisodeTitlesAsync(int malId, IReadOnlyList<EpisodeRowViewModel> rows, CancellationToken ct)
+    private async Task LoadEpisodeTitlesAsync(int malId, IReadOnlyList<ProgressRowViewModel> rows, CancellationToken ct)
     {
         if (rows.Count == 0) return;
         try
@@ -663,7 +620,7 @@ public partial class DetailViewModel : ObservableObject
 
             foreach (var row in rows)
             {
-                if (titles.TryGetValue(row.EpisodeNumber, out var title))
+                if (titles.TryGetValue(row.Number, out var title))
                     row.Title = title;
             }
         }
@@ -676,174 +633,131 @@ public partial class DetailViewModel : ObservableObject
         }
     }
 
-    private List<EpisodeRowViewModel> BuildEpisodeRows()
+    /// <summary>One row per episode (anime) or chapter (manga), with its saved state, date and note mark.</summary>
+    private List<ProgressRowViewModel> BuildRows()
     {
         if (Item?.Snapshot is null) return [];
 
-        var episodeProgress = Item.EpisodeProgress
-            .GroupBy(ep => ep.EpisodeNumber)
-            .ToDictionary(g => g.Key, g => g.First());
-        var episodeNotes = Item.Notes
-            .Where(n => n.EpisodeNumber.HasValue && !string.IsNullOrWhiteSpace(n.Content))
-            .Select(n => n.EpisodeNumber!.Value)
+        var manga = IsManga;
+        var progress = manga
+            ? Item.ChapterProgress
+                .GroupBy(cp => cp.ChapterNumber)
+                .ToDictionary(g => g.Key, g => (Done: g.First().IsRead, At: g.First().ReadAt))
+            : Item.EpisodeProgress
+                .GroupBy(ep => ep.EpisodeNumber)
+                .ToDictionary(g => g.Key, g => (Done: g.First().IsWatched, At: g.First().WatchedAt));
+        var withNotes = Item.Notes
+            .Where(n => !string.IsNullOrWhiteSpace(n.Content))
+            .Select(n => manga ? n.ChapterNumber : n.EpisodeNumber)
+            .OfType<int>()
             .ToHashSet();
 
-        int total = Item.Snapshot.TotalEpisodes ?? 0;
+        var total = (manga ? Item.Snapshot.TotalChapters : Item.Snapshot.TotalEpisodes) ?? 0;
 
-        var rows = new List<EpisodeRowViewModel>();
-        for (int i = 1; i <= total; i++)
+        var rows = new List<ProgressRowViewModel>();
+        for (var i = 1; i <= total; i++)
         {
-            var row = new EpisodeRowViewModel(_tracking, _logger, _progressGate)
+            var row = new ProgressRowViewModel(_tracking, _logger, _progressGate, manga)
             {
                 LibraryItemId = LibraryItemId,
-                EpisodeNumber = i,
-                HasNote = episodeNotes.Contains(i)
+                Number = i,
+                HasNote = withNotes.Contains(i)
             };
-            var watched = episodeProgress.TryGetValue(i, out var ep) && ep.IsWatched;
-            row.InitWatched(watched, watched ? ep!.WatchedAt : null);
+            var done = progress.TryGetValue(i, out var p) && p.Done;
+            row.InitDone(done, done ? p.At : null);
 
-            row.WatchedToggled += OnEpisodeWatchedToggled;
-            row.MarkUpToHereRequested += OnEpisodeMarkUpToHere;
-            row.NoteRequested += OnEpisodeNoteRequested;
+            row.Toggled += OnRowToggled;
+            row.MarkUpToHereRequested += OnRowMarkUpToHere;
+            row.NoteRequested += OnRowNoteRequested;
             row.SaveFailed += OnProgressSaveFailed;
             rows.Add(row);
         }
 
-        Episodes = new ObservableCollection<EpisodeRowViewModel>(rows);
-        EpisodePager.Reset(rows);
+        Rows = new ObservableCollection<ProgressRowViewModel>(rows);
+        Pager.Reset(rows);
         return rows;
-    }
-
-    private void BuildChapterRows()
-    {
-        if (Item?.Snapshot is null) return;
-
-        var chapterProgress = Item.ChapterProgress
-            .GroupBy(cp => cp.ChapterNumber)
-            .ToDictionary(g => g.Key, g => g.First());
-        var chapterNotes = Item.Notes
-            .Where(n => n.ChapterNumber.HasValue && !string.IsNullOrWhiteSpace(n.Content))
-            .Select(n => n.ChapterNumber!.Value)
-            .ToHashSet();
-
-        int total = Item.Snapshot.TotalChapters ?? 0;
-
-        var rows = new List<ChapterRowViewModel>();
-        for (int i = 1; i <= total; i++)
-        {
-            var row = new ChapterRowViewModel(_tracking, _logger, _progressGate)
-            {
-                LibraryItemId = LibraryItemId,
-                ChapterNumber = i,
-                HasNote = chapterNotes.Contains(i)
-            };
-            var read = chapterProgress.TryGetValue(i, out var cp) && cp.IsRead;
-            row.InitRead(read, read ? cp!.ReadAt : null);
-
-            row.ReadToggled += OnChapterReadToggled;
-            row.MarkUpToHereRequested += OnChapterMarkUpToHere;
-            row.NoteRequested += OnChapterNoteRequested;
-            row.SaveFailed += OnProgressSaveFailed;
-            rows.Add(row);
-        }
-
-        Chapters = new ObservableCollection<ChapterRowViewModel>(rows);
-        ChapterPager.Reset(rows);
     }
 
     private void OnProgressSaveFailed(object? sender, ErrorKind kind) =>
         ActionFailed?.Invoke(this, new ActionFailedEventArgs("Notify_ProgressSaveFailed", kind));
 
-    /// <summary>
-    /// "Mark up to here" means exactly up to here: marks after the chosen number are removed,
-    /// with their dates. When there are such marks the user confirms first. The write holds the
-    /// progress gate, so it cannot interleave with a row toggle that is still saving.
-    /// </summary>
-    /// <param name="applyToRows">Syncs the checkboxes after a successful save, still under the gate.</param>
-    /// <returns>The successful result, or <c>null</c> when the user cancelled or the save failed.</returns>
-    private async Task<TrackingResult?> MarkUpToAsync(
-        int number, int laterMarks, bool isManga,
-        Func<Task<Result<TrackingResult>>> save, Action applyToRows)
-    {
-        if (laterMarks > 0)
-        {
-            var confirmed = ConfirmClearLaterProgress is { } confirm
-                            && await confirm(new ClearLaterProgressRequest(number, laterMarks, isManga));
-            if (!confirmed) return null;
-        }
-
-        await _progressGate.WaitAsync();
-        try
-        {
-            var result = await save();
-            if (!result.IsSuccess)
-            {
-                OnProgressSaveFailed(this, result.Kind);
-                return null;
-            }
-
-            applyToRows();
-            return result.Value;
-        }
-        finally
-        {
-            _progressGate.Release();
-        }
-    }
-
     /// <summary>Asks the page to offer "mark as completed" — unless the title already is.</summary>
-    private void RequestAutoCompleteIfNeeded(bool isManga)
+    private void RequestAutoCompleteIfNeeded()
     {
         if (CurrentStatusId == TrackingStatusIds.Completed) return;
-        AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, isManga));
+        AutoCompleteRequested?.Invoke(this, new TrackingAutoCompleteEventArgs(LibraryItemId, IsManga));
     }
 
-    // ── Episode handlers ──────────────────────────────────────────────────────
+    // ── Row handlers ──────────────────────────────────────────────────────────
 
     // async void: event handlers must never let an exception escape to the dispatcher.
-    private async void OnEpisodeWatchedToggled(object? sender, EpisodeRowViewModel row)
+    private async void OnRowToggled(object? sender, ProgressRowViewModel row)
     {
         try
         {
             await LoadProgressAsync();
 
             if (WatchedCount == TotalCount && TotalCount > 0)
-                RequestAutoCompleteIfNeeded(isManga: false);
+                RequestAutoCompleteIfNeeded();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Episode toggle handling failed for item {Id}", LibraryItemId);
+            _logger.LogError(ex, "Progress toggle handling failed for item {Id}", LibraryItemId);
         }
     }
 
-    private async void OnEpisodeMarkUpToHere(object? sender, EpisodeRowViewModel row)
+    /// <summary>
+    /// "Mark up to here" means exactly up to here: marks after the chosen number are removed,
+    /// with their dates. When there are such marks the user confirms first. The write holds the
+    /// progress gate, so it cannot interleave with a row toggle that is still saving.
+    /// </summary>
+    private async void OnRowMarkUpToHere(object? sender, ProgressRowViewModel row)
     {
         try
         {
-            var target = row.EpisodeNumber;
-            var later = Episodes.Count(e => e.EpisodeNumber > target && e.IsWatched);
+            var target = row.Number;
+            var later = Rows.Count(r => r.Number > target && r.IsDone);
+            if (later > 0)
+            {
+                var confirmed = ConfirmClearLaterProgress is { } confirm
+                                && await confirm(new ClearLaterProgressRequest(target, later, IsManga));
+                if (!confirmed) return;
+            }
 
-            // Already persisted by the service — sync the UI both ways without
-            // re-triggering writes: at/below the target watched (dates kept),
-            // above it cleared.
-            var result = await MarkUpToAsync(target, later, isManga: false,
-                () => _tracking.MarkUpToHereAsync(LibraryItemId, target),
-                () =>
+            TrackingResult saved;
+            await _progressGate.WaitAsync();
+            try
+            {
+                var result = IsManga
+                    ? await _tracking.MarkChaptersUpToAsync(LibraryItemId, target)
+                    : await _tracking.MarkUpToHereAsync(LibraryItemId, target);
+                if (!result.IsSuccess)
                 {
-                    foreach (var ep in Episodes)
-                    {
-                        if (ep.EpisodeNumber <= target)
-                            ep.InitWatched(true, ep.WatchedAt ?? DateTime.UtcNow);
-                        else
-                            ep.InitWatched(false, null);
-                    }
-                });
-            if (result is null) return;
+                    OnProgressSaveFailed(this, result.Kind);
+                    return;
+                }
+                saved = result.Value!;
+
+                // Already persisted by the service — sync the checkboxes both ways without
+                // re-triggering writes: at/below the target done (dates kept), above it cleared.
+                // Still under the gate, so a queued row toggle sees the final state.
+                foreach (var r in Rows)
+                {
+                    if (r.Number <= target)
+                        r.InitDone(true, r.DoneAt ?? DateTime.UtcNow);
+                    else
+                        r.InitDone(false, null);
+                }
+            }
+            finally
+            {
+                _progressGate.Release();
+            }
 
             await LoadProgressAsync();
 
-            if (result.AutoCompleteNeeded)
-                RequestAutoCompleteIfNeeded(isManga: false);
+            if (saved.AutoCompleteNeeded)
+                RequestAutoCompleteIfNeeded();
         }
         catch (Exception ex)
         {
@@ -852,70 +766,14 @@ public partial class DetailViewModel : ObservableObject
         }
     }
 
-    private void OnEpisodeNoteRequested(object? sender, EpisodeRowViewModel row)
+    private void OnRowNoteRequested(object? sender, ProgressRowViewModel row)
     {
+        int? episode = IsManga ? null : row.Number;
+        int? chapter = IsManga ? row.Number : null;
         var current = Item?.Notes
-            .FirstOrDefault(n => n.EpisodeNumber == row.EpisodeNumber && n.ChapterNumber == null)?.Content
+            .FirstOrDefault(n => n.EpisodeNumber == episode && n.ChapterNumber == chapter)?.Content
             ?? string.Empty;
-        NoteEditRequested?.Invoke(this, new NoteEditEventArgs(row.EpisodeNumber, null, current));
-    }
-
-    // ── Chapter handlers ──────────────────────────────────────────────────────
-
-    private async void OnChapterReadToggled(object? sender, ChapterRowViewModel row)
-    {
-        try
-        {
-            await LoadProgressAsync();
-
-            if (WatchedCount == TotalCount && TotalCount > 0)
-                RequestAutoCompleteIfNeeded(isManga: true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Chapter toggle handling failed for item {Id}", LibraryItemId);
-        }
-    }
-
-    private async void OnChapterMarkUpToHere(object? sender, ChapterRowViewModel row)
-    {
-        try
-        {
-            var target = row.ChapterNumber;
-            var later = Chapters.Count(c => c.ChapterNumber > target && c.IsRead);
-
-            var result = await MarkUpToAsync(target, later, isManga: true,
-                () => _tracking.MarkChaptersUpToAsync(LibraryItemId, target),
-                () =>
-                {
-                    foreach (var ch in Chapters)
-                    {
-                        if (ch.ChapterNumber <= target)
-                            ch.InitRead(true, ch.ReadAt ?? DateTime.UtcNow);
-                        else
-                            ch.InitRead(false, null);
-                    }
-                });
-            if (result is null) return;
-
-            await LoadProgressAsync();
-
-            if (result.AutoCompleteNeeded)
-                RequestAutoCompleteIfNeeded(isManga: true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Mark-chapters-up-to failed for item {Id}", LibraryItemId);
-            OnProgressSaveFailed(this, ErrorKind.Unexpected);
-        }
-    }
-
-    private void OnChapterNoteRequested(object? sender, ChapterRowViewModel row)
-    {
-        var current = Item?.Notes
-            .FirstOrDefault(n => n.ChapterNumber == row.ChapterNumber && n.EpisodeNumber == null)?.Content
-            ?? string.Empty;
-        NoteEditRequested?.Invoke(this, new NoteEditEventArgs(null, row.ChapterNumber, current));
+        NoteEditRequested?.Invoke(this, new NoteEditEventArgs(episode, chapter, current));
     }
 
     // ── Note persistence (called back from the view after the dialog) ──────────
@@ -926,15 +784,10 @@ public partial class DetailViewModel : ObservableObject
         if (!result.IsSuccess) return;
 
         bool hasText = !string.IsNullOrWhiteSpace(content);
-        if (episodeNumber is int en)
+        if ((episodeNumber ?? chapterNumber) is int number &&
+            Rows.FirstOrDefault(r => r.Number == number) is { } noteRow)
         {
-            var row = Episodes.FirstOrDefault(e => e.EpisodeNumber == en);
-            if (row is not null) row.HasNote = hasText;
-        }
-        else if (chapterNumber is int cn)
-        {
-            var row = Chapters.FirstOrDefault(c => c.ChapterNumber == cn);
-            if (row is not null) row.HasNote = hasText;
+            noteRow.HasNote = hasText;
         }
 
         // Keep the in-memory note cache in sync for subsequent edits.
@@ -967,14 +820,11 @@ public partial class DetailViewModel : ObservableObject
     partial void OnTotalCountChanged(int value)
     {
         OnPropertyChanged(nameof(HasProgress));
-        OnPropertyChanged(nameof(HasEpisodes));
-        OnPropertyChanged(nameof(HasChapters));
     }
 
     partial void OnIsMangaChanged(bool value)
     {
-        OnPropertyChanged(nameof(HasEpisodes));
-        OnPropertyChanged(nameof(HasChapters));
+        OnPropertyChanged(nameof(ProgressListTitle));
         OnPropertyChanged(nameof(ProgressSuffix));
         OnPropertyChanged(nameof(StudioLabel));
     }

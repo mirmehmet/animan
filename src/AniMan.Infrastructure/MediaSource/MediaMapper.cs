@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using AniMan.Core.Common;
 using AniMan.Core.Domain;
@@ -148,7 +147,7 @@ internal static partial class MediaMapper
             .Where(n => !string.IsNullOrEmpty(n))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        return JsonSerializer.Serialize(names);
+        return NameList.ToJson(names!);
     }
 
     private static string? NullIfBlank(string? value) =>

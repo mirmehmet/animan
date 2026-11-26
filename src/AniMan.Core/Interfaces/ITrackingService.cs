@@ -17,7 +17,7 @@ public record LibraryOverviewItem(LibraryItem Item, int ProgressDone);
 public interface ITrackingService
 {
     /// <summary>Every active title with all of its progress rows. For pages that need the rows (Stats).</summary>
-    Task<Result<IReadOnlyList<LibraryItem>>> GetLibraryAsync(string mediaType, CancellationToken ct = default);
+    Task<Result<IReadOnlyList<LibraryItem>>> GetLibraryAsync(MediaType mediaType, CancellationToken ct = default);
 
     /// <summary>Active titles with snapshot, status and a progress count — the light list for library pages and the dashboard.</summary>
     Task<Result<IReadOnlyList<LibraryOverviewItem>>> GetLibraryOverviewAsync(MediaType mediaType, CancellationToken ct = default);

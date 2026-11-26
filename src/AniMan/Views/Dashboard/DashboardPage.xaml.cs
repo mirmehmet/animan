@@ -13,19 +13,19 @@ namespace AniMan.Views.Dashboard;
 public partial class DashboardPage : UserControl
 {
     private readonly DashboardViewModel _viewModel;
-    private readonly NavigationBag _bag;
+    private readonly DetailNavigator _detail;
     private readonly INavigationService _navigationService;
     private readonly ILogger<DashboardPage> _logger;
 
     public DashboardPage(
         DashboardViewModel viewModel,
-        NavigationBag bag,
+        DetailNavigator detail,
         INavigationService navigationService,
         ILogger<DashboardPage> logger)
     {
         InitializeComponent();
         _viewModel = viewModel;
-        _bag = bag;
+        _detail = detail;
         _navigationService = navigationService;
         _logger = logger;
         DataContext = viewModel;
@@ -50,9 +50,7 @@ public partial class DashboardPage : UserControl
 
     private void OnNavigateToLibraryItemRequested(object? sender, int libraryItemId)
     {
-        var backLabel = LocalizationManager.Get("Nav_Dashboard");
-        _bag.Put(new DetailNavigationArgs(0, MediaType.Anime, libraryItemId, backLabel));
-        _navigationService.Navigate(typeof(Detail.DetailPage));
+        _detail.Open(0, MediaType.Anime, libraryItemId, "Nav_Dashboard");
     }
 
     private void OnNavigateToDiscoverRequested(object? sender, EventArgs e) =>
@@ -67,9 +65,7 @@ public partial class DashboardPage : UserControl
     private void OnSeasonItemClicked(object sender, MouseButtonEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not SeasonCardViewModel anime) return;
-        var backLabel = LocalizationManager.Get("Nav_Dashboard");
-        _bag.Put(new DetailNavigationArgs(anime.Id, MediaType.Anime, null, backLabel));
-        _navigationService.Navigate(typeof(Detail.DetailPage));
+        _detail.Open(anime.Id, MediaType.Anime, null, "Nav_Dashboard");
     }
 
     private void OnHeroClicked(object sender, MouseButtonEventArgs e)

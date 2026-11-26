@@ -19,11 +19,8 @@ public sealed class TrackingService(
     private const string SaveError = "Failed to save your changes.";
 
     public async Task<Result<IReadOnlyList<LibraryItem>>> GetLibraryAsync(
-        string mediaType, CancellationToken ct = default)
+        MediaType mediaType, CancellationToken ct = default)
     {
-        if (!Enum.TryParse<MediaType>(mediaType, ignoreCase: true, out var parsedType))
-            return Result<IReadOnlyList<LibraryItem>>.Failure($"Unknown media type: {mediaType}");
-
         try
         {
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
@@ -33,7 +30,7 @@ public sealed class TrackingService(
                 .Include(i => i.Status)
                 .Include(i => i.EpisodeProgress)
                 .Include(i => i.ChapterProgress)
-                .Where(i => i.MediaType == parsedType && i.DeletedAt == null)
+                .Where(i => i.MediaType == mediaType && i.DeletedAt == null)
                 .OrderByDescending(i => i.UpdatedAt)
                 .ToListAsync(ct).ConfigureAwait(false);
             return Result<IReadOnlyList<LibraryItem>>.Success(items);
@@ -508,7 +505,7 @@ public sealed class TrackingService(
         // Called on startup — a purge failure must never block the app from launching.
         try
         {
-            var cutoff = DateTime.UtcNow.AddDays(-30);
+            var cutoff = DateTime.UtcNow.AddDays(-TrashPolicy.RetentionDays);
             await using var db = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
             var expired = await db.LibraryItems
                 .Where(i => i.DeletedAt != null && i.DeletedAt < cutoff)

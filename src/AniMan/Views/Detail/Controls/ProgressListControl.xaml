@@ -1,0 +1,91 @@
+<UserControl x:Class="AniMan.Views.Detail.Controls.ProgressListControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:AniMan.Localization"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+
+    <!-- The episode (anime) or chapter (manga) list. DataContext: the detail page's
+         ProgressPager, which hands out one 100-row range at a time. -->
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- 1–100, 101–200 … for long series; one range is drawn at a time. -->
+        <ItemsControl ItemsSource="{Binding Ranges}" Margin="0,0,0,8"
+                      Visibility="{Binding HasRanges, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <RadioButton Style="{StaticResource StatusPillRadio}" Margin="0,0,6,6"
+                                 Content="{Binding Label}"
+                                 IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                 Command="{Binding DataContext.SelectCommand,
+                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 CommandParameter="{Binding}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <ItemsControl ItemsSource="{Binding Visible}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Padding="12,6"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ui:Button Grid.Column="0" Margin="0,0,8,0"
+                                        Command="{Binding MarkUpToHereCommand}"
+                                        Appearance="Transparent"
+                                        ToolTip="{loc:Loc Detail_MarkUpToHere}">
+                                <ui:SymbolIcon Symbol="MultiselectLtr24"/>
+                            </ui:Button>
+
+                            <CheckBox Grid.Column="1" Margin="0,0,12,0"
+                                      IsChecked="{Binding IsDone}"/>
+
+                            <TextBlock Grid.Column="2" Margin="0,0,12,0"
+                                       Text="{Binding Label}"
+                                       FontWeight="SemiBold" VerticalAlignment="Center"
+                                       MinWidth="50"/>
+
+                            <!-- Episode title; empty for chapters -->
+                            <TextBlock Grid.Column="3" Text="{Binding Title}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                            <TextBlock Grid.Column="4" Margin="8,0,0,0"
+                                       Text="{Binding DoneAtDisplay}"
+                                       FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+
+                            <ui:Button Grid.Column="5" Margin="8,0,0,0"
+                                        Command="{Binding OpenNoteCommand}"
+                                        Appearance="Transparent"
+                                        ToolTip="{loc:Loc Detail_Note}">
+                                <ui:SymbolIcon Symbol="Note24"/>
+                            </ui:Button>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,180 @@
+<UserControl x:Class="AniMan.Views.Library.LibraryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:AniMan.Localization"
+             xmlns:vm="clr-namespace:AniMan.ViewModels.Library"
+             xmlns:ctrl="clr-namespace:AniMan.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignHeight="600" d:DesignWidth="1000">
+
+    <!-- The whole library page, shared by anime and manga. Everything that differs between
+         the two (title, search hint, two status tabs, empty icon) comes from the view model. -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header + search -->
+        <Grid Grid.Row="0" Margin="24,18,24,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <TextBlock Text="{Binding PageTitle}"
+                           Style="{StaticResource PageTitleText}"/>
+                <!-- "42 / 180" while filters or search narrow the list -->
+                <TextBlock Text="{Binding ResultCountText}" Margin="12,0,0,0"
+                           VerticalAlignment="Center" FontSize="13"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                           Visibility="{Binding HasTotalItems, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </StackPanel>
+
+            <ui:TextBox Grid.Column="1" Width="240"
+                        PlaceholderText="{Binding SearchPlaceholder}"
+                        Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                        Icon="{ui:SymbolIcon Symbol=Search24}"/>
+
+            <ui:Button Grid.Column="2" Margin="8,0,0,0" Appearance="Secondary"
+                       Command="{Binding ToggleFilterPanelCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Filter24" FontSize="16" Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding FilterButtonText}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </ui:Button>
+        </Grid>
+
+        <!-- Status filter tabs (PillTab) -->
+        <Border Grid.Row="1" Margin="24,0,24,0"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{loc:Loc Status_All}"
+                                 IsChecked="{Binding ActiveStatusId, ConverterParameter=0, Converter={StaticResource EqualityConverter}}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{Binding InProgressTabLabel}"
+                                 IsChecked="{Binding IsInProgressTab}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{loc:Loc Status_Completed}"
+                                 IsChecked="{Binding ActiveStatusId, ConverterParameter=3, Converter={StaticResource EqualityConverter}}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{loc:Loc Status_OnHold}"
+                                 IsChecked="{Binding ActiveStatusId, ConverterParameter=4, Converter={StaticResource EqualityConverter}}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{loc:Loc Status_Dropped}"
+                                 IsChecked="{Binding ActiveStatusId, ConverterParameter=5, Converter={StaticResource EqualityConverter}}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{Binding PlannedTabLabel}"
+                                 IsChecked="{Binding IsPlannedTab}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{loc:Loc Status_Favorites}"
+                                 IsChecked="{Binding ActiveStatusId, ConverterParameter=99, Converter={StaticResource EqualityConverter}}"/>
+                    <RadioButton Style="{StaticResource PillTab}" GroupName="{Binding TabGroupName}"
+                                 Content="{loc:Loc Status_Ratings}"
+                                 IsChecked="{Binding ActiveStatusId, ConverterParameter=98, Converter={StaticResource EqualityConverter}}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Cover size (Steam-style): snaps to steps, shared by both library pages -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,12,0"
+                                ToolTip="{loc:Loc Library_CoverSize}">
+                        <ui:SymbolIcon Symbol="Grid16" FontSize="14" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <Slider Width="110" Margin="8,0" VerticalAlignment="Center"
+                                Minimum="0" Maximum="{Binding Layout.MaxStep}"
+                                TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1"
+                                Value="{Binding Layout.SizeStep}"/>
+                        <ui:SymbolIcon Symbol="Square20" FontSize="16" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                    <!-- Sort: applies on every tab; remembered per page -->
+                    <ComboBox Margin="0,4,0,4" MinWidth="180"
+                              ToolTip="{loc:Loc Library_Sort}"
+                              ItemsSource="{Binding SortOptions}" DisplayMemberPath="Label"
+                              SelectedValuePath="Value" SelectedValue="{Binding SortMode}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Filter panel / active filter chips -->
+        <ctrl:LibraryFilterBar Grid.Row="2"/>
+
+        <!-- Loading bar -->
+        <ProgressBar Grid.Row="3" IsIndeterminate="True" Height="2"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+        <!-- Content -->
+        <Grid Grid.Row="4">
+            <!-- Empty state -->
+            <ctrl:EmptyStateControl
+                Icon="{Binding EmptyIcon}"
+                Title="{loc:Loc Library_EmptyTitle}"
+                Subtitle="{loc:Loc Library_EmptyMessage}"
+                Visibility="{Binding IsEmptyLibrary, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <!-- Load failure: shown only when nothing could be loaded -->
+            <ctrl:ErrorStateControl
+                Title="{loc:Loc Library_ErrorTitle}"
+                ErrorMessage="{Binding LoadErrorMessage}"
+                RetryCommand="{Binding LoadCommand}"/>
+
+            <!-- No search/filter matches state -->
+            <ctrl:EmptyStateControl
+                Icon="Search24"
+                Title="{loc:Loc Library_NoResultsTitle}"
+                Subtitle="{loc:Loc Library_NoResultsMessage}"
+                Visibility="{Binding IsNoResults, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <!-- Cards -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasContent, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <ItemsControl ItemsSource="{Binding Items}" Margin="24,12,24,24">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <!-- Spans the full width with even gaps (no ragged right edge) -->
+                            <ctrl:JustifiedWrapPanel MinGap="12" RowGap="16"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:LibraryCardViewModel}">
+                            <ctrl:LibraryMediaCard
+                                CardWidth="{Binding DataContext.Layout.CardWidth,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CoverHeight="{Binding DataContext.Layout.CoverHeight,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                Detail="{Binding DataContext.Layout.Detail,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CoverSource="{Binding CoverImage}"
+                                Title="{Binding Title}"
+                                StatusName="{Binding StatusName}"
+                                StatusBackground="{Binding StatusBackground}"
+                                StatusForeground="{Binding StatusForeground}"
+                                ProgressText="{Binding ProgressText}"
+                                ProgressPercent="{Binding ProgressPercent}"
+                                ProgressAccent="{Binding ProgressAccent}"
+                                ShowRatings="{Binding DataContext.IsRatingsTab,
+                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                MalScoreText="{Binding MalScoreText}"
+                                UserRatingText="{Binding UserRatingText}"
+                                MouseLeftButtonUp="Card_MouseLeftButtonUp"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text.Json;
 using AniMan.Core.Common;
+using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
@@ -144,6 +144,38 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     /// <summary>Cover-size slider state, shared by the anime and manga pages.</summary>
     public LibraryLayoutViewModel Layout { get; }
 
+    // ── What differs between the anime and manga page (the view is shared) ───────
+
+    public MediaType MediaType => _mediaType;
+    private bool IsAnime => _mediaType == MediaType.Anime;
+
+    /// <summary>Resource key of the page name: the heading, and the detail page's back button.</summary>
+    public string PageTitleKey => IsAnime ? "Nav_Anime" : "Nav_Manga";
+    public string PageTitle => LocalizationManager.Get(PageTitleKey);
+    public string SearchPlaceholder => LocalizationManager.Get(IsAnime ? "Library_SearchAnime" : "Library_SearchManga");
+    public string TabGroupName => $"{_mediaType}LibraryFilter";
+    public Wpf.Ui.Controls.SymbolRegular EmptyIcon =>
+        IsAnime ? Wpf.Ui.Controls.SymbolRegular.MoviesAndTv24 : Wpf.Ui.Controls.SymbolRegular.BookOpen24;
+
+    private int InProgressStatusId => IsAnime ? TrackingStatusIds.Watching : TrackingStatusIds.Reading;
+    private int PlannedStatusId => IsAnime ? TrackingStatusIds.PlanToWatch : TrackingStatusIds.PlanToRead;
+    public string InProgressTabLabel => LocalizationManager.Get(IsAnime ? "Status_Watching" : "Status_Reading");
+    public string PlannedTabLabel => LocalizationManager.Get(IsAnime ? "Status_PlanToWatch" : "Status_PlanToRead");
+
+    /// <summary>"Watching"/"Reading" tab; two-way for its radio button.</summary>
+    public bool IsInProgressTab
+    {
+        get => ActiveStatusId == InProgressStatusId;
+        set { if (value) ActiveStatusId = InProgressStatusId; }
+    }
+
+    /// <summary>"Plan to watch"/"Plan to read" tab; two-way for its radio button.</summary>
+    public bool IsPlannedTab
+    {
+        get => ActiveStatusId == PlannedStatusId;
+        set { if (value) ActiveStatusId = PlannedStatusId; }
+    }
+
     protected LibraryViewModelBase(
         ITrackingService tracking, ISettingsService settings, LibraryLayoutViewModel layout,
         ILibraryVersion libraryVersion, MediaType mediaType)
@@ -281,6 +313,8 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     partial void OnActiveStatusIdChanged(int value)
     {
         OnPropertyChanged(nameof(IsRatingsTab));
+        OnPropertyChanged(nameof(IsInProgressTab));
+        OnPropertyChanged(nameof(IsPlannedTab));
         if (!_suppressFilter)
             ApplyFilter();
     }
@@ -339,9 +373,9 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             ProgressTotal = GetTotal(snap),
             Format = NullIfBlank(snap?.Type),
             Year = ResolveYear(snap),
-            Genres = ParseNames(snap?.Genres),
-            Themes = ParseNames(snap?.Themes),
-            Demographics = ParseNames(snap?.Demographics),
+            Genres = NameList.Parse(snap?.Genres),
+            Themes = NameList.Parse(snap?.Themes),
+            Demographics = NameList.Parse(snap?.Demographics),
             ReleaseStatus = NullIfBlank(snap?.Status),
             Source = NullIfBlank(snap?.Source),
             AgeRating = AgeRatingCodes.Shorten(snap?.AgeRating),
@@ -565,16 +599,4 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             : null;
     }
 
-    internal static IReadOnlyList<string> ParseNames(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return [];
-        try
-        {
-            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
 }

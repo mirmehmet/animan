@@ -292,16 +292,7 @@ public sealed class CatalogService(
                 }
             }
 
-            var ownsInFlight = InFlightRefreshes.TryAdd(("streaming", malId), 0);
-            try
-            {
-                return await FetchAndCacheStreamingAsync(malId, ct).ConfigureAwait(false);
-            }
-            finally
-            {
-                if (ownsInFlight)
-                    InFlightRefreshes.TryRemove(("streaming", malId), out _);
-            }
+            return await FetchStreamingSharedAsync(malId, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -337,7 +328,65 @@ public sealed class CatalogService(
     // static to deduplicate refreshes and serialize catalog writes across instances.
     private static readonly ConcurrentDictionary<(string Kind, int MalId), byte> InFlightRefreshes = new();
     private static readonly ConcurrentDictionary<int, DateTime> NegativeStreamingCache = new();
+    private static readonly ConcurrentDictionary<int, Task<Result<IReadOnlyList<CachedAnimeStreaming>>>> StreamingFetches = new();
     private static readonly SemaphoreSlim WriteGate = new(1, 1);
+
+    /// <summary>
+    /// Fetches an anime's streaming links once even when several callers ask at the same time
+    /// (the detail page and a refresh, say): the first caller fetches, the others await its
+    /// result. If the first caller gives up (its page closed), a caller still waiting fetches
+    /// for itself instead of failing. While the fetch runs, the background refresh for the same
+    /// title stands down.
+    /// </summary>
+    private async Task<Result<IReadOnlyList<CachedAnimeStreaming>>> FetchStreamingSharedAsync(
+        int malId, CancellationToken ct)
+    {
+        while (true)
+        {
+            var mine = new TaskCompletionSource<Result<IReadOnlyList<CachedAnimeStreaming>>>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var shared = StreamingFetches.GetOrAdd(malId, mine.Task);
+            if (shared != mine.Task)
+            {
+                try
+                {
+                    return await shared.WaitAsync(ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    continue; // the fetching caller was cancelled, not this one: fetch again
+                }
+            }
+
+            var ownsInFlight = InFlightRefreshes.TryAdd(("streaming", malId), 0);
+            try
+            {
+                var result = await FetchAndCacheStreamingAsync(malId, ct).ConfigureAwait(false);
+                mine.SetResult(result);
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                mine.SetCanceled(CancellationToken.None);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Handed to waiters as a failed result rather than an exception, so a fetch
+                // nobody else awaited cannot surface later as an unobserved task exception.
+                logger.LogError(ex, "Streaming fetch failed for {Id}", malId);
+                var failure = Result<IReadOnlyList<CachedAnimeStreaming>>.Failure("Failed to load streaming info.");
+                mine.SetResult(failure);
+                return failure;
+            }
+            finally
+            {
+                StreamingFetches.TryRemove(new KeyValuePair<int, Task<Result<IReadOnlyList<CachedAnimeStreaming>>>>(malId, mine.Task));
+                if (ownsInFlight)
+                    InFlightRefreshes.TryRemove(("streaming", malId), out _);
+            }
+        }
+    }
 
     /// <summary>
     /// Runs a fire-and-forget cache refresh at most once per (kind, id) at a time,

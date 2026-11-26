@@ -272,20 +272,12 @@
                             LostFocus="OnSeriesNoteLostFocus"/>
             </StackPanel>
 
-            <!-- Episode list (anime, library mode) -->
+            <!-- Episode (anime) or chapter (manga) list, library mode -->
             <StackPanel Grid.Row="2" Margin="24,0,0,0"
-                        Visibility="{Binding HasEpisodes, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="{loc:Loc Detail_Episodes}" FontWeight="SemiBold" FontSize="16"
+                        Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding ProgressListTitle}" FontWeight="SemiBold" FontSize="16"
                            Margin="0,0,0,8"/>
-                <controls:EpisodeListControl DataContext="{Binding}"/>
-            </StackPanel>
-
-            <!-- Chapter list (manga, library mode) -->
-            <StackPanel Grid.Row="3" Margin="24,0,0,0"
-                        Visibility="{Binding HasChapters, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="{loc:Loc Detail_Chapters}" FontWeight="SemiBold" FontSize="16"
-                           Margin="0,0,0,8"/>
-                <controls:ChapterListControl DataContext="{Binding}"/>
+                <controls:ProgressListControl DataContext="{Binding Pager}"/>
             </StackPanel>
 
         </Grid>

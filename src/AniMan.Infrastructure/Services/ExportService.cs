@@ -462,18 +462,18 @@ public sealed class ExportService(
                 Season = s.Season,
                 Year = s.Year,
                 MalScore = s.MalScore,
-                Genres = JsonArrayOrNull(s.Genres) ?? "[]",
+                Genres = NameList.Clean(s.Genres) ?? "[]",
                 CoverLocalPath = null,
                 CoverOriginalUrl = HttpUrlGuard.SanitizeWebUrl(s.CoverOriginalUrl),
                 StreamingPlatforms = s.StreamingPlatforms,
                 SnapshotAt = s.SnapshotAt == default ? DateTime.UtcNow : s.SnapshotAt,
                 TitleEnglish = s.TitleEnglish,
-                Themes = JsonArrayOrNull(s.Themes),
-                Demographics = JsonArrayOrNull(s.Demographics),
+                Themes = NameList.Clean(s.Themes),
+                Demographics = NameList.Clean(s.Demographics),
                 DurationMinutes = s.DurationMinutes is > 0 ? s.DurationMinutes : null,
                 AgeRating = s.AgeRating,
                 Source = s.Source,
-                Authors = JsonArrayOrNull(s.Authors),
+                Authors = NameList.Clean(s.Authors),
                 // Older files carry no version: their snapshots are Legacy and get backfilled.
                 // Partial (fallback-source data) is kept as such, so it is still completed later.
                 DataVersion = s.DataVersion is MediaDataVersion.Partial
@@ -529,31 +529,6 @@ public sealed class ExportService(
             db.Settings.Add(new AppSetting { Key = key, Value = value });
         else
             existing.Value = value;
-    }
-
-    /// <summary>
-    /// Keeps an imported JSON-array column only if it really is a JSON array of strings, so a
-    /// hand-edited or damaged backup can't plant text the detail page would fail to parse.
-    /// </summary>
-    /// <summary>
-    /// A JSON array of names from a backup file, or null when it is not one. Null or blank
-    /// entries (a hand-edited file) are dropped: the rest of the app treats every entry as a name.
-    /// </summary>
-    private static string? JsonArrayOrNull(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-        try
-        {
-            var names = JsonSerializer.Deserialize<List<string?>>(json);
-            if (names is null) return null;
-            if (names.All(n => !string.IsNullOrWhiteSpace(n))) return json; // already clean: keep as written
-
-            return JsonSerializer.Serialize(names.Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
     }
 
     private static void TryDeleteTempFile(string tmpPath)

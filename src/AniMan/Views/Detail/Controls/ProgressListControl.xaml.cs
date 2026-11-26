@@ -2,9 +2,9 @@ using System.Windows.Controls;
 
 namespace AniMan.Views.Detail.Controls;
 
-public partial class ChapterListControl : UserControl
+public partial class ProgressListControl : UserControl
 {
-    public ChapterListControl()
+    public ProgressListControl()
     {
         InitializeComponent();
     }
