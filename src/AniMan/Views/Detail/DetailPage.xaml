@@ -14,7 +14,14 @@
     </UserControl.Resources>
 
     <Grid>
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <!-- The title could not be loaded: only the error and "Try again", no half-empty page. -->
+    <ctrl:ErrorStateControl Margin="24,96,24,24" VerticalAlignment="Top"
+                            Title="{loc:Loc Detail_ErrorTitle}"
+                            ErrorMessage="{Binding LoadErrorMessage}"
+                            RetryCommand="{Binding RetryLoadCommand}"/>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  Visibility="{Binding HasLoadError, Converter={StaticResource InverseBoolToVisibilityConverter}}">
         <Grid Margin="0,52,24,24">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -115,8 +122,22 @@
                                 <DataTemplate>
                                     <Button Background="{Binding Background}" Foreground="White"
                                             Margin="0,0,6,4" Padding="10,5"
-                                            Cursor="Hand" Click="OnStreamingPlatformClicked"
+                                            Click="OnStreamingPlatformClicked"
                                             BorderThickness="0">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Style.Triggers>
+                                                    <!-- No link to open: same look, but a plain label —
+                                                         no hand cursor, hover, press or Tab stop. -->
+                                                    <DataTrigger Binding="{Binding HasLink}" Value="False">
+                                                        <Setter Property="Cursor" Value="Arrow"/>
+                                                        <Setter Property="IsHitTestVisible" Value="False"/>
+                                                        <Setter Property="Focusable" Value="False"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
                                         <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold"
                                                    Foreground="White"/>
                                     </Button>

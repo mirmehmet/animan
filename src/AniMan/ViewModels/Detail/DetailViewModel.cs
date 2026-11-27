@@ -7,6 +7,7 @@ using AniMan.Core.Domain;
 using AniMan.Core.Domain.Enums;
 using AniMan.Core.Domain.Models;
 using AniMan.Core.Interfaces;
+using AniMan.Localization;
 using AniMan.Navigation;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -57,6 +58,17 @@ public partial class DetailViewModel : ObservableObject
     [ObservableProperty] private string _seriesNote = string.Empty;
     private string _lastSavedSeriesNote = string.Empty;
     [ObservableProperty] private bool _isLoading;
+
+    /// <summary>Why the title could not be loaded; null while it loaded (or is loading). The page then shows only the error.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
+    private string? _loadErrorMessage;
+
+    public bool HasLoadError => LoadErrorMessage is not null;
+
+    /// <summary>What the page was opened with, so "Try again" can load the same title.</summary>
+    private DetailNavigationArgs? _lastArgs;
+
     [ObservableProperty] private bool _isPreviewMode;
     [ObservableProperty] private bool _isManga;
     [ObservableProperty] private string _backLabel = string.Empty;
@@ -138,6 +150,7 @@ public partial class DetailViewModel : ObservableObject
 
     public async Task InitializeFromArgsAsync(DetailNavigationArgs args)
     {
+        _lastArgs = args;
         BackLabel = args.BackLabel ?? string.Empty;
         var ct = BeginLoad();
 
@@ -171,6 +184,14 @@ public partial class DetailViewModel : ObservableObject
     /// </summary>
     public void CancelLoads() => _loadCts.Cancel();
 
+    /// <summary>"Try again" on the load error: loads the title the page was opened with once more.</summary>
+    [RelayCommand]
+    private async Task RetryLoadAsync()
+    {
+        if (_lastArgs is not null)
+            await InitializeFromArgsAsync(_lastArgs);
+    }
+
     private CancellationToken BeginLoad()
     {
         _loadCts.Cancel();
@@ -184,11 +205,16 @@ public partial class DetailViewModel : ObservableObject
         LibraryItemId = libraryItemId;
         IsPreviewMode = false;
         IsLoading = true;
+        LoadErrorMessage = null;
         try
         {
             var result = await _tracking.GetItemAsync(libraryItemId, ct);
             ct.ThrowIfCancellationRequested();
-            if (!result.IsSuccess) return;
+            if (!result.IsSuccess)
+            {
+                LoadErrorMessage = ErrorText.For(result.Kind);
+                return;
+            }
 
             Item = result.Value!;
             MediaSnapshot = Item.Snapshot;
@@ -226,6 +252,9 @@ public partial class DetailViewModel : ObservableObject
             if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
 
             // The item is saved; reloading it is display work that leaving the page may cut short.
+            // From now on the page shows the library item, so "Try again" must load that.
+            if (_lastArgs is not null)
+                _lastArgs = _lastArgs with { LibraryItemId = result.Value!.Id };
             var ct = BeginLoad();
             try
             {
@@ -252,7 +281,13 @@ public partial class DetailViewModel : ObservableObject
     private async Task ToggleFavoriteAsync()
     {
         var result = await _tracking.ToggleFavoriteAsync(LibraryItemId);
-        if (result.IsSuccess && Item is not null)
+        if (!result.IsSuccess)
+        {
+            ActionFailed?.Invoke(this, new ActionFailedEventArgs("Notify_FavoriteFailed", result.Kind));
+            return;
+        }
+
+        if (Item is not null)
         {
             Item.IsFavorite = !Item.IsFavorite;
             IsFavorite = Item.IsFavorite;
@@ -314,6 +349,11 @@ public partial class DetailViewModel : ObservableObject
             if (Item is not null)
                 Item.UserRating = parsed;
         }
+        else
+        {
+            // The page puts the box back to the saved rating after this returns.
+            ActionFailed?.Invoke(this, new ActionFailedEventArgs("Notify_RatingSaveFailed", result.Kind));
+        }
     }
 
     [RelayCommand]
@@ -322,6 +362,8 @@ public partial class DetailViewModel : ObservableObject
         var result = await _tracking.SoftDeleteAsync(LibraryItemId);
         if (result.IsSuccess)
             SoftDeleteCompleted?.Invoke(this, EventArgs.Empty);
+        else
+            ActionFailed?.Invoke(this, new ActionFailedEventArgs("Notify_DeleteFailed", result.Kind));
     }
 
     [RelayCommand]
@@ -386,7 +428,11 @@ public partial class DetailViewModel : ObservableObject
     private async Task ReSnapshotAsync()
     {
         var result = await _snapshot.ReSnapshotAsync(LibraryItemId);
-        if (!result.IsSuccess) return;
+        if (!result.IsSuccess)
+        {
+            ActionFailed?.Invoke(this, new ActionFailedEventArgs("Notify_RefreshFailed", result.Kind));
+            return;
+        }
 
         // Re-read the item: the rows are rebuilt from its progress and notes, and the copy
         // loaded when the page opened does not know about marks made since then.
@@ -427,6 +473,7 @@ public partial class DetailViewModel : ObservableObject
         _previewMalId = malId;
         _previewMediaType = mediaType;
         IsLoading = true;
+        LoadErrorMessage = null;
         string? coverUrl = null;
 
         try
@@ -435,7 +482,11 @@ public partial class DetailViewModel : ObservableObject
             {
                 var r = await _catalog.GetAnimeAsync(malId, ct: ct);
                 ct.ThrowIfCancellationRequested();
-                if (!r.IsSuccess) return;
+                if (!r.IsSuccess)
+                {
+                    LoadErrorMessage = ErrorText.For(r.Kind);
+                    return;
+                }
                 var a = r.Value!;
                 MediaSnapshot = new MediaSnapshot
                 {
@@ -465,7 +516,11 @@ public partial class DetailViewModel : ObservableObject
             {
                 var r = await _catalog.GetMangaAsync(malId, ct: ct);
                 ct.ThrowIfCancellationRequested();
-                if (!r.IsSuccess) return;
+                if (!r.IsSuccess)
+                {
+                    LoadErrorMessage = ErrorText.For(r.Kind);
+                    return;
+                }
                 var m = r.Value!;
                 MediaSnapshot = new MediaSnapshot
                 {

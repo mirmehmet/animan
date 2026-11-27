@@ -348,6 +348,11 @@
   <data name="Notify_EmptyTrashFailed" xml:space="preserve"><value>Çöp kutusu boşaltılamadı</value></data>
   <data name="Notify_StatusUpdateFailed" xml:space="preserve"><value>Durum güncellenemedi</value></data>
   <data name="Notify_ProgressSaveFailed" xml:space="preserve"><value>İlerleme kaydedilemedi</value></data>
+  <data name="Detail_ErrorTitle" xml:space="preserve"><value>Bu kayıt yüklenemedi</value></data>
+  <data name="Notify_FavoriteFailed" xml:space="preserve"><value>Favori güncellenemedi</value></data>
+  <data name="Notify_RatingSaveFailed" xml:space="preserve"><value>Puan kaydedilemedi</value></data>
+  <data name="Notify_DeleteFailed" xml:space="preserve"><value>Silinemedi</value></data>
+  <data name="Notify_RefreshFailed" xml:space="preserve"><value>Veriler yenilenemedi</value></data>
   <data name="Settings_LastBackup" xml:space="preserve"><value>Son yedek: {0}</value></data>
   <data name="Settings_LastBackupNever" xml:space="preserve"><value>Henüz yedek alınmadı</value></data>
   <data name="Common_Retry" xml:space="preserve"><value>Tekrar Dene</value></data>

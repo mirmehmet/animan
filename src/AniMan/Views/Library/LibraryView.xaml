@@ -170,7 +170,8 @@
                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 MalScoreText="{Binding MalScoreText}"
                                 UserRatingText="{Binding UserRatingText}"
-                                MouseLeftButtonUp="Card_MouseLeftButtonUp"/>
+                                MouseLeftButtonUp="Card_MouseLeftButtonUp"
+                                KeyDown="Card_KeyDown"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

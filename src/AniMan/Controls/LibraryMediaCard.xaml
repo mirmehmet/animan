@@ -6,7 +6,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignHeight="262" d:DesignWidth="150"
-             x:Name="Root">
+             x:Name="Root"
+             Focusable="True" IsTabStop="True" FocusVisualStyle="{x:Null}">
 
     <!--
       Three info levels, driven by Detail (library cover-size slider):
@@ -14,10 +15,25 @@
         Standard — cover + status badge, title, progress text and bar
         Detailed — Standard with a two-line title and the MAL score
     -->
-    <Border Style="{StaticResource MediaCard}"
-            Width="{Binding CardWidth, ElementName=Root}"
+    <Border Width="{Binding CardWidth, ElementName=Root}"
             Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
             AutomationProperties.Name="{Binding Title, ElementName=Root}">
+        <Border.Style>
+            <Style TargetType="Border" BasedOn="{StaticResource MediaCard}">
+                <Style.Triggers>
+                    <!-- Reached with Tab: an accent outline and the hover glow (Enter/Space opens it). -->
+                    <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=Root}" Value="True">
+                        <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}"/>
+                        <Setter Property="Effect">
+                            <Setter.Value>
+                                <DropShadowEffect Color="#8B5CF6" Opacity="0.20"
+                                                  ShadowDepth="0" BlurRadius="18"/>
+                            </Setter.Value>
+                        </Setter>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
 
         <StackPanel>
             <!-- Cover area -->

@@ -48,7 +48,17 @@ public partial class LibraryView : UserControl
         }
     }
 
-    private void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => OpenCard(sender);
+
+    /// <summary>A card reached with Tab opens with Enter or Space, like a button (AM-128).</summary>
+    private void Card_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space) || Keyboard.Modifiers != ModifierKeys.None) return;
+        e.Handled = true; // Space would otherwise scroll the page
+        OpenCard(sender);
+    }
+
+    private void OpenCard(object sender)
     {
         if (_viewModel is null || (sender as FrameworkElement)?.DataContext is not LibraryCardViewModel card) return;
         _detail?.Open(card.MalId, card.MediaType, card.LibraryItemId, _viewModel.PageTitleKey);
