@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using AniMan.Diagnostics;
 using AniMan.Navigation;
 using AniMan.ViewModels.Library;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,9 @@ public partial class LibraryView : UserControl
     private DetailNavigator? _detail;
     private ILogger? _logger;
 
+    // A field initializer runs before InitializeComponent, so the first visit's time includes building this view.
+    private readonly PageTiming _timing = new();
+
     public LibraryView()
     {
         InitializeComponent();
@@ -28,6 +32,8 @@ public partial class LibraryView : UserControl
         _viewModel = viewModel;
         _detail = detail;
         _logger = logger;
+        _timing.Page = $"Library {viewModel.MediaType}";
+        _timing.Logger = logger;
         DataContext = viewModel;
     }
 
@@ -36,11 +42,15 @@ public partial class LibraryView : UserControl
         if (_viewModel is null) return;
         try
         {
+            var visit = _timing.BeginVisit();
             await _viewModel.LoadCommand.ExecuteAsync(null);
+            visit.DataLoaded();
 
             // Arriving from Stats with a filter (e.g. a clicked genre or year).
             if (LibraryNavigationState.TakeFilter(_viewModel.MediaType) is { } request)
                 _viewModel.ApplyExternalFilter(request);
+
+            await visit.LogWhenRenderedAsync(Dispatcher);
         }
         catch (Exception ex)
         {

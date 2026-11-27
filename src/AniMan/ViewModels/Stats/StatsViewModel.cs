@@ -38,6 +38,9 @@ public partial class StatsViewModel : ObservableObject
     private readonly Dictionary<MediaType, string> _loadErrors = [];
     private bool _suppressPeriod;
 
+    /// <summary>What the page currently shows: built from this library version, for this type, on this day.</summary>
+    private (long Version, MediaType Type, DateOnly Day)? _shown;
+
     private sealed record LoadedLibrary(
         List<StatsEntry> Entries, Dictionary<int, (string Name, string? Color)> Statuses);
 
@@ -92,18 +95,22 @@ public partial class StatsViewModel : ObservableObject
 
     /// <summary>
     /// Shows the statistics, reading the library again only if it changed since the last
-    /// visit. Every visit still rebuilds the view, so date-based parts (today, the current
-    /// period) stay current.
+    /// visit. A visit with nothing changed (same library, type and day) keeps the view as it
+    /// is: rebuilding it recreated every chart and the ~370 calendar cells each time. A new
+    /// day still rebuilds, so date-based parts (today, the last 12 months) stay current.
     /// </summary>
     [RelayCommand]
     public async Task LoadAsync()
     {
+        // Read before loading: a write that lands during the load bumps the version
+        // again and is picked up on the next visit.
+        var version = _libraryVersion.Current;
+        if (_shown == (version, MediaType, Today) && !_loadErrors.ContainsKey(MediaType))
+            return;
+
         IsLoading = true;
         try
         {
-            // Read before loading: a write that lands during the load bumps the version
-            // again and is picked up on the next visit.
-            var version = _libraryVersion.Current;
             if (version != _cacheVersion)
             {
                 _cache.Clear();
@@ -240,7 +247,11 @@ public partial class StatsViewModel : ObservableObject
         SelectedPeriod = options.FirstOrDefault(p => p.Year == SelectedPeriod?.Year) ?? options[0];
         _suppressPeriod = false;
         RebuildPeriod();
+
+        _shown = (_cacheVersion, MediaType, Today);
     }
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
     private List<StatTileViewModel> BuildTiles(LibraryOverview o)
     {
@@ -377,7 +388,7 @@ public partial class StatsViewModel : ObservableObject
     private void RebuildPeriod()
     {
         var entries = _cache.GetValueOrDefault(MediaType)?.Entries ?? [];
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var today = Today;
         var year = SelectedPeriod?.Year ?? 0;
 
         var (start, end) = year == 0

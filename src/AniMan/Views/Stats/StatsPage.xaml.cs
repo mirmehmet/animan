@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using AniMan.Core.Domain.Enums;
+using AniMan.Diagnostics;
 using AniMan.Navigation;
 using AniMan.ViewModels.Stats;
 using Microsoft.Extensions.Logging;
@@ -12,12 +13,16 @@ public partial class StatsPage : UserControl
     private readonly INavigationService _navigationService;
     private readonly ILogger<StatsPage> _logger;
 
+    // A field initializer runs before InitializeComponent, so the first visit's time includes building the page.
+    private readonly PageTiming _timing = new() { Page = "Stats" };
+
     public StatsPage(StatsViewModel viewModel, INavigationService navigationService, ILogger<StatsPage> logger)
     {
         InitializeComponent();
         DataContext = viewModel;
         _navigationService = navigationService;
         _logger = logger;
+        _timing.Logger = logger;
 
         // Singleton page and VM: subscribe once for the app's lifetime.
         viewModel.OpenLibraryRequested += OnOpenLibraryRequested;
@@ -28,7 +33,10 @@ public partial class StatsPage : UserControl
     {
         try
         {
+            var visit = _timing.BeginVisit();
             await ((StatsViewModel)DataContext).LoadCommand.ExecuteAsync(null);
+            visit.DataLoaded();
+            await visit.LogWhenRenderedAsync(Dispatcher);
         }
         catch (Exception ex)
         {
