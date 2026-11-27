@@ -767,3 +767,26 @@ public class ExportServiceTests : IDisposable
         if (Directory.Exists(_paths.CoversPath)) Directory.Delete(_paths.CoversPath, recursive: true);
     }
 }
+
+public class ImportMediaTypeParsingTests
+{
+    [Theory]
+    [InlineData("Anime", MediaType.Anime)]
+    [InlineData("manga", MediaType.Manga)]
+    [InlineData(" ANIME ", MediaType.Anime)]
+    public void TryParseMediaType_AcceptsTheNamesBackupsAreWrittenWith(string value, MediaType expected)
+    {
+        ExportService.TryParseMediaType(value, out var parsed).Should().BeTrue();
+        parsed.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("7")]
+    [InlineData("-1")]
+    [InlineData("0")]
+    [InlineData("Novel")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void TryParseMediaType_RejectsNumbersAndUnknownNames(string? value) =>
+        ExportService.TryParseMediaType(value, out _).Should().BeFalse();
+}

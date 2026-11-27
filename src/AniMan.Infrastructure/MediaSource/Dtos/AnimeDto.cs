@@ -11,8 +11,9 @@ public record AnimeDto
     [JsonPropertyName("mal_id")]
     public int MalId { get; init; }
 
+    /// <summary>Null when the source sends <c>"title": null</c>; <see cref="MediaMapper"/> substitutes one.</summary>
     [JsonPropertyName("title")]
-    public string Title { get; init; } = string.Empty;
+    public string? Title { get; init; }
 
     [JsonPropertyName("title_japanese")]
     public string? TitleJapanese { get; init; }

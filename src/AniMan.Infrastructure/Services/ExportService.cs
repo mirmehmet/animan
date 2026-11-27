@@ -20,6 +20,25 @@ public sealed class ExportService(
     internal const int CurrentSchemaVersion = 2;
     private const long MaxBackupSizeBytes = 50L * 1024 * 1024; // 50 MB
 
+    /// <summary>
+    /// "Anime" or "Manga" (any case), as every AniMan version wrote it. <c>Enum.TryParse</c>
+    /// alone also took "7" or "-1" and produced a media type that does not exist (AM-043).
+    /// </summary>
+    internal static bool TryParseMediaType(string? value, out MediaType mediaType)
+    {
+        foreach (var candidate in Enum.GetValues<MediaType>())
+        {
+            if (string.Equals(candidate.ToString(), value?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                mediaType = candidate;
+                return true;
+            }
+        }
+
+        mediaType = default;
+        return false;
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -197,7 +216,7 @@ public sealed class ExportService(
                         continue;
                     }
 
-                    if (!Enum.TryParse<MediaType>(dto.MediaType, ignoreCase: true, out var mediaType))
+                    if (!TryParseMediaType(dto.MediaType, out var mediaType))
                     {
                         skipped++;
                         logger.LogWarning(
@@ -267,59 +286,70 @@ public sealed class ExportService(
                     await transaction.CommitAsync(ct).ConfigureAwait(false);
             }
 
-            var coversFailed = untrustedCovers;
-            if (pendingCoverDownloads.Count > 0)
+            // The library is committed from here on. A failure below (downloading covers, saving
+            // their paths, sweeping old files) must not report the import as an invalid backup
+            // (AM-044): the items are in; only their covers are missing, and the summary says so.
+            var coversSaved = 0;
+            try
             {
-                var downloaded = new ConcurrentBag<(int LibraryItemId, string Path)>();
-                var coverTotal = pendingCoverDownloads.Count;
-                var coversDone = 0;
-                var reportLock = new object();
-                Report(ImportStage.DownloadingCovers, SaveEndsAt, 0, coverTotal);
-
-                await Parallel.ForEachAsync(
-                    pendingCoverDownloads,
-                    new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
-                    async (work, token) =>
-                    {
-                        var path = await coverStore.EnsureAsync(work.MalId, work.MediaType, work.Url, token)
-                            .ConfigureAwait(false);
-                        if (!string.IsNullOrWhiteSpace(path))
-                            downloaded.Add((work.Entity.Id, path));
-
-                        // Locked so reports go out in increasing order and the bar never steps back.
-                        lock (reportLock)
-                        {
-                            coversDone++;
-                            Report(ImportStage.DownloadingCovers,
-                                SaveEndsAt + (1 - SaveEndsAt) * coversDone / coverTotal,
-                                coversDone, coverTotal);
-                        }
-                    }).ConfigureAwait(false);
-
-                coversFailed += coverTotal - downloaded.Count;
-
-                if (!downloaded.IsEmpty)
+                if (pendingCoverDownloads.Count > 0)
                 {
-                    var byItemId = downloaded.ToDictionary(d => d.LibraryItemId, d => d.Path);
-                    foreach (var path in byItemId.Values)
-                        referencedCovers.Add(Path.GetFullPath(path));
+                    var downloaded = new ConcurrentBag<(int LibraryItemId, string Path)>();
+                    var coverTotal = pendingCoverDownloads.Count;
+                    var coversDone = 0;
+                    var reportLock = new object();
+                    Report(ImportStage.DownloadingCovers, SaveEndsAt, 0, coverTotal);
 
-                    await using var coverDb = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-                    var itemIds = byItemId.Keys.ToList();
-                    var snapshots = await coverDb.Snapshots
-                        .Where(s => itemIds.Contains(s.LibraryItemId))
-                        .ToListAsync(ct).ConfigureAwait(false);
-                    foreach (var snap in snapshots)
+                    await Parallel.ForEachAsync(
+                        pendingCoverDownloads,
+                        new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+                        async (work, token) =>
+                        {
+                            var path = await coverStore.EnsureAsync(work.MalId, work.MediaType, work.Url, token)
+                                .ConfigureAwait(false);
+                            if (!string.IsNullOrWhiteSpace(path))
+                                downloaded.Add((work.Entity.Id, path));
+
+                            // Locked so reports go out in increasing order and the bar never steps back.
+                            lock (reportLock)
+                            {
+                                coversDone++;
+                                Report(ImportStage.DownloadingCovers,
+                                    SaveEndsAt + (1 - SaveEndsAt) * coversDone / coverTotal,
+                                    coversDone, coverTotal);
+                            }
+                        }).ConfigureAwait(false);
+
+                    if (!downloaded.IsEmpty)
                     {
-                        if (byItemId.TryGetValue(snap.LibraryItemId, out var resolvedPath))
-                            snap.CoverLocalPath = resolvedPath;
-                    }
-                    await coverDb.SaveChangesAsync(ct).ConfigureAwait(false);
-                }
-            }
+                        var byItemId = downloaded.ToDictionary(d => d.LibraryItemId, d => d.Path);
+                        foreach (var path in byItemId.Values)
+                            referencedCovers.Add(Path.GetFullPath(path));
 
-            if (mode == ImportMode.Overwrite)
-                coverStore.SweepUnreferenced(referencedCovers);
+                        await using var coverDb = await libraryFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+                        var itemIds = byItemId.Keys.ToList();
+                        var snapshots = await coverDb.Snapshots
+                            .Where(s => itemIds.Contains(s.LibraryItemId))
+                            .ToListAsync(ct).ConfigureAwait(false);
+                        foreach (var snap in snapshots)
+                        {
+                            if (byItemId.TryGetValue(snap.LibraryItemId, out var resolvedPath))
+                                snap.CoverLocalPath = resolvedPath;
+                        }
+                        await coverDb.SaveChangesAsync(ct).ConfigureAwait(false);
+                        coversSaved = byItemId.Count;
+                    }
+                }
+
+                if (mode == ImportMode.Overwrite)
+                    coverStore.SweepUnreferenced(referencedCovers);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Import from {Path} saved the library, but finishing its covers failed", filePath);
+            }
+            var coversFailed = untrustedCovers + pendingCoverDownloads.Count - coversSaved;
 
             // With covers, the last cover report already reached 1.0 with its counts. Without
             // any, finish the saving phase here so the bar ends full and the count reads n / n.

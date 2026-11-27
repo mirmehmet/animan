@@ -110,6 +110,25 @@ public class AniListClientTests : IDisposable
         result.Kind.Should().Be(ErrorKind.NotFound);
     }
 
+    [Fact]
+    public async Task GetAnimeFull_WhenSourceRejectsTheQuery_IsAFailureNotNotFound()
+    {
+        // 400 is AniList refusing our query, not a missing title (AM-037).
+        var handler = new DelegatingMockHandler((req, ct) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent("""{"errors":[{"message":"Cannot query field"}]}""")
+            }));
+
+        using var http = new HttpClient(handler) { BaseAddress = new Uri("https://graphql.anilist.co") };
+        var client = new AniListClient(http, _limiter, NullLogger<AniListClient>.Instance);
+
+        var result = await client.GetAnimeFullAsync(1);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().NotBe(ErrorKind.NotFound);
+    }
+
     public void Dispose() => _limiter.Dispose();
 }
 

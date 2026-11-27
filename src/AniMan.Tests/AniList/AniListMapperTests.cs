@@ -95,13 +95,22 @@ public class AniListMapperTests
     }
 
     [Fact]
-    public void ToAnimeDto_YearOnlyDate_FallsBackToJanuaryFirst()
+    public void ToAnimeDto_YearOnlyDate_KeepsOnlyTheYear()
     {
-        // AniList dates are fuzzy; a year-only date must still parse downstream.
+        // AniList dates are fuzzy; an unknown month must not turn into "January" (AM-036).
         var dto = AniListMapper.ToAnimeDto(
             Anime(start: new AniListFuzzyDate { Year = 1989 }));
 
-        dto.Aired!.From.Should().Be("1989-01-01T00:00:00+00:00");
+        dto.Aired!.From.Should().Be("1989");
+    }
+
+    [Fact]
+    public void ToAnimeDto_YearAndMonthDate_KeepsYearAndMonth()
+    {
+        var dto = AniListMapper.ToAnimeDto(
+            Anime(start: new AniListFuzzyDate { Year = 2024, Month = 4 }));
+
+        dto.Aired!.From.Should().Be("2024-04");
     }
 
     [Fact]

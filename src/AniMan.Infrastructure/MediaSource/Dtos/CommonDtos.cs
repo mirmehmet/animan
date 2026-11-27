@@ -22,14 +22,16 @@ public record GenreDto
     [JsonPropertyName("mal_id")]
     public int MalId { get; init; }
 
+    // Nullable: a JSON null would otherwise slip into a non-nullable string (AM-038).
     [JsonPropertyName("name")]
-    public string Name { get; init; } = string.Empty;
+    public string? Name { get; init; }
 }
 
 public record NamedEntityDto
 {
+    // Nullable: a JSON null would otherwise slip into a non-nullable string (AM-038).
     [JsonPropertyName("name")]
-    public string Name { get; init; } = string.Empty;
+    public string? Name { get; init; }
 }
 
 public record PaginationDto

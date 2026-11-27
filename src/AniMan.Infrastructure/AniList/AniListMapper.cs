@@ -174,24 +174,11 @@ internal static partial class AniListMapper
     };
 
     /// <summary>
-    /// AniList dates are fuzzy — any component may be missing. Missing month/day fall back
-    /// to January 1st so the result still parses as a standard ISO string that the
-    /// existing views expect.
+    /// AniList dates are fuzzy — any component may be missing. Only the known part is kept
+    /// ("1989", "1989-04"); a full date keeps MyAnimeList's ISO shape (see <see cref="PartialDate"/>).
     /// </summary>
-    private static string? ToIsoDate(AniListFuzzyDate? date)
-    {
-        if (date?.Year is not { } year) return null;
-
-        try
-        {
-            return new DateTimeOffset(year, date.Month ?? 1, date.Day ?? 1, 0, 0, 0, TimeSpan.Zero)
-                .ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture);
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            return null;
-        }
-    }
+    private static string? ToIsoDate(AniListFuzzyDate? date) =>
+        date is null ? null : PartialDate.ToStored(date.Year, date.Month, date.Day);
 
     private static ImagesDto? ToImages(AniListCoverImage? cover)
     {

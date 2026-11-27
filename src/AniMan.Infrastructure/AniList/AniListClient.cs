@@ -288,6 +288,21 @@ public sealed class AniListClient(
         string query, object variables, CancellationToken ct) =>
         PostAsync<AniListMediaData>(query, variables, ct);
 
+    /// <summary>The start of an error response body, for the log; never throws.</summary>
+    private static async Task<string> ReadBodyForLogAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        const int maxLength = 500;
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return body.Length <= maxLength ? body : body[..maxLength] + "…";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return "(body unreadable)";
+        }
+    }
+
     private async Task<Result<T>> PostAsync<T>(string query, object variables, CancellationToken ct)
     {
         try
@@ -298,10 +313,19 @@ public sealed class AniListClient(
                     .PostAsJsonAsync((Uri?)null, new { query, variables }, ct)
                     .ConfigureAwait(false);
 
-                if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
+                if (response.StatusCode == HttpStatusCode.NotFound)
                 {
                     logger.LogWarning("AniList returned {Status}", response.StatusCode);
                     return Result<T>.Failure("Not found on AniList.", ErrorKind.NotFound);
+                }
+
+                // 400 means AniList rejected our query (e.g. its schema changed), not that the
+                // title is missing (AM-037): report it as a failure and log what AniList said.
+                if (response.StatusCode == HttpStatusCode.BadRequest)
+                {
+                    logger.LogError("AniList rejected the query ({Status}): {Body}",
+                        response.StatusCode, await ReadBodyForLogAsync(response, ct).ConfigureAwait(false));
+                    return Result<T>.Failure("AniList rejected the request.");
                 }
 
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)

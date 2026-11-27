@@ -12,7 +12,7 @@ internal static partial class MediaMapper
     public static CachedAnime ToAnime(AnimeDto dto) => new()
     {
         Id = dto.MalId,
-        Title = dto.Title,
+        Title = TitleOrId(dto.Title, dto.MalId),
         TitleJapanese = dto.TitleJapanese,
         Synopsis = dto.Synopsis,
         Type = dto.Type,
@@ -27,7 +27,7 @@ internal static partial class MediaMapper
         Popularity = dto.Popularity,
         CoverMediumUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl),
         CoverLargeUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.LargeImageUrl),
-        Studios = dto.Studios is { Count: > 0 } s ? string.Join(", ", s.Select(x => x.Name)) : null,
+        Studios = JoinNames(dto.Studios),
         TitleEnglish = NullIfBlank(dto.TitleEnglish),
         Themes = ToJsonNames(dto.Themes),
         Demographics = ToJsonNames(dto.Demographics),
@@ -41,7 +41,7 @@ internal static partial class MediaMapper
     public static CachedManga ToManga(MangaDto dto) => new()
     {
         Id = dto.MalId,
-        Title = dto.Title,
+        Title = TitleOrId(dto.Title, dto.MalId),
         TitleJapanese = dto.TitleJapanese,
         Synopsis = dto.Synopsis,
         Type = dto.Type,
@@ -55,7 +55,7 @@ internal static partial class MediaMapper
         Popularity = dto.Popularity,
         CoverMediumUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.ImageUrl ?? dto.Images?.Jpg?.LargeImageUrl),
         CoverLargeUrl = HttpUrlGuard.SanitizeExternalWebUrl(dto.Images?.Jpg?.LargeImageUrl),
-        Serializations = dto.Serializations is { Count: > 0 } x ? string.Join(", ", x.Select(e => e.Name)) : null,
+        Serializations = JoinNames(dto.Serializations),
         TitleEnglish = NullIfBlank(dto.TitleEnglish),
         Themes = ToJsonNames(dto.Themes),
         Demographics = ToJsonNames(dto.Demographics),
@@ -98,12 +98,27 @@ internal static partial class MediaMapper
     private static List<CachedGenre> ToGenres(
         IReadOnlyList<GenreDto>? genres, IReadOnlyList<GenreDto>? explicitGenres, string mediaType) =>
         (genres ?? []).Concat(explicitGenres ?? [])
+            .Where(g => !string.IsNullOrWhiteSpace(g.Name))
             .Select(g => new CachedGenre
             {
                 Id = g.MalId,
                 MediaType = mediaType,
-                Name = g.Name
+                Name = g.Name!.Trim()
             }).ToList();
+
+    /// <summary>
+    /// The title column is required; a source record whose title came through as JSON null or
+    /// blank is stored as "#id" (as backups do, ExportService) instead of failing the save.
+    /// </summary>
+    private static string TitleOrId(string? title, int malId) =>
+        string.IsNullOrWhiteSpace(title) ? $"#{malId}" : title;
+
+    /// <summary>"A, B"; names that came through as null or blank are left out; null when none remain.</summary>
+    private static string? JoinNames(IReadOnlyList<NamedEntityDto>? entities)
+    {
+        var names = (entities ?? []).Select(e => e.Name?.Trim()).Where(n => !string.IsNullOrEmpty(n)).ToList();
+        return names.Count > 0 ? string.Join(", ", names) : null;
+    }
 
     /// <summary>
     /// Converts the source's free-text episode length to whole minutes:

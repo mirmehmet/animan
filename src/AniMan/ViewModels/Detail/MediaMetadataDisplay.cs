@@ -1,4 +1,5 @@
 using System.Globalization;
+using AniMan.Core.Common;
 using AniMan.Localization;
 
 namespace AniMan.ViewModels.Detail;
@@ -68,9 +69,7 @@ internal static class MediaMetadataDisplay
         return f ?? t!;
     }
 
+    /// <summary>"Apr 1989", or "1989" when AniList knew only the year (AM-036).</summary>
     private static string? FormatMonthYear(string? raw) =>
-        !string.IsNullOrEmpty(raw) &&
-        DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)
-            ? dt.ToString("MMM yyyy", LocalizationManager.Culture)
-            : null;
+        PartialDate.MonthYear(raw, LocalizationManager.Culture);
 }
