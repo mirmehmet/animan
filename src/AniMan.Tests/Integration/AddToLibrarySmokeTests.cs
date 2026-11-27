@@ -24,6 +24,7 @@ public class AddToLibrarySmokeTests : IDisposable
 {
     private readonly SqliteContextFactory<LibraryDbContext> _libraryFactory = new(o => new LibraryDbContext(o));
     private readonly SqliteContextFactory<CatalogDbContext> _catalogFactory = new(o => new CatalogDbContext(o));
+    private readonly BackgroundWork _backgroundWork = new(NullLogger<BackgroundWork>.Instance);
 
     [Fact]
     public async Task AddAnime_FetchesFromSource_CachesCatalog_AndWritesLibraryItem()
@@ -47,7 +48,8 @@ public class AddToLibrarySmokeTests : IDisposable
         settings.Setup(s => s.GetCacheRefreshDaysAsync()).ReturnsAsync(7);
 
         var catalogService = new CatalogService(
-            _catalogFactory, source.Object, settings.Object, NullLogger<CatalogService>.Instance);
+            _catalogFactory, source.Object, settings.Object,
+            _backgroundWork, NullLogger<CatalogService>.Instance);
 
         // Cover URL is null in the mocked DTO, so the HTTP factory is never used.
         var httpFactory = new Mock<IHttpClientFactory>();
@@ -97,7 +99,8 @@ public class AddToLibrarySmokeTests : IDisposable
         var source = new Mock<IMediaSourceClient>();
         var settings = new Mock<ISettingsService>();
         var catalogService = new CatalogService(
-            _catalogFactory, source.Object, settings.Object, NullLogger<CatalogService>.Instance);
+            _catalogFactory, source.Object, settings.Object,
+            _backgroundWork, NullLogger<CatalogService>.Instance);
         var snapshotService = new SnapshotService(
             _libraryFactory, _catalogFactory, catalogService,
             new CoverStore(
@@ -115,6 +118,9 @@ public class AddToLibrarySmokeTests : IDisposable
 
     public void Dispose()
     {
+        // Stop the fire-and-forget streaming refresh before its database goes away.
+        _backgroundWork.StopAndWait(TimeSpan.FromSeconds(5));
+        _backgroundWork.Dispose();
         _libraryFactory.Dispose();
         _catalogFactory.Dispose();
     }

@@ -27,9 +27,6 @@ public partial class App : Application
     private static bool _languageMetadataOverridden;
     private static bool _restartRequested;
 
-    /// <summary>Cancelled on exit so background work (snapshot backfill) stops with the app.</summary>
-    private static readonly CancellationTokenSource AppLifetime = new();
-
     public static IServiceProvider Services { get; private set; } = null!;
 
     private static Serilog.ILogger AppLogger => Log.ForContext<App>();
@@ -52,7 +49,6 @@ public partial class App : Application
         Directory.CreateDirectory(Path.Combine(AppDataPath, "logs"));
 
         ConfigureSerilog();
-        RegisterGlobalExceptionHandlers();
 
         AppLogger.Information("AniMan starting up");
 
@@ -89,9 +85,10 @@ public partial class App : Application
             if (themeMode == ViewModels.Settings.ThemeMode.System)
                 Theming.AppThemeManager.AttachSystemWatcher(mainWindow);
 
-            // Fill extended metadata for snapshots from older versions/backups. Fire-and-forget:
-            // RunAsync logs its own failures and never throws.
-            _ = Services.GetRequiredService<SnapshotBackfillService>().RunAsync(AppLifetime.Token);
+            // Fill extended metadata for snapshots from older versions/backups, in the
+            // background; stopped on exit like every other background job (AM-074).
+            var backfill = Services.GetRequiredService<SnapshotBackfillService>();
+            Services.GetRequiredService<BackgroundWork>().Run("snapshot backfill", backfill.RunAsync);
         }
         catch (Exception ex)
         {
@@ -115,6 +112,13 @@ public partial class App : Application
         _languageMetadataOverridden = true;
     }
 
+    /// <summary>1 while the "unexpected error" box is open.</summary>
+    private static int _showingErrorBox;
+
+    // Registered here rather than in OnStartup, so failures while setting up folders and the
+    // log are caught too (AM-023). Until Serilog is configured, those go to its silent default.
+    public App() => RegisterGlobalExceptionHandlers();
+
     private void RegisterGlobalExceptionHandlers()
     {
         // Last-resort net: individual operations report failures via Result;
@@ -122,11 +126,30 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             AppLogger.Fatal(args.Exception, "Unhandled dispatcher exception");
-            System.Windows.MessageBox.Show(
-                LocalizationManager.Get("App_UnexpectedError"),
-                LocalizationManager.Get("App_UnexpectedErrorTitle"),
-                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+
+            // Carrying on after these would run on corrupted state: let the app end
+            // (the AppDomain handler below flushes the log).
+            if (IsUnrecoverable(args.Exception))
+                return;
+
             args.Handled = true;
+
+            // The box runs its own message loop. A failure that repeats on every layout or
+            // render pass would otherwise stack one box on top of another; while one is
+            // open, further failures are only logged (AM-023).
+            if (Interlocked.Exchange(ref _showingErrorBox, 1) == 1)
+                return;
+            try
+            {
+                System.Windows.MessageBox.Show(
+                    LocalizationManager.Get("App_UnexpectedError"),
+                    LocalizationManager.Get("App_UnexpectedErrorTitle"),
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+            finally
+            {
+                Volatile.Write(ref _showingErrorBox, 0);
+            }
         };
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
@@ -142,6 +165,11 @@ public partial class App : Application
             Log.CloseAndFlush();
         };
     }
+
+    /// <summary>Failures after which the process state cannot be trusted.</summary>
+    private static bool IsUnrecoverable(Exception ex) =>
+        ex is OutOfMemoryException or InsufficientExecutionStackException or AccessViolationException
+            or InvalidProgramException or BadImageFormatException;
 
     private static IServiceProvider BuildServiceProvider()
     {
@@ -245,7 +273,13 @@ public partial class App : Application
         AppLogger.Information("AniMan shutting down (restart: {Restart})", _restartRequested);
         try
         {
-            AppLifetime.Cancel();
+            // Stop background work first and give it a moment: disposing the services under
+            // a running cache refresh or backfill left it working against disposed databases.
+            if (Services?.GetService<BackgroundWork>() is { } background &&
+                !background.StopAndWait(TimeSpan.FromSeconds(2)))
+            {
+                AppLogger.Warning("Background work was still running at shutdown");
+            }
             (Services as IDisposable)?.Dispose();
             SqliteConnection.ClearAllPools();
         }

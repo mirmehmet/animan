@@ -26,6 +26,14 @@ public sealed class CatalogFallbackMergeTests : IDisposable
     private readonly SqliteContextFactory<CatalogDbContext> _factory;
     private readonly Mock<IMediaSourceClient> _source = new();
     private readonly Mock<ISettingsService> _settings = new();
+    private readonly BackgroundWork _background = new(NullLogger<BackgroundWork>.Instance);
+
+    /// <summary>Ends fire-and-forget cache refreshes before the test database goes away.</summary>
+    private void StopBackground()
+    {
+        _background.StopAndWait(TimeSpan.FromSeconds(5));
+        _background.Dispose();
+    }
 
     public CatalogFallbackMergeTests()
     {
@@ -37,7 +45,7 @@ public sealed class CatalogFallbackMergeTests : IDisposable
             .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure("n/a"));
     }
 
-    private CatalogService Create() => new(_factory, _source.Object, _settings.Object, NullLogger<CatalogService>.Instance);
+    private CatalogService Create() => new(_factory, _source.Object, _settings.Object, _background, NullLogger<CatalogService>.Instance);
 
     private void SeedCompleteAnime(int id)
     {
@@ -180,5 +188,9 @@ public sealed class CatalogFallbackMergeTests : IDisposable
             .Should().Equal("Real 1", "Real 2");
     }
 
-    public void Dispose() => _factory.Dispose();
+    public void Dispose()
+    {
+        StopBackground();
+        _factory.Dispose();
+    }
 }

@@ -85,6 +85,7 @@ public static class ServiceCollectionExtensions
         }).ConfigurePrimaryHttpMessageHandler(CreateCoverHandler);
 
         services.AddSingleton<CoverStore>();
+        services.AddSingleton<BackgroundWork>(); // fire-and-forget work, stopped on exit (App.OnExit)
         services.AddTransient<ICatalogService, CatalogService>();
         services.AddTransient<ISnapshotService, SnapshotService>();
         services.AddTransient<ITrackingService, TrackingService>();

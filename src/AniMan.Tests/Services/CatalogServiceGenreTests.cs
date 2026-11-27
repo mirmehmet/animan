@@ -28,6 +28,14 @@ public class CatalogServiceGenreTests : IDisposable
     private readonly CatalogDbContext _db;
     private readonly Mock<IMediaSourceClient> _sourceMock = new(MockBehavior.Strict);
     private readonly Mock<ISettingsService> _settingsMock = new();
+    private readonly BackgroundWork _background = new(NullLogger<BackgroundWork>.Instance);
+
+    /// <summary>Ends fire-and-forget cache refreshes before the test database goes away.</summary>
+    private void StopBackground()
+    {
+        _background.StopAndWait(TimeSpan.FromSeconds(5));
+        _background.Dispose();
+    }
 
     public CatalogServiceGenreTests()
     {
@@ -39,7 +47,7 @@ public class CatalogServiceGenreTests : IDisposable
     }
 
     private CatalogService CreateService() => new(
-        _factory, _sourceMock.Object, _settingsMock.Object,
+        _factory, _sourceMock.Object, _settingsMock.Object, _background,
         NullLogger<CatalogService>.Instance);
 
     [Fact]
@@ -148,6 +156,7 @@ public class CatalogServiceGenreTests : IDisposable
 
     public void Dispose()
     {
+        StopBackground();
         _db.Dispose();
         _factory.Dispose();
         GC.SuppressFinalize(this);

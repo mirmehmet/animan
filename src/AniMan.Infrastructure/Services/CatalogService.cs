@@ -15,6 +15,7 @@ public sealed class CatalogService(
     IDbContextFactory<CatalogDbContext> catalogFactory,
     IMediaSourceClient sourceClient,
     ISettingsService settingsService,
+    BackgroundWork backgroundWork,
     ILogger<CatalogService> logger) : ICatalogService
 {
     private const int MaxEpisodePages = 100;
@@ -103,7 +104,7 @@ public sealed class CatalogService(
                     return Result<CachedAnime>.Success(cached);
 
                 QueueBackgroundRefresh("anime", malId,
-                    () => FetchAndCacheAnimeAsync(malId, CancellationToken.None));
+                    bg => FetchAndCacheAnimeAsync(malId, bg));
                 return Result<CachedAnime>.Success(cached);
             }
 
@@ -139,7 +140,7 @@ public sealed class CatalogService(
                     return Result<CachedManga>.Success(cached);
 
                 QueueBackgroundRefresh("manga", malId,
-                    () => FetchAndCacheMangaAsync(malId, CancellationToken.None));
+                    bg => FetchAndCacheMangaAsync(malId, bg));
                 return Result<CachedManga>.Success(cached);
             }
 
@@ -190,7 +191,7 @@ public sealed class CatalogService(
                 {
                     var totalEpisodes = anime.TotalEpisodes;
                     QueueBackgroundRefresh("episodes", malId,
-                        () => FetchAndCacheEpisodesAsync(malId, totalEpisodes, cached, CancellationToken.None));
+                        bg => FetchAndCacheEpisodesAsync(malId, totalEpisodes, cached, bg));
                 }
 
                 return Result<IReadOnlyList<CachedEpisode>>.Success(cached);
@@ -389,23 +390,19 @@ public sealed class CatalogService(
     }
 
     /// <summary>
-    /// Runs a fire-and-forget cache refresh at most once per (kind, id) at a time,
-    /// observing (and logging) any failure so nothing reaches the unobserved-task pool.
+    /// Runs a fire-and-forget cache refresh at most once per (kind, id) at a time. It gets the
+    /// app's shutdown token and is logged, not thrown, if it fails (see <see cref="BackgroundWork"/>).
     /// </summary>
-    private void QueueBackgroundRefresh(string kind, int malId, Func<Task> refresh)
+    private void QueueBackgroundRefresh(string kind, int malId, Func<CancellationToken, Task> refresh)
     {
-        if (!InFlightRefreshes.TryAdd((kind, malId), 0))
+        if (backgroundWork.Stopping.IsCancellationRequested || !InFlightRefreshes.TryAdd((kind, malId), 0))
             return;
 
-        _ = Task.Run(async () =>
+        backgroundWork.Run($"{kind} refresh for {malId}", async ct =>
         {
             try
             {
-                await refresh().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Background {Kind} refresh failed for {Id}", kind, malId);
+                await refresh(ct).ConfigureAwait(false);
             }
             finally
             {
@@ -610,7 +607,7 @@ public sealed class CatalogService(
 
         // Fetch streaming info outside WriteGate so background tasks never block or re-enter.
         QueueBackgroundRefresh("streaming", anime.Id,
-            () => FetchAndCacheStreamingAsync(anime.Id, CancellationToken.None));
+            bg => FetchAndCacheStreamingAsync(anime.Id, bg));
         return stored;
     }
 
