@@ -2,7 +2,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:conv="clr-namespace:AniMan.Converters"
-                    xmlns:ctrl="clr-namespace:AniMan.Controls">
+                    xmlns:ctrl="clr-namespace:AniMan.Controls"
+                    xmlns:loc="clr-namespace:AniMan.Localization">
 
     <!-- ═══════════════════════════════════════════════════════════════════════
          GLOBAL TEXTBLOCK DEFAULT
@@ -470,5 +471,175 @@
             </MultiTrigger>
         </ControlTemplate.Triggers>
     </ControlTemplate>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         LIBRARY CARD PARTS  –  used by LibraryMediaCard
+         Each card builds only the parts its current layout shows: a library page
+         creates every card at once, and the hidden Compact/Ratings parts made up
+         about a third of the cost (measured 27 Nov 2026). Inside the templates the
+         DataContext is the card itself.
+    ═══════════════════════════════════════════════════════════════════════════ -->
+
+    <BooleanToVisibilityConverter x:Key="CardBoolToVisibility"/>
+
+    <!-- Card frame: MediaCard plus a visible keyboard focus (Tab; Enter/Space opens it) -->
+    <Style x:Key="LibraryCardFrame" TargetType="Border" BasedOn="{StaticResource MediaCard}">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsKeyboardFocused, RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}"/>
+                <Setter Property="Effect">
+                    <Setter.Value>
+                        <DropShadowEffect Color="#8B5CF6" Opacity="0.20"
+                                          ShadowDepth="0" BlurRadius="18"/>
+                    </Setter.Value>
+                </Setter>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Cover area: rounded top; all four corners when Compact (no footer below) -->
+    <Style x:Key="LibraryCardCover" TargetType="Border">
+        <Setter Property="ClipToBounds" Value="True"/>
+        <Setter Property="CornerRadius" Value="{StaticResource CornerCardTop}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}" Value="True">
+                <Setter Property="CornerRadius" Value="{StaticResource CornerMd}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Compact: rating on the Ratings tab, title + status on hover, thin progress line -->
+    <DataTemplate x:Key="LibraryCardCompactCover">
+        <Grid DataContext="{Binding RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}">
+            <Border VerticalAlignment="Top" HorizontalAlignment="Right"
+                    Margin="6" Padding="6,2"
+                    CornerRadius="{StaticResource CornerTag}"
+                    Background="{StaticResource CardOverlayBrush}"
+                    ToolTip="{loc:Loc Detail_MyRating}"
+                    Visibility="{Binding ShowRatings, Converter={StaticResource CardBoolToVisibility}}">
+                <TextBlock Text="{Binding UserRatingText}"
+                           FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+            </Border>
+
+            <Border VerticalAlignment="Bottom" Padding="8,6,8,9"
+                    Background="{StaticResource CardOverlayBrush}"
+                    Visibility="{Binding IsMouseOver, Converter={StaticResource CardBoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}"
+                               FontSize="11" FontWeight="SemiBold" Foreground="White"
+                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="30"/>
+                    <TextBlock Text="{Binding StatusName}"
+                               FontSize="9" Margin="0,2,0,0" Foreground="White" Opacity="0.8"/>
+                </StackPanel>
+            </Border>
+
+            <ProgressBar Style="{StaticResource BrandProgressBar}"
+                         VerticalAlignment="Bottom" Height="3"
+                         Minimum="0" Maximum="100"
+                         Value="{Binding ProgressPercent, Mode=OneWay}"
+                         Foreground="{Binding ProgressAccent}"/>
+        </Grid>
+    </DataTemplate>
+
+    <!-- Footer title: one line; Detailed cards have room for a two-line title. A fixed
+         two-line height keeps every card in a row the same height. -->
+    <Style x:Key="LibraryCardTitle" TargetType="TextBlock">
+        <Setter Property="Text" Value="{Binding Title}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsDetailed}" Value="True">
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+                <Setter Property="Height" Value="32"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Standard / Detailed footer: title, progress, and the MAL score when Detailed -->
+    <DataTemplate x:Key="LibraryCardProgressFooter">
+        <StackPanel Margin="10,6,10,8"
+                    DataContext="{Binding RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}">
+            <TextBlock Style="{StaticResource LibraryCardTitle}"/>
+            <Grid Margin="0,4,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding ProgressText}" FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" ToolTip="{loc:Loc Detail_MalScore}"
+                            Visibility="{Binding IsDetailed, Converter={StaticResource CardBoolToVisibility}}">
+                    <TextBlock Text="★" FontSize="10" Foreground="{StaticResource BrandAccentLightBrush}"/>
+                    <TextBlock Text="{Binding MalScoreText}" FontSize="10" Margin="3,0,0,0"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+            <ProgressBar Style="{StaticResource BrandProgressBar}"
+                         Minimum="0" Maximum="100"
+                         Value="{Binding ProgressPercent, Mode=OneWay}"
+                         Height="6"
+                         Foreground="{Binding ProgressAccent}"/>
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- My Ratings tab footer: title, MAL score | user rating -->
+    <DataTemplate x:Key="LibraryCardRatingsFooter">
+        <StackPanel Margin="10,6,10,8"
+                    DataContext="{Binding RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}">
+            <TextBlock Style="{StaticResource LibraryCardTitle}"/>
+            <Grid Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            ToolTip="{loc:Loc Detail_MalScore}">
+                    <TextBlock Text="★" FontSize="11"
+                               Foreground="{StaticResource BrandAccentLightBrush}"/>
+                    <TextBlock Text="{Binding MalScoreText}"
+                               FontSize="11" Margin="4,0,0,0"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+                <Border Grid.Column="1" Padding="7,2"
+                        CornerRadius="{StaticResource CornerTag}"
+                        Background="{StaticResource GenreTagBackgroundBrush}"
+                        ToolTip="{loc:Loc Detail_MyRating}">
+                    <TextBlock Text="{Binding UserRatingText}"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource BrandAccentBrush}"/>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </DataTemplate>
+
+    <!-- Picks the cover overlay: only Compact cards have one -->
+    <Style x:Key="LibraryCardCoverParts" TargetType="ContentPresenter">
+        <Setter Property="ContentTemplate" Value="{x:Null}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}" Value="True">
+                <Setter Property="ContentTemplate" Value="{StaticResource LibraryCardCompactCover}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Picks the footer: progress, ratings (My Ratings tab), or none (Compact) -->
+    <Style x:Key="LibraryCardFooter" TargetType="ContentPresenter">
+        <Setter Property="ContentTemplate" Value="{StaticResource LibraryCardProgressFooter}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding ShowRatings, RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}" Value="True">
+                <Setter Property="ContentTemplate" Value="{StaticResource LibraryCardRatingsFooter}"/>
+            </DataTrigger>
+            <!-- Last, so it wins over Ratings -->
+            <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=ctrl:LibraryMediaCard}}" Value="True">
+                <Setter Property="ContentTemplate" Value="{x:Null}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
 
 </ResourceDictionary>

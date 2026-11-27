@@ -1,8 +1,6 @@
 <UserControl x:Class="AniMan.Controls.LibraryMediaCard"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-             xmlns:loc="clr-namespace:AniMan.Localization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignHeight="262" d:DesignWidth="150"
@@ -14,41 +12,16 @@
         Compact  — cover + thin progress line; title/status slide in on hover
         Standard — cover + status badge, title, progress text and bar
         Detailed — Standard with a two-line title and the MAL score
+      The level-specific parts are templates in Themes/Styles.xaml ("LIBRARY CARD PARTS"),
+      so a card builds only what its level shows.
     -->
-    <Border Width="{Binding CardWidth, ElementName=Root}"
-            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+    <Border Style="{StaticResource LibraryCardFrame}"
+            Width="{Binding CardWidth, ElementName=Root}"
             AutomationProperties.Name="{Binding Title, ElementName=Root}">
-        <Border.Style>
-            <Style TargetType="Border" BasedOn="{StaticResource MediaCard}">
-                <Style.Triggers>
-                    <!-- Reached with Tab: an accent outline and the hover glow (Enter/Space opens it). -->
-                    <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=Root}" Value="True">
-                        <Setter Property="BorderBrush" Value="{StaticResource BrandAccentBrush}"/>
-                        <Setter Property="Effect">
-                            <Setter.Value>
-                                <DropShadowEffect Color="#8B5CF6" Opacity="0.20"
-                                                  ShadowDepth="0" BlurRadius="18"/>
-                            </Setter.Value>
-                        </Setter>
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-        </Border.Style>
-
         <StackPanel>
             <!-- Cover area -->
-            <Border Height="{Binding CoverHeight, ElementName=Root}" ClipToBounds="True">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="CornerRadius" Value="{StaticResource CornerCardTop}"/>
-                        <Style.Triggers>
-                            <!-- No footer below: round all four corners -->
-                            <DataTrigger Binding="{Binding IsCompact, ElementName=Root}" Value="True">
-                                <Setter Property="CornerRadius" Value="{StaticResource CornerMd}"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
+            <Border Style="{StaticResource LibraryCardCover}"
+                    Height="{Binding CoverHeight, ElementName=Root}">
                 <Grid>
                     <!-- Placeholder fill shown while cover is loading or missing -->
                     <Rectangle Fill="{DynamicResource ControlFillColorDefaultBrush}"/>
@@ -68,143 +41,13 @@
                                    Foreground="{Binding StatusForeground, ElementName=Root}"/>
                     </Border>
 
-                    <!-- Compact + Ratings tab: the user's rating stays visible on the cover -->
-                    <Border VerticalAlignment="Top" HorizontalAlignment="Right"
-                            Margin="6" Padding="6,2"
-                            CornerRadius="{StaticResource CornerTag}"
-                            Background="{StaticResource CardOverlayBrush}"
-                            ToolTip="{loc:Loc Detail_MyRating}">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsCompact, ElementName=Root}" Value="True"/>
-                                            <Condition Binding="{Binding ShowRatings, ElementName=Root}" Value="True"/>
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <TextBlock Text="{Binding UserRatingText, ElementName=Root}"
-                                   FontSize="10" FontWeight="SemiBold" Foreground="White"/>
-                    </Border>
-
-                    <!-- Compact: title + status slide in at the bottom on hover -->
-                    <Border VerticalAlignment="Bottom" Padding="8,6,8,9"
-                            Background="{StaticResource CardOverlayBrush}">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsCompact, ElementName=Root}" Value="True"/>
-                                            <Condition Binding="{Binding IsMouseOver, ElementName=Root}" Value="True"/>
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <StackPanel>
-                            <TextBlock Text="{Binding Title, ElementName=Root}"
-                                       FontSize="11" FontWeight="SemiBold" Foreground="White"
-                                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="30"/>
-                            <TextBlock Text="{Binding StatusName, ElementName=Root}"
-                                       FontSize="9" Margin="0,2,0,0" Foreground="White" Opacity="0.8"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Compact: thin progress line along the cover's bottom edge -->
-                    <ProgressBar Style="{StaticResource BrandProgressBar}"
-                                 VerticalAlignment="Bottom" Height="3"
-                                 Minimum="0" Maximum="100"
-                                 Value="{Binding ProgressPercent, ElementName=Root, Mode=OneWay}"
-                                 Foreground="{Binding ProgressAccent, ElementName=Root}"
-                                 Visibility="{Binding IsCompact, ElementName=Root,
-                                     Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    <!-- Compact only: rating badge, hover title, thin progress line -->
+                    <ContentPresenter Style="{StaticResource LibraryCardCoverParts}"/>
                 </Grid>
             </Border>
 
-            <!-- Footer: title + progress / ratings (Standard / Detailed) -->
-            <StackPanel Margin="10,6,10,8"
-                        Visibility="{Binding IsCompact, ElementName=Root,
-                            Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                <TextBlock Text="{Binding Title, ElementName=Root}"
-                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="FontSize" Value="11"/>
-                            <Style.Triggers>
-                                <!-- Bigger cards have room for a two-line title. A fixed two-line
-                                     height keeps every card in a row the same height. -->
-                                <DataTrigger Binding="{Binding IsDetailed, ElementName=Root}" Value="True">
-                                    <Setter Property="FontSize" Value="12"/>
-                                    <Setter Property="TextWrapping" Value="Wrap"/>
-                                    <Setter Property="Height" Value="32"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-
-                <!-- Progress (default footer) -->
-                <StackPanel Visibility="{Binding ShowRatings, ElementName=Root,
-                                Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                    <Grid Margin="0,4,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding ProgressText, ElementName=Root}" FontSize="10"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        <!-- Detailed: MAL score beside the progress -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" ToolTip="{loc:Loc Detail_MalScore}"
-                                    Visibility="{Binding IsDetailed, ElementName=Root,
-                                        Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock Text="★" FontSize="10" Foreground="{StaticResource BrandAccentLightBrush}"/>
-                            <TextBlock Text="{Binding MalScoreText, ElementName=Root}" FontSize="10" Margin="3,0,0,0"
-                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        </StackPanel>
-                    </Grid>
-                    <ProgressBar Style="{StaticResource BrandProgressBar}"
-                                 Minimum="0" Maximum="100"
-                                 Value="{Binding ProgressPercent, ElementName=Root, Mode=OneWay}"
-                                 Height="6"
-                                 Foreground="{Binding ProgressAccent, ElementName=Root}"/>
-                </StackPanel>
-
-                <!-- Ratings (My Ratings tab footer): MAL score | user rating -->
-                <Grid Margin="0,5,0,0"
-                      Visibility="{Binding ShowRatings, ElementName=Root,
-                          Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                VerticalAlignment="Center"
-                                ToolTip="{loc:Loc Detail_MalScore}">
-                        <TextBlock Text="★" FontSize="11"
-                                   Foreground="{StaticResource BrandAccentLightBrush}"/>
-                        <TextBlock Text="{Binding MalScoreText, ElementName=Root}"
-                                   FontSize="11" Margin="4,0,0,0"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                    </StackPanel>
-                    <Border Grid.Column="1" Padding="7,2"
-                            CornerRadius="{StaticResource CornerTag}"
-                            Background="{StaticResource GenreTagBackgroundBrush}"
-                            ToolTip="{loc:Loc Detail_MyRating}">
-                        <TextBlock Text="{Binding UserRatingText, ElementName=Root}"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{StaticResource BrandAccentBrush}"/>
-                    </Border>
-                </Grid>
-            </StackPanel>
+            <!-- Footer: progress, or ratings on the My Ratings tab; none when Compact -->
+            <ContentPresenter Style="{StaticResource LibraryCardFooter}"/>
         </StackPanel>
     </Border>
 </UserControl>
