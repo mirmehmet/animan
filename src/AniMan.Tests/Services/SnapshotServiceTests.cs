@@ -202,7 +202,7 @@ public class SnapshotServiceTests : IDisposable
         }
 
         _catalogServiceMock
-            .Setup(c => c.GetAnimeAsync(50, true, It.IsAny<CancellationToken>()))
+            .Setup(c => c.RefreshAnimeDetailsAsync(50, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
             {
                 Id = 50,
@@ -221,7 +221,7 @@ public class SnapshotServiceTests : IDisposable
         refreshed.Value!.Title.Should().Be("Updated Title");
         refreshed.Value.TotalEpisodes.Should().Be(12);
         refreshed.Value.CoverLocalPath.Should().Be(coverPath);
-        _catalogServiceMock.Verify(c => c.GetAnimeAsync(50, true, It.IsAny<CancellationToken>()), Times.Once);
+        _catalogServiceMock.Verify(c => c.RefreshAnimeDetailsAsync(50, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public class SnapshotServiceTests : IDisposable
         }
 
         _catalogServiceMock
-            .Setup(c => c.GetAnimeAsync(60, true, It.IsAny<CancellationToken>()))
+            .Setup(c => c.RefreshAnimeDetailsAsync(60, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
             {
                 Id = 60, Title = "AniList Title", Score = 7.5, TotalEpisodes = 26,
@@ -264,7 +264,7 @@ public class SnapshotServiceTests : IDisposable
     {
         var itemId = SeedLegacyItem(61, MediaType.Anime);
         _catalogServiceMock
-            .Setup(c => c.GetAnimeAsync(61, true, It.IsAny<CancellationToken>()))
+            .Setup(c => c.RefreshAnimeDetailsAsync(61, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
             {
                 Id = 61, Title = "x", TitleEnglish = "Attack on Titan", DurationMinutes = 24,
@@ -331,7 +331,7 @@ public class SnapshotServiceTests : IDisposable
         var itemId = SeedLegacyItem(16498, MediaType.Anime);
         SeedCatalogGenres(16498, "anime", (1, "Action"), (9, "Ecchi"));
         _catalogServiceMock
-            .Setup(c => c.GetAnimeAsync(16498, true, It.IsAny<CancellationToken>()))
+            .Setup(c => c.RefreshAnimeDetailsAsync(16498, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
             {
                 Id = 16498, Title = "A different upstream title", Synopsis = "Different synopsis",
@@ -367,7 +367,7 @@ public class SnapshotServiceTests : IDisposable
         item.Score.Should().Be(9);
         item.IsFavorite.Should().BeTrue();
         item.Notes.Single().Content.Should().Be("keep me");
-        _catalogServiceMock.Verify(c => c.GetAnimeAsync(16498, true, It.IsAny<CancellationToken>()), Times.Once);
+        _catalogServiceMock.Verify(c => c.RefreshAnimeDetailsAsync(16498, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -375,7 +375,7 @@ public class SnapshotServiceTests : IDisposable
     {
         var itemId = SeedLegacyItem(16498, MediaType.Anime);
         _catalogServiceMock
-            .Setup(c => c.GetAnimeAsync(16498, true, It.IsAny<CancellationToken>()))
+            .Setup(c => c.RefreshAnimeDetailsAsync(16498, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CachedAnime>.Failure("offline"));
 
         var result = await CreateService().FillExtendedMetadataAsync(itemId);
@@ -418,6 +418,8 @@ public class SnapshotServiceTests : IDisposable
 
         _catalogServiceMock.Verify(
             c => c.GetAnimeAsync(It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+        _catalogServiceMock.Verify(
+            c => c.RefreshAnimeDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private int SeedLegacyItem(int malId, MediaType type, int dataVersion = MediaDataVersion.Legacy)

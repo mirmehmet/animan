@@ -25,6 +25,10 @@ public partial class LibraryView : UserControl
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Unloaded += (_, _) =>
+        {
+            if (_viewModel is not null) _viewModel.IsShown = false;
+        };
     }
 
     public void Attach(LibraryViewModelBase viewModel, DetailNavigator detail, ILogger logger)
@@ -40,6 +44,7 @@ public partial class LibraryView : UserControl
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (_viewModel is null) return;
+        _viewModel.IsShown = true;
         try
         {
             var visit = _timing.BeginVisit();

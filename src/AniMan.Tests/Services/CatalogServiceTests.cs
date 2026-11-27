@@ -79,6 +79,28 @@ public class CatalogServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshAnimeDetailsAsync_FetchesFreshDetails_WithoutAStreamingRequest()
+    {
+        _db.Anime.Add(MakeCachedAnime(8, daysOld: 0, totalEpisodes: 10));
+        await _db.SaveChangesAsync();
+
+        _sourceMock
+            .Setup(j => j.GetAnimeFullAsync(8, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<AnimeDto>>.Success(new SingleResult<AnimeDto>
+            {
+                Data = new AnimeDto { MalId = 8, Title = "Refreshed Anime 8", Episodes = 12 }
+            }));
+
+        var result = await CreateService().RefreshAnimeDetailsAsync(8);
+        _background.StopAndWait(TimeSpan.FromSeconds(5)); // a queued streaming refresh would run here
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Title.Should().Be("Refreshed Anime 8");
+        _sourceMock.Verify(s => s.GetAnimeStreamingAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never,
+            "snapshot refreshes keep their own platforms (AM-119)");
+    }
+
+    [Fact]
     public async Task GetAnimeAsync_CacheMiss_CallsTheSourceAndStores()
     {
         var dto = MakeAnimeDto(42);

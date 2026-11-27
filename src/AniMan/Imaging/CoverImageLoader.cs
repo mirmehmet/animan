@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
-using System.Windows;
 using System.Windows.Media.Imaging;
 using AniMan.Core.Common;
 
@@ -52,13 +51,10 @@ public static class CoverImageLoader
             if (bytes.Length == 0 || bytes.Length > MaxRemoteCoverBytes)
                 return null;
 
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher is null || dispatcher.HasShutdownStarted)
-                return null;
-
-            // BitmapImage inherits DispatcherObject — create it on the UI (STA) thread; the
-            // download finished on a thread-pool thread.
-            return await dispatcher.InvokeAsync(() => FromBytes(bytes, decodePixelWidth, cacheKey));
+            // Decoded here, on the thread pool, not on the UI thread (AM-079): the bitmap is
+            // frozen, so the page may use it from any thread — library covers load the same way.
+            ct.ThrowIfCancellationRequested();
+            return FromBytes(bytes, decodePixelWidth, cacheKey);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -116,7 +112,7 @@ public static class CoverImageLoader
         }
     }
 
-    /// <summary>Builds a cover from downloaded bytes. Must run on the UI (STA) thread.</summary>
+    /// <summary>Builds a frozen cover from downloaded bytes; safe to call from any thread.</summary>
     public static BitmapImage? FromBytes(byte[] bytes, int decodePixelWidth, string? urlKey = null)
     {
         if (bytes.Length == 0)

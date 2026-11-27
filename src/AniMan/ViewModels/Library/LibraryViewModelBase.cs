@@ -45,6 +45,8 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     /// </summary>
     private const int MaxInPlaceChanges = 60;
     private int _coverLoadVersion;
+    /// <summary>Pixel width the covers on this page were last decoded at; 0 before the first load.</summary>
+    private int _coverDecodeWidth;
     private bool _sortLoaded;
 
     // Set while chips/years are rebuilt or cleared in bulk, so that one change does not
@@ -185,7 +187,12 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         _libraryVersion = libraryVersion;
         _mediaType = mediaType;
         Layout = layout;
-        Layout.CoverResolutionChanged += (_, width) => _ = LoadCoversAsync(width);
+        // Both library pages share the slider, but only the page on screen re-decodes now;
+        // the other catches up when it is shown again (AM-081, see LoadAsync).
+        Layout.CoverResolutionChanged += (_, width) =>
+        {
+            if (IsShown) _ = LoadCoversAsync(width);
+        };
         // Genres and themes can match "all selected" (default) or "any selected".
         _genreGroup = new(LocalizationManager.Get("Library_FilterGenre"), supportsMatchMode: true, OnFilterChanged);
         _themeGroup = new(LocalizationManager.Get("Library_FilterTheme"), supportsMatchMode: true, OnFilterChanged);
@@ -195,6 +202,9 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             _statusGroup, _sourceGroup, _ageRatingGroup
         ];
     }
+
+    /// <summary>Set by the view while this page is on screen.</summary>
+    public bool IsShown { get; set; }
 
     /// <summary>Total episodes (anime) or chapters (manga) from the snapshot.</summary>
     protected abstract int? GetTotal(MediaSnapshot? snapshot);
@@ -210,7 +220,12 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         // and is picked up on the next visit.
         var version = _libraryVersion.Current;
         if (version == _loadedVersion && LoadErrorMessage is null)
+        {
+            // The cover size (or the screen's scale) changed while the page was hidden.
+            if (Layout.CoverDecodeWidth is var width && width != _coverDecodeWidth)
+                _ = LoadCoversAsync(width);
             return Task.CompletedTask;
+        }
 
         // Loads can overlap (the page shown again, "Try again", a filter from Stats) (AM-061).
         // The same library is already being read: wait for that read instead of a second one.
@@ -565,6 +580,7 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     private async Task LoadCoversAsync(int decodeWidth)
     {
         var version = ++_coverLoadVersion;
+        _coverDecodeWidth = decodeWidth;
         foreach (var batch in _allItems.ToList().Chunk(24))
         {
             var decoded = await Task.Run(() => batch

@@ -139,7 +139,7 @@ public sealed class SnapshotService(
 
             if (item.MediaType == MediaType.Anime)
             {
-                var result = await catalogService.GetAnimeAsync(item.MalId, force: true, ct).ConfigureAwait(false);
+                var result = await catalogService.RefreshAnimeDetailsAsync(item.MalId, ct).ConfigureAwait(false);
                 if (!result.IsSuccess) return Result<MediaSnapshot>.Failure(result.Error!, result.Kind);
                 fresh = MapAnimeSnapshot(result.Value!);
                 coverUrl = result.Value!.CoverLargeUrl ?? result.Value.CoverMediumUrl;
@@ -206,12 +206,12 @@ public sealed class SnapshotService(
                 mediaType = target.MediaType;
             }
 
-            // force: the catalog row for this title may itself predate the extended fields.
+            // Fetched fresh: the catalog row for this title may itself predate the extended fields.
             Action<MediaSnapshot> apply;
             int dataVersion;
             if (mediaType == MediaType.Anime)
             {
-                var result = await catalogService.GetAnimeAsync(malId, force: true, ct).ConfigureAwait(false);
+                var result = await catalogService.RefreshAnimeDetailsAsync(malId, ct).ConfigureAwait(false);
                 if (!result.IsSuccess) return Result.Failure(result.Error!, result.Kind);
                 var a = result.Value!;
                 dataVersion = a.DataVersion;

@@ -13,6 +13,9 @@ public static class AppThemeManager
     private static bool _watching;
     private static bool _changedHooked;
 
+    /// <summary>Theme whose palette and accent are in the app resources; null before the first one.</summary>
+    private static ApplicationTheme? _paletteTheme;
+
     // Brand violet accent applied after every theme change.
     private static readonly Color BrandAccent = Color.FromRgb(0x8B, 0x5C, 0xF6);
 
@@ -59,9 +62,9 @@ public static class AppThemeManager
                 break;
         }
 
-        ApplyPalette(applied);
-        ApplyBrandAccent();
-        SyncWindowBackground(window);
+        // Wpf.Ui's Apply above already raised Changed, which applied the palette; this only
+        // matters when it did not (e.g. the theme dictionary was already the requested one).
+        ApplyThemeResources(applied, window);
     }
 
     /// <summary>Applies a font family globally via the dynamic resource key AppFontFamily.</summary>
@@ -80,11 +83,24 @@ public static class AppThemeManager
         _changedHooked = true;
     }
 
-    private static void OnApplicationThemeChanged(ApplicationTheme currentApplicationTheme, Color systemAccent)
+    private static void OnApplicationThemeChanged(ApplicationTheme currentApplicationTheme, Color systemAccent) =>
+        ApplyThemeResources(currentApplicationTheme, Application.Current?.MainWindow);
+
+    /// <summary>
+    /// Puts the palette and brand accent for <paramref name="theme"/> into the app resources,
+    /// once per theme: every assignment makes WPF re-resolve resources across the whole UI, and
+    /// one switch used to apply them twice (Wpf.Ui's Changed event, then Apply itself; AM-080).
+    /// The window background is synced every time, since Wpf.Ui resets it on each Apply.
+    /// </summary>
+    private static void ApplyThemeResources(ApplicationTheme theme, Window? window)
     {
-        ApplyPalette(currentApplicationTheme);
-        ApplyBrandAccent();
-        SyncWindowBackground(Application.Current?.MainWindow);
+        if (_paletteTheme != theme)
+        {
+            ApplyPalette(theme);
+            ApplyBrandAccent();
+            _paletteTheme = theme;
+        }
+        SyncWindowBackground(window);
     }
 
     // Theme-dependent background / surface / text / button palette. Overrides Wpf.Ui's
@@ -283,10 +299,7 @@ public static class AppThemeManager
             _watching = true;
         }
 
-        var applied = ResolveSystemTheme();
-        ApplyPalette(applied);
-        ApplyBrandAccent();
-        SyncWindowBackground(window);
+        ApplyThemeResources(ResolveSystemTheme(), window);
     }
 
     private static void StartWatching(Window? window)

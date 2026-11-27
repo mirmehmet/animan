@@ -118,6 +118,24 @@ public sealed class CatalogService(
         }
     }
 
+    public async Task<Result<CachedAnime>> RefreshAnimeDetailsAsync(int malId, CancellationToken ct = default)
+    {
+        if (malId <= 0)
+            return Result<CachedAnime>.Failure("Invalid anime ID.");
+
+        try
+        {
+            // Backfill and re-snapshot used to queue a hidden streaming request per title (AM-119).
+            return await FetchAndCacheAnimeAsync(malId, ct, refreshStreaming: false).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "RefreshAnimeDetails failed for {Id}", malId);
+            return Result<CachedAnime>.Failure("Failed to load anime details.");
+        }
+    }
+
     public async Task<Result<CachedManga>> GetMangaAsync(
         int malId, bool force = false, CancellationToken ct = default)
     {
@@ -437,7 +455,7 @@ public sealed class CatalogService(
     }
 
     private async Task<Result<CachedAnime>> FetchAndCacheAnimeAsync(
-        int malId, CancellationToken ct)
+        int malId, CancellationToken ct, bool refreshStreaming = true)
     {
         var apiResult = await sourceClient.GetAnimeFullAsync(malId, ct).ConfigureAwait(false);
         if (!apiResult.IsSuccess || apiResult.Value?.Data is null)
@@ -448,7 +466,7 @@ public sealed class CatalogService(
         // gaps, the MAL data already cached is the better answer (snapshots are built from it).
         var stored = anime;
         await TryCacheAsync($"anime {malId}",
-            async () => stored = await UpsertAnimeAsync(anime, apiResult.Value.Data, ct).ConfigureAwait(false))
+            async () => stored = await UpsertAnimeAsync(anime, apiResult.Value.Data, refreshStreaming, ct).ConfigureAwait(false))
             .ConfigureAwait(false);
         return Result<CachedAnime>.Success(stored);
     }
@@ -573,7 +591,7 @@ public sealed class CatalogService(
     }
 
     /// <summary>Writes <paramref name="anime"/> through <see cref="EntityMerge"/> and returns the stored row.</summary>
-    private async Task<CachedAnime> UpsertAnimeAsync(CachedAnime anime, AnimeDto dto, CancellationToken ct)
+    private async Task<CachedAnime> UpsertAnimeAsync(CachedAnime anime, AnimeDto dto, bool refreshStreaming, CancellationToken ct)
     {
         CachedAnime stored = anime;
         await WriteGate.WaitAsync(ct).ConfigureAwait(false);
@@ -606,8 +624,9 @@ public sealed class CatalogService(
         }
 
         // Fetch streaming info outside WriteGate so background tasks never block or re-enter.
-        QueueBackgroundRefresh("streaming", anime.Id,
-            bg => FetchAndCacheStreamingAsync(anime.Id, bg));
+        if (refreshStreaming)
+            QueueBackgroundRefresh("streaming", anime.Id,
+                bg => FetchAndCacheStreamingAsync(anime.Id, bg));
         return stored;
     }
 
