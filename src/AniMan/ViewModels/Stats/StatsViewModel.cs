@@ -108,54 +108,69 @@ public partial class StatsViewModel : ObservableObject
         if (_shown == (version, MediaType, Today) && !_loadErrors.ContainsKey(MediaType))
             return;
 
-        IsLoading = true;
-        try
+        if (version != _cacheVersion)
         {
-            if (version != _cacheVersion)
-            {
-                _cache.Clear();
-                _cacheVersion = version;
-            }
-            await EnsureLoadedAsync(MediaType);
-            Rebuild();
+            _cache.Clear();
+            _cacheVersion = version;
         }
-        finally
-        {
-            IsLoading = false;
-        }
+        await ShowAsync(MediaType);
     }
 
-    [RelayCommand]
+    /// <summary>Anime/manga toggle. May run while a load is still going (AM-068): the newest wins.</summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task SwitchMediaAsync(MediaType mediaType)
     {
         if (mediaType == MediaType) return;
         MediaType = mediaType;
+        await ShowAsync(mediaType);
+    }
+
+    /// <summary>Numbers each load/switch; only the newest may rebuild the page or hide the progress bar.</summary>
+    private int _showSequence;
+
+    /// <summary>
+    /// Loads <paramref name="mediaType"/> if needed and shows it. A load still running when
+    /// the user switches type must not rebuild the page for the new type before its data
+    /// is there (that showed "no statistics yet") — the newest call does the rebuild.
+    /// </summary>
+    private async Task ShowAsync(MediaType mediaType)
+    {
+        var sequence = ++_showSequence;
         IsLoading = true;
         try
         {
             await EnsureLoadedAsync(mediaType);
-            Rebuild();
+            if (sequence == _showSequence)
+                Rebuild();
         }
         finally
         {
-            IsLoading = false;
+            if (sequence == _showSequence)
+                IsLoading = false;
         }
     }
 
+    /// <summary>
+    /// The type whose figures are on screen. Right after the toggle, <see cref="MediaType"/>
+    /// already names the new type while the old type's charts are still shown; a click on
+    /// them must open the library they came from.
+    /// </summary>
+    private MediaType ShownType => _shown?.Type ?? MediaType;
+
     [RelayCommand]
     private void OpenStatus(StatusSegmentViewModel segment) =>
-        OpenLibraryRequested?.Invoke(this, new LibraryFilterRequest(MediaType, StatusId: segment.StatusId));
+        OpenLibraryRequested?.Invoke(this, new LibraryFilterRequest(ShownType, StatusId: segment.StatusId));
 
     [RelayCommand]
     private void OpenGenre(string genre) =>
-        OpenLibraryRequested?.Invoke(this, new LibraryFilterRequest(MediaType, Genre: genre));
+        OpenLibraryRequested?.Invoke(this, new LibraryFilterRequest(ShownType, Genre: genre));
 
     [RelayCommand]
     private void OpenYears(ColumnViewModel column)
     {
         if (column.IsClickable)
             OpenLibraryRequested?.Invoke(this,
-                new LibraryFilterRequest(MediaType, YearFrom: column.YearFrom, YearTo: column.YearTo));
+                new LibraryFilterRequest(ShownType, YearFrom: column.YearFrom, YearTo: column.YearTo));
     }
 
     // ── Loading ───────────────────────────────────────────────────────────────
@@ -164,7 +179,13 @@ public partial class StatsViewModel : ObservableObject
     {
         if (_cache.ContainsKey(mediaType)) return;
 
+        var cacheVersion = _cacheVersion;
         var result = await _tracking.GetLibraryAsync(mediaType);
+
+        // The library changed while this read ran and the cache was cleared: this result is
+        // already stale, and the load that cleared it reads again.
+        if (cacheVersion != _cacheVersion) return;
+
         if (!result.IsSuccess)
         {
             // Not "no statistics yet": the library exists, it just could not be read.

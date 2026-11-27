@@ -138,14 +138,27 @@ public partial class SettingsViewModel(
 
     // ── Theme ─────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Only the theme buttons call this, so it runs on a click, never while the page is
+    /// being filled. Clicking the theme already in use changes nothing (AM-069: the old
+    /// check skipped it only before initialization, the wrong way round).
+    /// </summary>
     [RelayCommand]
     private async Task SetThemeModeAsync(ThemeMode mode)
     {
-        if (!_initialized && mode == SelectedThemeMode) return;
+        if (mode == SelectedThemeMode) return;
 
         SelectedThemeMode = mode;
-        AppThemeManager.Apply(mode);
-        await settingsService.SetThemeAsync(AppThemeManager.ToStored(mode));
+        try
+        {
+            AppThemeManager.Apply(mode);
+            await settingsService.SetThemeAsync(AppThemeManager.ToStored(mode));
+        }
+        catch (Exception ex)
+        {
+            // Like the font and language settings: log it; the theme still applies for this session.
+            logger.LogError(ex, "Failed to apply or save theme {Mode}", mode);
+        }
     }
 
     // async void semantics below: a failed settings write must be logged, never

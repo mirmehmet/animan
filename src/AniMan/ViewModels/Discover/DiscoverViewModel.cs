@@ -71,8 +71,13 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
         await LoadAsync();
     }
 
+    // The commands below may run while another is still loading (AM-067): one shared
+    // SwitchTabCommand used to disable both tab buttons, and Enter in the search box was
+    // ignored during a page load. Overlap is safe: each tab's query versioning
+    // (DiscoverTabState.BeginQuery) cancels the older request and drops its result.
+
     /// <summary>Loads (or retries) the visible tab: its search if one is active, otherwise its current page.</summary>
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     public async Task LoadAsync()
     {
         await LoadLibrarySetAsync(CancellationToken.None);
@@ -84,7 +89,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
             await LoadPopularPageAsync(state, state.CurrentPage);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task SwitchTabAsync(DiscoverTab tab)
     {
         if (ActiveTab == tab) return;
@@ -96,7 +101,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Searches the visible tab. An empty query leaves search mode and returns to the popular list.</summary>
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task SearchAsync()
     {
         var state = Current;
@@ -110,7 +115,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
         await SearchCoreAsync(state);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task NextPageAsync()
     {
         var state = Current;
@@ -118,7 +123,7 @@ public partial class DiscoverViewModel : ObservableObject, IDisposable
             await LoadPopularPageAsync(state, state.CurrentPage + 1);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task PreviousPageAsync()
     {
         var state = Current;

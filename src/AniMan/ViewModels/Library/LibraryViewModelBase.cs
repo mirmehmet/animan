@@ -204,14 +204,30 @@ public abstract partial class LibraryViewModelBase : ObservableObject
     /// coming back from a detail page keeps the list, its covers and the scroll position.
     /// </summary>
     [RelayCommand]
-    private async Task LoadAsync()
+    private Task LoadAsync()
     {
         // Read before loading: a write that lands during the load bumps the version again
         // and is picked up on the next visit.
         var version = _libraryVersion.Current;
         if (version == _loadedVersion && LoadErrorMessage is null)
-            return;
+            return Task.CompletedTask;
 
+        // Loads can overlap (the page shown again, "Try again", a filter from Stats) (AM-061).
+        // The same library is already being read: wait for that read instead of a second one.
+        if (_runningLoad is { } running && running.Version == version && !running.Task.IsCompleted)
+            return running.Task;
+
+        var task = LoadCoreAsync(version, ++_loadSequence);
+        _runningLoad = (task, version);
+        return task;
+    }
+
+    /// <summary>Numbers each load; only the newest may fill the page, so an older result never overwrites a newer one.</summary>
+    private int _loadSequence;
+    private (Task Task, long Version)? _runningLoad;
+
+    private async Task LoadCoreAsync(long version, int sequence)
+    {
         IsLoading = true;
         LoadErrorMessage = null; // a retry hides the old error while it runs
         OnStateChanged();
@@ -221,6 +237,9 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             await Layout.EnsureLoadedAsync();
 
             var result = await _tracking.GetLibraryOverviewAsync(_mediaType);
+            if (sequence != _loadSequence)
+                return; // a newer load (the library changed meanwhile) owns the page now
+
             if (!result.IsSuccess)
             {
                 // An error screen only when there is nothing to show: a failed reload keeps
@@ -240,8 +259,13 @@ public abstract partial class LibraryViewModelBase : ObservableObject
         }
         finally
         {
-            IsLoading = false;
-            OnStateChanged();
+            // An older load ending must not hide the newer load's progress bar.
+            if (sequence == _loadSequence)
+            {
+                IsLoading = false;
+                _runningLoad = null;
+                OnStateChanged();
+            }
         }
     }
 

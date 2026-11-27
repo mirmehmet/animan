@@ -9,7 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AniMan.ViewModels.Dashboard;
 
-public partial class DashboardViewModel : ObservableObject, IDisposable
+public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 {
     private readonly ITrackingService _tracking;
     private readonly ILibraryVersion _libraryVersion;
@@ -110,23 +110,35 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
 
     private async Task LoadSeasonCoversAsync(IReadOnlyList<SeasonCardViewModel> cards)
     {
+        // AM-065: the old run is cancelled without blocking (CancelAsync), and each run disposes
+        // its own token source when it ends — disposing it here, while the old downloads
+        // still held its token, was not safe.
         var previous = _seasonCoverCts;
-        previous?.Cancel();
-        previous?.Dispose();
         var cts = _seasonCoverCts = new CancellationTokenSource();
         var ct = cts.Token;
+        if (previous is not null)
+            await previous.CancelAsync();
 
-        using var gate = new SemaphoreSlim(4);
-        var tasks = cards.Select(async card =>
+        try
         {
-            await gate.WaitAsync(ct);
-            try { await card.LoadCoverAsync(_httpClientFactory, ct); }
-            catch (OperationCanceledException) { }
-            finally { gate.Release(); }
-        });
+            using var gate = new SemaphoreSlim(4);
+            var tasks = cards.Select(async card =>
+            {
+                await gate.WaitAsync(ct);
+                try { await card.LoadCoverAsync(_httpClientFactory, ct); }
+                catch (OperationCanceledException) { }
+                finally { gate.Release(); }
+            });
 
-        try { await Task.WhenAll(tasks); }
+            await Task.WhenAll(tasks);
+        }
         catch (OperationCanceledException) { }
+        finally
+        {
+            if (ReferenceEquals(_seasonCoverCts, cts))
+                _seasonCoverCts = null;
+            cts.Dispose();
+        }
     }
 
     /// <summary>Builds the counters and "continue" rows; skipped while the library is unchanged since the last visit.</summary>
@@ -197,10 +209,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     partial void OnSeasonErrorMessageChanged(string? value) =>
         OnPropertyChanged(nameof(HasSeasonError));
 
+    /// <summary>Stops the cover downloads still running; their run disposes the token source when it ends.</summary>
     public void Dispose()
     {
         _seasonCoverCts?.Cancel();
-        _seasonCoverCts?.Dispose();
         _seasonCoverCts = null;
     }
 }
