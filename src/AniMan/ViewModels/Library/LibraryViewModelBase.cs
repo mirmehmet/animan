@@ -462,15 +462,14 @@ public abstract partial class LibraryViewModelBase : ObservableObject
             filtered = filtered.Where(c => c.StatusId == ActiveStatusId);
 
         if (!string.IsNullOrWhiteSpace(SearchQuery))
-            filtered = filtered.Where(c =>
-                c.Title.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase));
+            filtered = filtered.Where(c => TitleText.Matches(c.SearchKey, SearchQuery));
 
         if (!filter.IsEmpty)
             filtered = filtered.Where(c => LibraryFilterEngine.Matches(c, filter));
 
         // Edit the bound list in place when the change is small (typing in the search box,
         // ticking a chip): cards that stay keep their containers. A large change replaces it.
-        var result = LibraryFilterEngine.Sort(filtered, SortMode).ToList();
+        var result = LibraryFilterEngine.Sort(filtered, SortMode, LocalizationManager.Culture).ToList();
         if (!CollectionSync.TryApply(Items, result, MaxInPlaceChanges))
             Items = new ObservableCollection<LibraryCardViewModel>(result);
         foreach (var group in FilterGroups)

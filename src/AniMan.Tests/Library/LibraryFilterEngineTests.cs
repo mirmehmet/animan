@@ -1,3 +1,4 @@
+using System.Globalization;
 using AniMan.Core.Library;
 using FluentAssertions;
 
@@ -197,22 +198,50 @@ public class LibraryFilterEngineTests
     [Fact]
     public void Sort_MyRating_HighestFirst_UnratedLast()
     {
-        LibraryFilterEngine.Sort(All, LibrarySort.MyRating).Select(e => e.Title)
+        LibraryFilterEngine.Sort(All, LibrarySort.MyRating, CultureInfo.InvariantCulture).Select(e => e.Title)
             .Should().Equal("Shingeki no Kyojin", "Kimi no Na wa.", "Sousou no Frieren", "Old entry");
     }
 
     [Fact]
     public void Sort_Year_NewestFirst_UnknownLast()
     {
-        LibraryFilterEngine.Sort(All, LibrarySort.Year).Select(e => e.Title)
+        LibraryFilterEngine.Sort(All, LibrarySort.Year, CultureInfo.InvariantCulture).Select(e => e.Title)
             .Should().Equal("Sousou no Frieren", "Kimi no Na wa.", "Shingeki no Kyojin", "Old entry");
     }
 
-    [Fact]
-    public void Sort_Title_Alphabetical()
+    [Theory]
+    [InlineData("tr-TR")]
+    [InlineData("en-US")]
+    public void Sort_Title_Alphabetical(string culture)
     {
-        LibraryFilterEngine.Sort(All, LibrarySort.Title).Select(e => e.Title)
+        LibraryFilterEngine.Sort(All, LibrarySort.Title, CultureInfo.GetCultureInfo(culture)).Select(e => e.Title)
             .Should().Equal("Kimi no Na wa.", "Old entry", "Shingeki no Kyojin", "Sousou no Frieren");
+    }
+
+    private static readonly string[] MixedITitles =
+        ["Inuyasha", "KISS x SIS", "ichigo Mashimaro", "Kiba", "İdol", "Hunter x Hunter", "Jujutsu Kaisen"];
+
+    private static readonly string[] CedillaTitles = ["Çılgın", "Dororo", "Cowboy Bebop"];
+
+    // Under plain Turkish rules "I" is "ı": "Initial D" came before "ichigo" and "KISS" before "Kiba".
+    [Theory]
+    [InlineData("tr-TR")]
+    [InlineData("en-US")]
+    public void Sort_Title_TreatsEveryIAsOneLetter(string culture)
+    {
+        var titles = MixedITitles.Select(t => new Entry { Title = t });
+
+        LibraryFilterEngine.Sort(titles, LibrarySort.Title, CultureInfo.GetCultureInfo(culture)).Select(e => e.Title)
+            .Should().Equal("Hunter x Hunter", "ichigo Mashimaro", "İdol", "Inuyasha", "Jujutsu Kaisen", "Kiba", "KISS x SIS");
+    }
+
+    [Fact]
+    public void Sort_Title_TurkishUiPutsCedillaAfterC()
+    {
+        var titles = CedillaTitles.Select(t => new Entry { Title = t });
+
+        LibraryFilterEngine.Sort(titles, LibrarySort.Title, CultureInfo.GetCultureInfo("tr-TR")).Select(e => e.Title)
+            .Should().Equal("Cowboy Bebop", "Çılgın", "Dororo");
     }
 
     [Theory]

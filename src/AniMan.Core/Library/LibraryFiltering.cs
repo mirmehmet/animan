@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace AniMan.Core.Library;
 
 /// <summary>What the library filter and sort need to know about one library item.</summary>
@@ -124,10 +126,11 @@ public static class LibraryFilterEngine
     /// Sorts in each mode's natural direction (highest, newest, A→Z). Items lacking the sort
     /// key always go last; ties keep their incoming order (most recently updated first).
     /// </summary>
-    public static IEnumerable<T> Sort<T>(IEnumerable<T> items, LibrarySort sort) where T : ILibraryEntry =>
+    /// <param name="culture">The UI language; decides alphabetical order (see <see cref="TitleText.SortComparer"/>).</param>
+    public static IEnumerable<T> Sort<T>(IEnumerable<T> items, LibrarySort sort, CultureInfo culture) where T : ILibraryEntry =>
         sort switch
         {
-            LibrarySort.Title => items.OrderBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase),
+            LibrarySort.Title => items.OrderBy(e => TitleText.SortKey(e.Title), TitleText.SortComparer(culture)),
             LibrarySort.MyRating => items.OrderBy(e => e.UserRating is null).ThenByDescending(e => e.UserRating),
             LibrarySort.MalScore => items.OrderBy(e => e.MalScore is null).ThenByDescending(e => e.MalScore),
             LibrarySort.Year => items.OrderBy(e => e.Year is null).ThenByDescending(e => e.Year),

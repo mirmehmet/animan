@@ -34,6 +34,11 @@ public partial class LibraryCardViewModel : ObservableObject, ILibraryEntry
     public int MalId { get; init; }
     public MediaType MediaType { get; init; }
     public string Title { get; init; } = string.Empty;
+
+    /// <summary><see cref="Title"/> folded for the search box (<see cref="TitleText.SearchKey"/>), built once.</summary>
+    public string SearchKey => _searchKey ??= TitleText.SearchKey(Title);
+    private string? _searchKey;
+
     public string? CoverLocalPath { get; init; }
     public int StatusId { get; init; }
     public string StatusName { get; init; } = string.Empty;
