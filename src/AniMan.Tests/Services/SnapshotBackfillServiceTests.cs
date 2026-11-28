@@ -92,6 +92,42 @@ public class SnapshotBackfillServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_ASuccessBetweenFailures_ResetsTheFailureCount()
+    {
+        // AM-133: only failures *in a row* stop the run; a few broken titles among working
+        // ones must not cut the backfill short.
+        for (var i = 1; i <= 12; i++)
+            Seed(i, MediaDataVersion.Legacy, DateTime.UtcNow.AddMinutes(i));
+        var answers = new Queue<bool>([false, false, false, false, true, false, false, false, false, false, true, true]);
+        _snapshots
+            .Setup(s => s.FillExtendedMetadataAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<int, CancellationToken>((id, _) => _calls.Add(id))
+            .ReturnsAsync(() => answers.Dequeue() ? Result.Success() : Result.Failure("broken title"));
+
+        await Create().RunAsync(CancellationToken.None);
+
+        _calls.Should().HaveCount(10, "4 failures, a success that resets the count, then 5 failures in a row");
+    }
+
+    [Fact]
+    public async Task RunAsync_UnexpectedException_EndsTheRunQuietly()
+    {
+        // AM-133: the backfill runs unattended in the background; an exception must end it
+        // (it resumes next launch), never reach the app.
+        Seed(1, MediaDataVersion.Legacy, DateTime.UtcNow.AddMinutes(2));
+        Seed(2, MediaDataVersion.Legacy, DateTime.UtcNow.AddMinutes(1));
+        _snapshots
+            .Setup(s => s.FillExtendedMetadataAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<int, CancellationToken>((id, _) => _calls.Add(id))
+            .ThrowsAsync(new InvalidOperationException("database is locked"));
+
+        var act = () => Create().RunAsync(CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+        _calls.Should().HaveCount(1, "the run stops at the exception");
+    }
+
+    [Fact]
     public async Task RunAsync_Cancelled_ReturnsQuietly()
     {
         Seed(1, MediaDataVersion.Legacy, DateTime.UtcNow);

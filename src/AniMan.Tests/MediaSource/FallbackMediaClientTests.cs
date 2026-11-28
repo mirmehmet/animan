@@ -206,6 +206,69 @@ public class FallbackMediaClientTests
         (await CreateClient().GetTopMangaAsync()).IsSuccess.Should().BeTrue();
     }
 
+    // ── AM-073: cancellation and the streaming branches where neither source has platforms ──
+
+    [Fact]
+    public async Task Cancelled_PrimaryCall_IsNotRetriedOnTheSecondary()
+    {
+        // Leaving a page cancels its requests; asking the backup source then would only waste
+        // its rate limit and could fill a page that no longer exists.
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        _primary.Setup(c => c.SearchAnimeAsync("konosuba", 25, cts.Token))
+            .ThrowsAsync(new OperationCanceledException(cts.Token));
+
+        var act = () => CreateClient().SearchAnimeAsync("konosuba", ct: cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _secondary.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Cancelled_PrimaryStreamingCall_IsNotRetriedOnTheSecondary()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        _primary.Setup(c => c.GetAnimeStreamingAsync(5114, cts.Token))
+            .ThrowsAsync(new OperationCanceledException(cts.Token));
+
+        var act = () => CreateClient().GetAnimeStreamingAsync(5114, cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _secondary.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GetAnimeStreaming_BothFail_ReportsThePrimaryFailure()
+    {
+        _primary.Setup(c => c.GetAnimeStreamingAsync(5114, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure("offline", ErrorKind.NoConnection));
+        _secondary.Setup(c => c.GetAnimeStreamingAsync(5114, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure("down", ErrorKind.ServiceUnavailable));
+
+        var result = await CreateClient().GetAnimeStreamingAsync(5114);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be("offline");
+        result.Kind.Should().Be(ErrorKind.NoConnection);
+    }
+
+    [Fact]
+    public async Task GetAnimeStreaming_PrimaryHasNoneAndSecondaryFails_KeepsThePrimarysEmptyAnswer()
+    {
+        // The primary is the one source allowed to say "this anime has no platforms".
+        _primary.Setup(c => c.GetAnimeStreamingAsync(5114, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Success(
+                new SingleResult<IReadOnlyList<StreamingDto>> { Data = [] }));
+        _secondary.Setup(c => c.GetAnimeStreamingAsync(5114, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<SingleResult<IReadOnlyList<StreamingDto>>>.Failure("down", ErrorKind.ServiceUnavailable));
+
+        var result = await CreateClient().GetAnimeStreamingAsync(5114);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Data.Should().BeEmpty();
+    }
+
     private static Result<PagedResult<AnimeDto>> AnimePage(int malId) =>
         Result<PagedResult<AnimeDto>>.Success(
             new PagedResult<AnimeDto> { Data = [new AnimeDto { MalId = malId }] });

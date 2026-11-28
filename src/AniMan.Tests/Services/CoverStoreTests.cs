@@ -159,6 +159,122 @@ public class CoverStoreTests : IDisposable
         File.Exists(cover).Should().BeTrue("finished covers are never touched");
     }
 
+    // ── AM-130: size limit, cancellation, failures keeping the old cover, sweep ──
+
+    private static readonly byte[] OldCover = [0xFF, 0xD8, 0xFF, 0xE1, 0x01];
+
+    private string WriteExistingCover(int malId)
+    {
+        var path = _store.GetLocalPath(malId, MediaType.Anime);
+        File.WriteAllBytes(path, OldCover);
+        return path;
+    }
+
+    [Fact]
+    public async Task DownloadAsync_BodyOverTheSizeLimit_IsRejected_AndTheOldCoverStays()
+    {
+        var path = WriteExistingCover(7);
+        var oversized = new byte[CoverStore.MaxCoverBytes + 1];
+        Jpeg.CopyTo(oversized, 0); // a valid signature: only the size is wrong
+        _handler.Payload = oversized;
+
+        var result = await _store.DownloadAsync(7, MediaType.Anime, "https://example.com/huge.jpg");
+
+        result.Should().BeNull();
+        (await File.ReadAllBytesAsync(path)).Should().Equal(OldCover);
+        Directory.GetFiles(_paths.CoversPath, "*.tmp").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DownloadAsync_BodyAtTheSizeLimit_IsAccepted()
+    {
+        var atLimit = new byte[CoverStore.MaxCoverBytes];
+        Jpeg.CopyTo(atLimit, 0);
+        _handler.Payload = atLimit;
+
+        (await _store.DownloadAsync(8, MediaType.Anime, "https://example.com/big.jpg")).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DownloadAsync_NetworkFailure_ReturnsNull_AndTheOldCoverStays()
+    {
+        var path = WriteExistingCover(9);
+        var offline = new CoverStore(new TestDoubles.StubHttpHandler().Factory(), _paths, NullLogger<CoverStore>.Instance);
+
+        var result = await offline.DownloadAsync(9, MediaType.Anime, "https://example.com/cover.jpg");
+
+        result.Should().BeNull();
+        (await File.ReadAllBytesAsync(path)).Should().Equal(OldCover);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_Cancelled_Throws_AndLeavesNoHalfWrittenFile()
+    {
+        var path = WriteExistingCover(10);
+        using var cts = new CancellationTokenSource();
+        var hanging = new HangingHandler();
+        var store = new CoverStore(
+            Mock.Of<IHttpClientFactory>(f => f.CreateClient("covers") == new HttpClient(hanging)),
+            _paths, NullLogger<CoverStore>.Instance);
+
+        var download = store.DownloadAsync(10, MediaType.Anime, "https://example.com/slow.jpg", cts.Token);
+        await hanging.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await cts.CancelAsync();
+
+        await download.Awaiting(d => d).Should().ThrowAsync<OperationCanceledException>();
+        (await File.ReadAllBytesAsync(path)).Should().Equal(OldCover);
+        Directory.GetFiles(_paths.CoversPath, "*.tmp").Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SweepUnreferenced_DeletesOnlyCoversNoItemUses()
+    {
+        var kept = WriteExistingCover(1);
+        var orphan = WriteExistingCover(2);
+        var other = Path.Combine(_paths.CoversPath, "readme.txt");
+        File.WriteAllText(other, "not a cover");
+
+        _store.SweepUnreferenced(new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Path.GetFullPath(kept).ToUpperInvariant() });
+
+        File.Exists(kept).Should().BeTrue("paths are compared case-insensitively, like Windows");
+        File.Exists(orphan).Should().BeFalse();
+        File.Exists(other).Should().BeTrue("only *.jpg covers are swept");
+    }
+
+    [Fact]
+    public void SweepAndTempCleanup_WithoutACoversFolder_DoNothing()
+    {
+        Directory.Delete(_paths.CoversPath, recursive: true);
+
+        _store.SweepUnreferenced(new HashSet<string>());
+        _store.DeleteLeftoverTempFiles();
+
+        Directory.Exists(_paths.CoversPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Delete_RemovesTheCanonicalCover_AndIgnoresAMissingOne()
+    {
+        var path = WriteExistingCover(3);
+
+        _store.Delete(3, MediaType.Anime);
+        _store.Delete(3, MediaType.Anime);
+
+        File.Exists(path).Should().BeFalse();
+    }
+
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
     [Fact]
     public async Task DownloadAsync_NullUrl_ReturnsNull()
     {

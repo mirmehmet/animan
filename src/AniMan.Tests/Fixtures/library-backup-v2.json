@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 2,
+  "exportedAt": "2026-11-28T10:20:53.869243Z",
+  "statuses": [
+    {
+      "name": "Watching",
+      "isDefault": true,
+      "displayOrder": 1,
+      "color": null
+    },
+    {
+      "name": "Reading",
+      "isDefault": true,
+      "displayOrder": 1,
+      "color": null
+    },
+    {
+      "name": "Completed",
+      "isDefault": true,
+      "displayOrder": 2,
+      "color": null
+    },
+    {
+      "name": "On-hold",
+      "isDefault": true,
+      "displayOrder": 3,
+      "color": null
+    },
+    {
+      "name": "Dropped",
+      "isDefault": true,
+      "displayOrder": 4,
+      "color": null
+    },
+    {
+      "name": "Plan to watch",
+      "isDefault": true,
+      "displayOrder": 5,
+      "color": null
+    },
+    {
+      "name": "Plan to read",
+      "isDefault": true,
+      "displayOrder": 5,
+      "color": null
+    },
+    {
+      "name": "Rewatching",
+      "isDefault": false,
+      "displayOrder": 6,
+      "color": "#8B5CF6"
+    }
+  ],
+  "items": [
+    {
+      "malId": 16498,
+      "mediaType": "Anime",
+      "statusName": "Completed",
+      "score": 9,
+      "userRating": 8.5,
+      "isFavorite": true,
+      "rewatchCount": 1,
+      "lastRewatchDate": "2026-06-01",
+      "startedAt": "2026-01-03",
+      "completedAt": "2026-02-14",
+      "addedAt": "2026-01-02T10:00:00Z",
+      "updatedAt": "2026-06-01T21:15:00Z",
+      "deletedAt": null,
+      "snapshot": {
+        "title": "Shingeki no Kyojin",
+        "titleJapanese": "\u9032\u6483\u306E\u5DE8\u4EBA",
+        "synopsis": "Centuries ago, mankind was slaughtered to near extinction by monstrous humanoid creatures called Titans.",
+        "type": "TV",
+        "status": "Finished Airing",
+        "studio": "Wit Studio",
+        "totalEpisodes": 25,
+        "totalChapters": null,
+        "totalVolumes": null,
+        "airingStart": "2013-04-07",
+        "airingEnd": "2013-09-29",
+        "season": "spring",
+        "year": 2013,
+        "malScore": 8.55,
+        "genres": "[\u0022Action\u0022,\u0022Award Winning\u0022,\u0022Drama\u0022,\u0022Suspense\u0022]",
+        "coverLocalPath": null,
+        "coverOriginalUrl": "https://cdn.myanimelist.net/images/anime/10/47347l.jpg",
+        "streamingPlatforms": "[{\u0022Name\u0022:\u0022Crunchyroll\u0022,\u0022Url\u0022:\u0022https://www.crunchyroll.com/series/GR751KNZY\u0022}]",
+        "snapshotAt": "2026-11-22T09:00:00Z",
+        "titleEnglish": "Attack on Titan",
+        "themes": "[\u0022Gore\u0022,\u0022Military\u0022,\u0022Survival\u0022]",
+        "demographics": "[\u0022Shounen\u0022]",
+        "durationMinutes": 24,
+        "ageRating": "R - 17\u002B (violence \u0026 profanity)",
+        "source": "Manga",
+        "authors": null,
+        "dataVersion": 2
+      },
+      "episodes": [
+        {
+          "episodeNumber": 1,
+          "isWatched": true,
+          "watchedAt": "2026-01-03T20:00:00Z"
+        },
+        {
+          "episodeNumber": 2,
+          "isWatched": true,
+          "watchedAt": "2026-01-03T20:30:00Z"
+        },
+        {
+          "episodeNumber": 3,
+          "isWatched": false,
+          "watchedAt": null
+        }
+      ],
+      "chapters": [],
+      "notes": [
+        {
+          "episodeNumber": null,
+          "chapterNumber": null,
+          "content": "Rewatch before the final season.",
+          "createdAt": "2026-02-14T22:00:00Z",
+          "updatedAt": "2026-02-15T08:00:00Z"
+        },
+        {
+          "episodeNumber": 1,
+          "chapterNumber": null,
+          "content": "That opening.",
+          "createdAt": "2026-01-03T20:25:00Z",
+          "updatedAt": "2026-01-03T20:25:00Z"
+        }
+      ],
+      "streamingOverrides": [
+        {
+          "platformName": "Netflix",
+          "url": "https://www.netflix.com/title/70299043",
+          "addedAt": "2026-01-05T00:00:00Z"
+        }
+      ]
+    },
+    {
+      "malId": 2,
+      "mediaType": "Manga",
+      "statusName": "Reading",
+      "score": null,
+      "userRating": null,
+      "isFavorite": false,
+      "rewatchCount": 0,
+      "lastRewatchDate": null,
+      "startedAt": "2026-03-01",
+      "completedAt": null,
+      "addedAt": "2026-03-01T09:00:00Z",
+      "updatedAt": "2026-11-20T18:00:00Z",
+      "deletedAt": null,
+      "snapshot": {
+        "title": "Berserk",
+        "titleJapanese": "\u30D9\u30EB\u30BB\u30EB\u30AF",
+        "synopsis": null,
+        "type": "Manga",
+        "status": "Publishing",
+        "studio": null,
+        "totalEpisodes": null,
+        "totalChapters": null,
+        "totalVolumes": null,
+        "airingStart": "1989-08",
+        "airingEnd": null,
+        "season": null,
+        "year": null,
+        "malScore": null,
+        "genres": "[\u0022Action\u0022,\u0022Adventure\u0022,\u0022Drama\u0022]",
+        "coverLocalPath": null,
+        "coverOriginalUrl": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30002.jpg",
+        "streamingPlatforms": null,
+        "snapshotAt": "2026-11-20T18:00:00Z",
+        "titleEnglish": null,
+        "themes": null,
+        "demographics": "[\u0022Seinen\u0022]",
+        "durationMinutes": null,
+        "ageRating": null,
+        "source": null,
+        "authors": "[\u0022Miura, Kentarou\u0022,\u0022Studio Gaga\u0022]",
+        "dataVersion": -1
+      },
+      "episodes": [],
+      "chapters": [
+        {
+          "chapterNumber": 1,
+          "isRead": true,
+          "readAt": "2026-03-01T21:00:00Z"
+        },
+        {
+          "chapterNumber": 2,
+          "isRead": true,
+          "readAt": "2026-03-02T21:00:00Z"
+        }
+      ],
+      "notes": [
+        {
+          "episodeNumber": null,
+          "chapterNumber": 2,
+          "content": "The Black Swordsman arc starts here.",
+          "createdAt": "2026-03-02T21:30:00Z",
+          "updatedAt": "2026-03-02T21:30:00Z"
+        }
+      ],
+      "streamingOverrides": []
+    },
+    {
+      "malId": 5114,
+      "mediaType": "Anime",
+      "statusName": "Rewatching",
+      "score": 10,
+      "userRating": null,
+      "isFavorite": false,
+      "rewatchCount": 2,
+      "lastRewatchDate": null,
+      "startedAt": null,
+      "completedAt": null,
+      "addedAt": "2025-12-01T12:00:00Z",
+      "updatedAt": "2026-11-01T12:00:00Z",
+      "deletedAt": "2026-11-01T12:00:00Z",
+      "snapshot": {
+        "title": "Fullmetal Alchemist: Brotherhood",
+        "titleJapanese": null,
+        "synopsis": null,
+        "type": "TV",
+        "status": null,
+        "studio": null,
+        "totalEpisodes": 64,
+        "totalChapters": null,
+        "totalVolumes": null,
+        "airingStart": null,
+        "airingEnd": null,
+        "season": null,
+        "year": null,
+        "malScore": null,
+        "genres": "[\u0022Action\u0022,\u0022Adventure\u0022,\u0022Drama\u0022,\u0022Fantasy\u0022]",
+        "coverLocalPath": null,
+        "coverOriginalUrl": null,
+        "streamingPlatforms": null,
+        "snapshotAt": "2025-12-01T12:00:00Z",
+        "titleEnglish": null,
+        "themes": null,
+        "demographics": null,
+        "durationMinutes": null,
+        "ageRating": null,
+        "source": null,
+        "authors": null,
+        "dataVersion": 1
+      },
+      "episodes": [],
+      "chapters": [],
+      "notes": [],
+      "streamingOverrides": []
+    }
+  ]
+}

@@ -465,6 +465,72 @@ public class ExportServiceTests : IDisposable
         verify.Settings.Find("LastBackupAt").Should().NotBeNull();
     }
 
+    // ── AM-129: validation and export failure paths ──────────────────────────
+
+    [Fact]
+    public async Task Import_FileOverTheSizeLimit_IsRejectedBeforeReading_AndLibraryIsUntouched()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Keep me");
+        await using (var big = File.Create(_tempFile))
+            big.SetLength(50L * 1024 * 1024 + 1); // just over 50 MB, contents never read
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.BackupTooLarge);
+        using var verify = CreateDb();
+        verify.LibraryItems.Single().MalId.Should().Be(100);
+    }
+
+    [Theory]
+    [InlineData("{ \"schemaVersion\": 2, \"items\": [ ")]                // cut off mid-file
+    [InlineData("""{ "schemaVersion": 2, "items": [] }""")]                    // no exportedAt
+    [InlineData("""{ "schemaVersion": 0, "exportedAt": "2026-11-28T00:00:00Z", "items": [] }""")]
+    [InlineData("null")]
+    public async Task Import_MalformedOrIncompleteFile_IsInvalid_AndLibraryIsUntouched(string json)
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Keep me");
+        await File.WriteAllTextAsync(_tempFile, json);
+
+        var result = await Create().ImportAsync(_tempFile, ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.BackupInvalid);
+        using var verify = CreateDb();
+        var kept = verify.LibraryItems.Include(i => i.Snapshot).Single();
+        (kept.MalId, kept.Snapshot!.Title).Should().Be((100, "Keep me"), "nothing was replaced");
+    }
+
+    [Fact]
+    public async Task Export_ToAnUnwritablePath_FailsCleanly_WithoutTouchingLastBackup()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Original");
+        var target = _storage.File("taken");
+        Directory.CreateDirectory(target); // a folder where the file should go: the final move fails
+
+        var result = await Create().ExportAsync(target);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.ExportFailed);
+        Directory.GetFiles(_storage.Root, "*.tmp").Should().BeEmpty("the half-written file is cleaned up");
+        using var verify = CreateDb();
+        verify.Settings.Find("LastBackupAt").Should().BeNull("no backup was made");
+    }
+
+    [Fact]
+    public async Task Export_Cancelled_Throws_AndLeavesNoFiles()
+    {
+        SeedItem(100, MediaType.Anime, 1, 8, "Original");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var act = () => Create().ExportAsync(_tempFile, cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        File.Exists(_tempFile).Should().BeFalse();
+        Directory.GetFiles(_storage.Root, "*.tmp").Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Import_MissingFile_ReturnsFailure()
     {
@@ -643,6 +709,76 @@ public class ExportServiceTests : IDisposable
             i.Snapshot.Themes.Should().BeNull();
             i.Snapshot.DurationMinutes.Should().BeNull();
         });
+    }
+
+    /// <summary>
+    /// AM-123: a frozen file written by v0.4.x's exporter (schema v2): a custom status, a
+    /// trashed item, episode/chapter notes, an override, extended metadata, an AniList
+    /// partial date and all three data versions. Every later version must still import it.
+    /// </summary>
+    [Fact]
+    public async Task Import_FrozenV2Backup_RestoresEveryField()
+    {
+        var result = await CreateOffline().ImportAsync(FixturePath("library-backup-v2.json"), ImportMode.Overwrite);
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        using var db = CreateDb();
+        var items = db.LibraryItems
+            .Include(i => i.Snapshot).Include(i => i.Status)
+            .Include(i => i.EpisodeProgress).Include(i => i.ChapterProgress)
+            .Include(i => i.Notes).Include(i => i.StreamingOverrides)
+            .OrderBy(i => i.MalId)
+            .ToList();
+        items.Select(i => i.MalId).Should().Equal(2, 5114, 16498);
+
+        var aot = items[2];
+        aot.Status!.Name.Should().Be("Completed");
+        (aot.Score, aot.UserRating, aot.IsFavorite, aot.RewatchCount).Should().Be((9, 8.5m, true, 1));
+        aot.LastRewatchDate.Should().Be(new DateOnly(2026, 6, 1));
+        aot.StartedAt.Should().Be(new DateOnly(2026, 1, 3));
+        aot.CompletedAt.Should().Be(new DateOnly(2026, 2, 14));
+        aot.AddedAt.Should().Be(new DateTime(2026, 1, 2, 10, 0, 0, DateTimeKind.Utc));
+        aot.UpdatedAt.Should().Be(new DateTime(2026, 6, 1, 21, 15, 0, DateTimeKind.Utc));
+        aot.DeletedAt.Should().BeNull();
+        aot.EpisodeProgress.OrderBy(e => e.EpisodeNumber).Select(e => (e.EpisodeNumber, e.IsWatched))
+            .Should().Equal((1, true), (2, true), (3, false));
+        aot.EpisodeProgress.Single(e => e.EpisodeNumber == 2).WatchedAt
+            .Should().Be(new DateTime(2026, 1, 3, 20, 30, 0, DateTimeKind.Utc));
+        aot.Notes.Single(n => n.EpisodeNumber is null).Content.Should().Be("Rewatch before the final season.");
+        aot.Notes.Single(n => n.EpisodeNumber == 1).Content.Should().Be("That opening.");
+        var netflix = aot.StreamingOverrides.Single();
+        (netflix.PlatformName, netflix.Url).Should().Be(("Netflix", "https://www.netflix.com/title/70299043"));
+
+        var snap = aot.Snapshot!;
+        snap.Title.Should().Be("Shingeki no Kyojin");
+        snap.TitleJapanese.Should().Be("進撃の巨人");
+        snap.TitleEnglish.Should().Be("Attack on Titan");
+        (snap.Type, snap.Status, snap.Studio, snap.TotalEpisodes).Should().Be(("TV", "Finished Airing", "Wit Studio", 25));
+        (snap.AiringStart, snap.AiringEnd, snap.Season, snap.Year).Should().Be(("2013-04-07", "2013-09-29", "spring", 2013));
+        snap.MalScore.Should().Be(8.55);
+        snap.Genres.Should().Be("""["Action","Award Winning","Drama","Suspense"]""");
+        snap.Themes.Should().Be("""["Gore","Military","Survival"]""");
+        snap.Demographics.Should().Be("""["Shounen"]""");
+        (snap.DurationMinutes, snap.AgeRating, snap.Source).Should().Be((24, "R - 17+ (violence & profanity)", "Manga"));
+        snap.CoverOriginalUrl.Should().Be("https://cdn.myanimelist.net/images/anime/10/47347l.jpg");
+        snap.StreamingPlatforms.Should().Contain("GR751KNZY");
+        snap.DataVersion.Should().Be(Core.Domain.MediaDataVersion.Current);
+
+        var berserk = items[0];
+        berserk.MediaType.Should().Be(MediaType.Manga);
+        berserk.Status!.Name.Should().Be("Reading");
+        berserk.ChapterProgress.Select(c => c.ChapterNumber).Should().BeEquivalentTo([1, 2]);
+        berserk.Notes.Single().ChapterNumber.Should().Be(2);
+        berserk.Snapshot!.AiringStart.Should().Be("1989-08", "an AniList month-only date stays partial");
+        berserk.Snapshot.Authors.Should().Be("""["Miura, Kentarou","Studio Gaga"]""");
+        berserk.Snapshot.DataVersion.Should().Be(Core.Domain.MediaDataVersion.Partial, "fallback data is completed later");
+
+        var fma = items[1];
+        fma.Status!.Name.Should().Be("Rewatching");
+        fma.Status.IsDefault.Should().BeFalse();
+        fma.Status.Color.Should().Be("#8B5CF6");
+        fma.DeletedAt.Should().Be(new DateTime(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc), "trash state survives");
+        fma.Snapshot!.DataVersion.Should().Be(Core.Domain.MediaDataVersion.Legacy);
     }
 
     [Fact]

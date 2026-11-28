@@ -133,6 +133,57 @@ public class CatalogServiceGenreTests : IDisposable
         genre.Id.Should().Be(4);
     }
 
+    // ── AM-132: name matching ignores case and surrounding spaces ────────────
+
+    [Theory]
+    [InlineData("action")]
+    [InlineData("ACTION")]
+    [InlineData("  Action  ")]
+    public async Task IdlessGenre_MatchesAnExistingName_IgnoringCaseAndSpaces(string incoming)
+    {
+        _db.Genres.Add(new CachedGenre { Id = 1, MediaType = "anime", Name = "Action" });
+        await _db.SaveChangesAsync();
+
+        await SearchReturning(AnimeWithGenres(100, incoming));
+
+        var genre = await _db.Genres.AsNoTracking().SingleAsync();
+        (genre.Id, genre.Name).Should().Be((1, "Action"), "the stored row is reused, not renamed");
+        (await _db.MediaGenres.SingleAsync(mg => mg.MediaId == 100)).GenreId.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task IdlessGenre_MatchesAStoredNameThatHasStraySpaces()
+    {
+        _db.Genres.Add(new CachedGenre { Id = 8, MediaType = "anime", Name = "Drama " });
+        await _db.SaveChangesAsync();
+
+        await SearchReturning(AnimeWithGenres(100, "drama"));
+
+        (await _db.Genres.CountAsync()).Should().Be(1);
+        (await _db.MediaGenres.SingleAsync(mg => mg.MediaId == 100)).GenreId.Should().Be(8);
+    }
+
+    [Fact]
+    public async Task IdlessGenres_DifferingOnlyInCase_InOneBatch_BecomeOneTrimmedRow()
+    {
+        await SearchReturning(
+            AnimeWithGenres(100, "Isekai"),
+            AnimeWithGenres(200, " isekai "));
+
+        var genre = await _db.Genres.AsNoTracking().SingleAsync();
+        genre.Name.Should().Be("Isekai");
+        (await _db.MediaGenres.Select(mg => mg.GenreId).Distinct().ToListAsync()).Should().Equal(genre.Id);
+    }
+
+    [Fact]
+    public async Task BlankGenreNames_AreIgnored()
+    {
+        await SearchReturning(AnimeWithGenres(100, "   ", "", "Mecha"));
+
+        (await _db.Genres.Select(g => g.Name).ToListAsync()).Should().Equal("Mecha");
+        (await _db.MediaGenres.CountAsync(mg => mg.MediaId == 100)).Should().Be(1);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private async Task SearchReturning(params AnimeDto[] dtos)
