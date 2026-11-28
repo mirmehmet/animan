@@ -357,10 +357,7 @@ public sealed class SnapshotService(
         try
         {
             await using var catalogDb = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var genres = await catalogDb.MediaGenres
-                .Where(mg => mg.MediaId == malId && mg.MediaType == mediaType)
-                .Join(catalogDb.Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name)
-                .ToListAsync(ct).ConfigureAwait(false);
+            var genres = await catalogDb.GenreNamesOf(malId, mediaType).ToListAsync(ct).ConfigureAwait(false);
             return NameList.ToJson(genres);
         }
         catch (OperationCanceledException) { throw; }

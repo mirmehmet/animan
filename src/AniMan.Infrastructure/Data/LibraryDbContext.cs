@@ -16,6 +16,16 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
     public DbSet<UserStreamingOverride> StreamingOverrides => Set<UserStreamingOverride>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
+        UtcDateTimeValueConverter.Register(configurationBuilder);
+
+    /// <remarks>
+    /// Two rules live only in raw SQL (migration HardenLibraryConstraints), because EF cannot
+    /// describe them (AM-089): the unique note index <c>IX_Notes_UniqueTarget</c> on
+    /// (LibraryItemId, IFNULL(EpisodeNumber, -1), IFNULL(ChapterNumber, -1)), and the trigger
+    /// <c>TR_TrackingStatuses_RestrictInUse</c> that blocks deleting a status still in use.
+    /// MigrationTests covers both.
+    /// </remarks>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TrackingStatus>(e =>
@@ -28,8 +38,14 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
         {
             e.HasKey(i => i.Id);
             e.HasIndex(i => new { i.MalId, i.MediaType }).IsUnique();
+            // The library page lists one media type without trashed items (AM-120).
+            e.HasIndex(i => new { i.MediaType, i.DeletedAt });
             e.Property(i => i.MediaType).HasConversion<string>();
-            e.HasOne(i => i.Status).WithMany(s => s.LibraryItems).HasForeignKey(i => i.StatusId);
+            // Restrict, as the database behaves: the trigger above refuses to delete a status in
+            // use (AM-048). The FK in the file still says CASCADE; rebuilding the table only to
+            // change that was not worth the risk to the library.
+            e.HasOne(i => i.Status).WithMany(s => s.LibraryItems).HasForeignKey(i => i.StatusId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasOne(i => i.Snapshot).WithOne(s => s.LibraryItem).HasForeignKey<MediaSnapshot>(s => s.LibraryItemId);
             e.HasMany(i => i.EpisodeProgress).WithOne(ep => ep.LibraryItem).HasForeignKey(ep => ep.LibraryItemId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(i => i.ChapterProgress).WithOne(cp => cp.LibraryItem).HasForeignKey(cp => cp.LibraryItemId).OnDelete(DeleteBehavior.Cascade);

@@ -28,5 +28,4 @@ public class CachedManga
 
     public DateTime FetchedAt { get; set; }
 
-    public ICollection<CachedMediaGenre> MediaGenres { get; set; } = [];
 }

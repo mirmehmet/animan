@@ -269,17 +269,7 @@ namespace AniMan.Migrations
                     b.Property<int>("GenreId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("CachedAnimeId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("CachedMangaId")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("MediaId", "MediaType", "GenreId");
-
-                    b.HasIndex("CachedAnimeId");
-
-                    b.HasIndex("CachedMangaId");
 
                     b.HasIndex("GenreId");
 
@@ -310,14 +300,6 @@ namespace AniMan.Migrations
 
             modelBuilder.Entity("AniMan.Core.Domain.Models.CachedMediaGenre", b =>
                 {
-                    b.HasOne("AniMan.Core.Domain.Models.CachedAnime", null)
-                        .WithMany("MediaGenres")
-                        .HasForeignKey("CachedAnimeId");
-
-                    b.HasOne("AniMan.Core.Domain.Models.CachedManga", null)
-                        .WithMany("MediaGenres")
-                        .HasForeignKey("CachedMangaId");
-
                     b.HasOne("AniMan.Core.Domain.Models.CachedGenre", "Genre")
                         .WithMany("MediaGenres")
                         .HasForeignKey("GenreId")
@@ -331,17 +313,10 @@ namespace AniMan.Migrations
                 {
                     b.Navigation("Episodes");
 
-                    b.Navigation("MediaGenres");
-
                     b.Navigation("StreamingPlatforms");
                 });
 
             modelBuilder.Entity("AniMan.Core.Domain.Models.CachedGenre", b =>
-                {
-                    b.Navigation("MediaGenres");
-                });
-
-            modelBuilder.Entity("AniMan.Core.Domain.Models.CachedManga", b =>
                 {
                     b.Navigation("MediaGenres");
                 });

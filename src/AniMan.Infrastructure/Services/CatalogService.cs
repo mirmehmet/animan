@@ -327,10 +327,7 @@ public sealed class CatalogService(
         try
         {
             await using var db = await catalogFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-            var names = await db.MediaGenres
-                .Where(mg => mg.MediaId == malId && mg.MediaType == mediaType)
-                .Join(db.Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name)
-                .ToListAsync(ct).ConfigureAwait(false);
+            var names = await db.GenreNamesOf(malId, mediaType).ToListAsync(ct).ConfigureAwait(false);
             return Result<IReadOnlyList<string>>.Success(names);
         }
         catch (OperationCanceledException) { throw; }

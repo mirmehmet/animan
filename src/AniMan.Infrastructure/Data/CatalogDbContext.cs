@@ -13,6 +13,14 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<CachedGenre> Genres => Set<CachedGenre>();
     public DbSet<CachedMediaGenre> MediaGenres => Set<CachedMediaGenre>();
 
+    /// <summary>Genre names linked to one anime or manga (one query for every reader, AM-088).</summary>
+    public IQueryable<string> GenreNamesOf(int malId, string mediaType) => MediaGenres
+        .Where(mg => mg.MediaId == malId && mg.MediaType == mediaType)
+        .Join(Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name);
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) =>
+        UtcDateTimeValueConverter.Register(configurationBuilder);
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<CachedAnime>(e =>
@@ -44,6 +52,8 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
 
         modelBuilder.Entity<CachedGenre>(e => e.HasKey(g => g.Id));
 
+        // Links point at anime or manga by (MediaId, MediaType), so there is no FK to either
+        // table; the old unused MediaGenres navigations only added two always-null columns (AM-087).
         modelBuilder.Entity<CachedMediaGenre>(e =>
         {
             e.HasKey(mg => new { mg.MediaId, mg.MediaType, mg.GenreId });

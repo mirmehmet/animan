@@ -136,6 +136,8 @@ namespace AniMan.Migrations.LibraryDb
                     b.HasIndex("MalId", "MediaType")
                         .IsUnique();
 
+                    b.HasIndex("MediaType", "DeletedAt");
+
                     b.ToTable("LibraryItems");
                 });
 
@@ -397,7 +399,7 @@ namespace AniMan.Migrations.LibraryDb
                     b.HasOne("AniMan.Core.Domain.Models.TrackingStatus", "Status")
                         .WithMany("LibraryItems")
                         .HasForeignKey("StatusId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Status");

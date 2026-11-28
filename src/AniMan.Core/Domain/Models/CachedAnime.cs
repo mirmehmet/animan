@@ -33,5 +33,4 @@ public class CachedAnime
 
     public ICollection<CachedEpisode> Episodes { get; set; } = [];
     public ICollection<CachedAnimeStreaming> StreamingPlatforms { get; set; } = [];
-    public ICollection<CachedMediaGenre> MediaGenres { get; set; } = [];
 }

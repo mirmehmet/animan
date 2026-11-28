@@ -438,6 +438,87 @@ public class MigrationTests
         await dupEpAct.Should().ThrowAsync<DbUpdateException>();
     }
 
+    [Fact]
+    public async Task Migrate_FromV040CatalogDatabase_DropsUnusedGenreColumnsAndKeepsGenreLinks()
+    {
+        await using var db = NewCatalogContext(out var connection);
+        using var _ = connection;
+
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261122153917_AddExtendedMetadata");
+
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO "Anime" ("Id", "Title", "FetchedAt") VALUES (1, 'Cowboy Bebop', '2026-11-01 00:00:00');
+            INSERT INTO "Manga" ("Id", "Title", "FetchedAt") VALUES (2, 'Berserk', '2026-11-01 00:00:00');
+            INSERT INTO "Genres" ("Id", "Name", "MediaType") VALUES (1, 'Action', 'anime'), (2, 'Drama', 'manga');
+            INSERT INTO "MediaGenres" ("MediaId", "MediaType", "GenreId") VALUES (1, 'anime', 1), (2, 'manga', 2);
+            """);
+
+        await db.Database.MigrateAsync();
+
+        await using var verify = new CatalogDbContext(
+            new DbContextOptionsBuilder<CatalogDbContext>().UseSqlite(connection).Options);
+        (await verify.GenreNamesOf(1, "anime").ToListAsync()).Should().Equal("Action");
+        (await verify.GenreNamesOf(2, "manga").ToListAsync()).Should().Equal("Drama");
+        (await ColumnNamesAsync(connection, "MediaGenres")).Should().BeEquivalentTo(["MediaId", "MediaType", "GenreId"]);
+    }
+
+    [Fact]
+    public async Task Migrate_FromV040LibraryDatabase_AddsListIndexAndKeepsTheStatusGuard()
+    {
+        await using var db = NewLibraryContext(out var connection);
+        using var _ = connection;
+
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261122153921_AddExtendedSnapshotMetadata");
+
+        var now = new DateTime(2026, 11, 20, 8, 0, 0, DateTimeKind.Utc);
+        db.LibraryItems.Add(new LibraryItem
+        {
+            MalId = 1, MediaType = MediaType.Anime, StatusId = TrackingStatusIds.Watching,
+            IsFavorite = true, AddedAt = now, UpdatedAt = now
+        });
+        await db.SaveChangesAsync();
+
+        await db.Database.MigrateAsync();
+
+        await using var verify = new LibraryDbContext(
+            new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
+        var item = await verify.LibraryItems.AsNoTracking().SingleAsync();
+        item.IsFavorite.Should().BeTrue();
+        item.AddedAt.Should().Be(now);
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'IX_LibraryItems_MediaType_DeletedAt';""";
+            ((long)(await command.ExecuteScalarAsync())!).Should().Be(1);
+        }
+
+        // AM-048: the FK was not rebuilt, so the trigger still guards statuses in use…
+        var watching = await verify.TrackingStatuses.FindAsync(TrackingStatusIds.Watching);
+        verify.TrackingStatuses.Remove(watching!);
+        var act = async () => await verify.SaveChangesAsync();
+        await act.Should().ThrowAsync<DbUpdateException>();
+
+        // …and EF now refuses too, instead of cascade-deleting a loaded item (the old model).
+        await using var tracked = new LibraryDbContext(
+            new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
+        var loaded = await tracked.LibraryItems.Include(i => i.Status).SingleAsync();
+        var remove = () => tracked.TrackingStatuses.Remove(loaded.Status!);
+        remove.Should().Throw<InvalidOperationException>();
+    }
+
+    private static async Task<List<string>> ColumnNamesAsync(SqliteConnection connection, string table)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""SELECT name FROM pragma_table_info('{table}');""";
+        var names = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            names.Add(reader.GetString(0));
+        return names;
+    }
+
     // A real (in-memory) SQLite connection, not the EF InMemory provider: migrations
     // are relational DDL and the InMemory provider ignores them entirely.
     /// <summary>
