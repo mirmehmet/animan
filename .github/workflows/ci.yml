@@ -29,16 +29,48 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup .NET 10
+      # The SDK version comes from global.json, so CI builds with the same SDK as a local build.
+      - name: Setup .NET
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
+      # Locked mode: fail instead of resolving packages differently from packages.lock.json.
       - name: Restore
-        run: dotnet restore AniMan.slnx
+        run: dotnet restore AniMan.slnx --locked-mode
 
       - name: Build
         run: dotnet build AniMan.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test AniMan.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test AniMan.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - name: Test summary
+        if: always()
+        shell: pwsh
+        run: |
+          $trx = Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $trx) { "No test results were written." >> $env:GITHUB_STEP_SUMMARY; exit 0 }
+          $c = ([xml](Get-Content $trx.FullName)).TestRun.ResultSummary.Counters
+          "### Tests: $($c.passed) passed, $($c.failed) failed, $($c.notExecuted) skipped (of $($c.total))" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Fails the run when any direct or transitive package has a known advisory.
+      - name: Check for vulnerable packages
+        shell: pwsh
+        run: |
+          $report = dotnet list AniMan.slnx package --vulnerable --include-transitive 2>&1 | Out-String
+          Write-Output $report
+          if ($LASTEXITCODE -ne 0) { Write-Error "dotnet list package failed"; exit 1 }
+          if ($report -match 'has the following vulnerable packages') {
+            Write-Error "Vulnerable NuGet packages found (see the list above)."
+            exit 1
+          }

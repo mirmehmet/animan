@@ -6,6 +6,8 @@ obj/
 .vs/
 *.swp
 *.lock.json
+# NuGet lock files pin transitive packages; CI restores with --locked-mode.
+!packages.lock.json
 
 ## Build output
 publish/

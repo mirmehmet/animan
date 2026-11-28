@@ -9,5 +9,8 @@
     <RootNamespace>AniMan</RootNamespace>
     <Authors>AniMan</Authors>
     <Product>AniMan</Product>
+    <!-- packages.lock.json pins every transitive package too; CI restores with locked mode,
+         so a build can't silently pick up a different dependency (AM-115). -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 </Project>

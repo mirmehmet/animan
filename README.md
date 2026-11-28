@@ -69,6 +69,12 @@ AniMan/
 
 Go to **[Releases](https://github.com/mirmehmet/animan/releases)** and grab the latest `AniMan-vX.Y.Z.exe` (or `AniMan.exe`). No installation or .NET runtime required — just run it.
 
+Windows may show a SmartScreen warning because the exe isn't code-signed: choose **More info → Run anyway**. To check your download, compare its SHA-256 with the `.sha256` file on the release page:
+
+```powershell
+Get-FileHash .\AniMan-vX.Y.Z.exe -Algorithm SHA256
+```
+
 ---
 
 ## Build & Run
