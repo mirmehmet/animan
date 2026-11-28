@@ -43,7 +43,8 @@ jobs:
         run: dotnet build AniMan.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test AniMan.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+        # Microsoft.Testing.Platform (global.json "test.runner"); xunit v3 writes the TRX report.
+        run: dotnet test AniMan.slnx --configuration Release --no-build --report-xunit-trx --report-xunit-trx-filename test-results.trx --results-directory TestResults
 
       - name: Test summary
         if: always()

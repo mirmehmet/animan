@@ -12,7 +12,9 @@ public class BackgroundWorkTests
     public async Task StopAndWait_CancelsRunningWorkAndWaitsForItToEnd()
     {
         using var work = Create();
-        var started = new TaskCompletionSource();
+        // Continuations run asynchronously: otherwise SetResult would run the rest of this test
+        // on the job's own thread, and StopAndWait would wait there for that very job.
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var ended = false;
         work.Run("long job", async ct =>
         {
