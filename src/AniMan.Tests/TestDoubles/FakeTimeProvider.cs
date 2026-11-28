@@ -2,8 +2,11 @@ namespace AniMan.Tests.TestDoubles;
 
 /// <summary>
 /// Minimal manual <see cref="TimeProvider"/> (the Microsoft.Extensions.TimeProvider.Testing
-/// package is not referenced): supports the one-shot timers <see cref="Task.Delay(TimeSpan, TimeProvider)"/>
-/// creates, so rate-limiter windows can be drained in virtual time.
+/// package is not referenced) for draining rate-limiter windows in virtual time. It follows
+/// real timer semantics where tests could notice (AM-057): <see cref="Advance"/> fires due
+/// timers one by one in due order with the clock set to each timer's due time, periodic
+/// timers re-arm, and a zero due time fires on the thread pool rather than inside the call
+/// that set it.
 /// </summary>
 internal sealed class FakeTimeProvider : TimeProvider
 {
@@ -31,21 +34,39 @@ internal sealed class FakeTimeProvider : TimeProvider
         return timer;
     }
 
+    /// <summary>
+    /// Moves the clock forward by <paramref name="by"/>, firing every timer that falls due on
+    /// the way — including ones a callback sets — at its own due time, earliest first.
+    /// </summary>
     public void Advance(TimeSpan by)
     {
-        List<FakeTimer> due;
-        lock (_gate)
+        DateTimeOffset target;
+        lock (_gate) target = _now + by;
+
+        while (true)
         {
-            _now += by;
-            due = _timers.Where(t => t.DueAt is { } d && d <= _now).ToList();
-            foreach (var t in due) t.DueAt = null; // one-shot
+            FakeTimer? next;
+            lock (_gate)
+            {
+                // OrderBy is stable: timers due at the same moment fire in creation order.
+                next = _timers.Where(t => t.DueAt <= target).OrderBy(t => t.DueAt).FirstOrDefault();
+                if (next is null)
+                {
+                    _now = target;
+                    return;
+                }
+
+                _now = next.DueAt!.Value;
+                next.DueAt = next.Period > TimeSpan.Zero ? _now + next.Period : null;
+            }
+            next.Fire();
         }
-        foreach (var t in due) t.Fire();
     }
 
     private sealed class FakeTimer(FakeTimeProvider provider, TimerCallback callback, object? state) : ITimer
     {
         public DateTimeOffset? DueAt;
+        public TimeSpan Period;
 
         public void Fire() => callback(state);
 
@@ -54,24 +75,27 @@ internal sealed class FakeTimeProvider : TimeProvider
             var fireNow = false;
             lock (provider._gate)
             {
+                Period = period == Timeout.InfiniteTimeSpan ? TimeSpan.Zero : period;
+                if (!provider._timers.Contains(this))
+                    provider._timers.Add(this);
+
                 if (dueTime == Timeout.InfiniteTimeSpan)
                 {
                     DueAt = null;
                 }
                 else if (dueTime <= TimeSpan.Zero)
                 {
-                    DueAt = null;
+                    // A real timer with no delay still fires on a pool thread, not in Change.
                     fireNow = true;
+                    DueAt = Period > TimeSpan.Zero ? provider._now + Period : null;
                 }
                 else
                 {
                     DueAt = provider._now + dueTime;
-                    if (!provider._timers.Contains(this))
-                        provider._timers.Add(this);
                 }
             }
 
-            if (fireNow) Fire();
+            if (fireNow) ThreadPool.QueueUserWorkItem(_ => Fire());
             return true;
         }
 

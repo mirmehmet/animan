@@ -63,11 +63,26 @@ public class SettingsServiceTests : IDisposable
     [InlineData("", 7)]        // Defaults to 7
     public async Task GetCacheRefreshDaysAsync_ClampsBetween1And365(string input, int expected)
     {
-        _service.InvalidateCache();
         await _service.SetAsync("CacheRefreshDays", input);
+        (await _service.GetCacheRefreshDaysAsync()).Should().Be(expected, "the value cached on write");
 
-        var days = await _service.GetCacheRefreshDaysAsync();
-        days.Should().Be(expected);
+        // AM-052: also the database read path, which a fresh start takes.
+        using var restarted = new SettingsService(_factory, NullLogger<SettingsService>.Instance);
+        (await restarted.GetCacheRefreshDaysAsync()).Should().Be(expected, "the value read from the database");
+    }
+
+    [Fact]
+    public async Task ConcurrentSetAsync_OnOneNewKey_InsertsItOnce()
+    {
+        // AM-072: without the write lock, parallel first writes of one key would each try to
+        // INSERT it and all but one would fail on the primary key.
+        var tasks = Enumerable.Range(1, 20).Select(i => Task.Run(() => _service.SetAsync("SameKey", $"Value_{i}")));
+
+        await Task.WhenAll(tasks);
+
+        await using var db = await _factory.CreateDbContextAsync();
+        var row = db.Settings.Should().ContainSingle(s => s.Key == "SameKey").Subject;
+        row.Value.Should().StartWith("Value_");
     }
 
     [Fact]

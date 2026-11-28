@@ -85,41 +85,28 @@ public class MigrationTests
     [Fact]
     public async Task Migrate_FromV025LibraryDatabase_PreservesItemsDeduplicatesNotesAndEnforcesConstraints()
     {
-        await using var db = NewLibraryContext(out var connection);
-        using var _ = connection;
+        using var connection = OpenConnection();
+        await CreateV025LibraryAsync(connection);
 
-        var migrator = db.GetService<IMigrator>();
-        await migrator.MigrateAsync("20260726161715_InitialCreate");
+        // Written the way v0.2.5 stored it, including its edge cases: a whitespace-only note
+        // and duplicate series / episode notes.
+        await ExecAsync(connection, """
+            INSERT INTO LibraryItems (Id, MalId, MediaType, StatusId, Score, IsFavorite, RewatchCount, AddedAt, UpdatedAt)
+            VALUES (1, 5114, 'Anime', 1, 10, 0, 0, '2026-10-28 12:00:00', '2026-10-28 12:00:00');
+            INSERT INTO Snapshots (LibraryItemId, Title, TotalEpisodes, Genres, SnapshotAt)
+            VALUES (1, 'Fullmetal Alchemist: Brotherhood', 64, '["Action","Adventure"]', '2026-10-28 12:00:00');
+            INSERT INTO Notes (LibraryItemId, EpisodeNumber, Content, CreatedAt, UpdatedAt) VALUES
+                (1, NULL, '   ',                '2026-10-28 11:57:00', '2026-10-28 11:57:00'),
+                (1, NULL, 'Older series note',  '2026-10-28 11:58:00', '2026-10-28 11:58:00'),
+                (1, NULL, 'Latest series note', '2026-10-28 11:59:00', '2026-10-28 11:59:00'),
+                (1, 1,    'Ep 1 old',           '2026-10-28 11:58:00', '2026-10-28 11:58:00'),
+                (1, 1,    'Ep 1 latest',        '2026-10-28 12:00:00', '2026-10-28 12:00:00');
+            """);
 
-        var now = DateTime.UtcNow;
-        var item = new LibraryItem
-        {
-            MalId = 5114,
-            MediaType = MediaType.Anime,
-            StatusId = TrackingStatusIds.Watching,
-            Score = 10,
-            AddedAt = now,
-            UpdatedAt = now
-        };
-        db.LibraryItems.Add(item);
-        await db.SaveChangesAsync();
-        await InsertLegacySnapshotAsync(db, item.Id, "Fullmetal Alchemist: Brotherhood",
-            totalEpisodes: 64, totalChapters: null, """["Action","Adventure"]""", now);
+        await using (var db = NewLibraryContext(connection))
+            await db.Database.MigrateAsync();
 
-        // Simulate v0.2.5 edge cases: whitespace-only note + duplicate series notes.
-        db.Notes.AddRange(
-            new Note { LibraryItemId = item.Id, Content = "   ", CreatedAt = now.AddMinutes(-3), UpdatedAt = now.AddMinutes(-3) },
-            new Note { LibraryItemId = item.Id, Content = "Older series note", CreatedAt = now.AddMinutes(-2), UpdatedAt = now.AddMinutes(-2) },
-            new Note { LibraryItemId = item.Id, Content = "Latest series note", CreatedAt = now.AddMinutes(-1), UpdatedAt = now.AddMinutes(-1) },
-            new Note { LibraryItemId = item.Id, EpisodeNumber = 1, Content = "Ep 1 old", CreatedAt = now.AddMinutes(-2), UpdatedAt = now.AddMinutes(-2) },
-            new Note { LibraryItemId = item.Id, EpisodeNumber = 1, Content = "Ep 1 latest", CreatedAt = now, UpdatedAt = now });
-        await db.SaveChangesAsync();
-
-        // Upgrade to v0.2.6 (HardenLibraryConstraints).
-        await db.Database.MigrateAsync();
-
-        await using var verify = new LibraryDbContext(
-            new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
+        await using var verify = NewLibraryContext(connection);
 
         var upgradedItem = await verify.LibraryItems
             .Include(i => i.Snapshot)
@@ -127,7 +114,9 @@ public class MigrationTests
             .SingleAsync();
 
         upgradedItem.MalId.Should().Be(5114);
+        upgradedItem.Score.Should().Be(10);
         upgradedItem.Snapshot!.Title.Should().Be("Fullmetal Alchemist: Brotherhood");
+        upgradedItem.Snapshot.TotalEpisodes.Should().Be(64);
         upgradedItem.Snapshot.Genres.Should().Be("""["Action","Adventure"]""");
         // Pre-existing snapshots come through as Legacy so the backfill completes them.
         upgradedItem.Snapshot.DataVersion.Should().Be(MediaDataVersion.Legacy);
@@ -158,148 +147,175 @@ public class MigrationTests
     [Fact]
     public async Task Migrate_FiftyItemV025UserLibrary_PreservesAllItemsProgressNotesAndSettingsWithoutDataLoss()
     {
-        await using var db = NewLibraryContext(out var connection);
-        using var _ = connection;
+        using var connection = OpenConnection();
+        await CreateV025LibraryAsync(connection);
 
-        // 1. Build initial v0.2.5 schema
-        var migrator = db.GetService<IMigrator>();
-        await migrator.MigrateAsync("20260726161715_InitialCreate");
-
+        // 50 items as v0.2.5 wrote them (30 anime, 20 manga), each with every column it had:
+        // ratings, favourites, rewatches, dates, progress, a note, some streaming overrides.
         var now = new DateTime(2026, 10, 28, 12, 0, 0, DateTimeKind.Utc);
-        var expectedItems = new List<(int MalId, MediaType Type, int StatusId, int Score, string Title)>();
-        var legacySnapshots = new Dictionary<int, (string Title, int? Episodes, int? Chapters, string Genres, DateTime At)>();
+        var expected = Enumerable.Range(1, 50).Select(i => V025Item.Make(i, now)).ToList();
+        foreach (var e in expected)
+            await e.InsertAsync(connection);
 
-        // 2. Seed 50 library items simulating user library (30 anime, 20 manga)
-        for (int i = 1; i <= 50; i++)
-        {
-            var isAnime = i <= 30;
-            var mediaType = isAnime ? MediaType.Anime : MediaType.Manga;
-            var rem = i % 5;
-            var statusId = isAnime
-                ? (rem == 0 ? TrackingStatusIds.Completed : rem == 1 ? TrackingStatusIds.Watching : rem == 2 ? TrackingStatusIds.OnHold : rem == 3 ? TrackingStatusIds.Dropped : TrackingStatusIds.PlanToWatch)
-                : (rem == 0 ? TrackingStatusIds.Completed : rem == 1 ? TrackingStatusIds.Reading : rem == 2 ? TrackingStatusIds.OnHold : rem == 3 ? TrackingStatusIds.Dropped : TrackingStatusIds.PlanToRead);
-            var score = (i % 10) + 1;
-            var title = isAnime ? $"Anime Series #{i}" : $"Manga Series #{i}";
+        await ExecAsync(connection, """
+            INSERT INTO Settings (Key, Value) VALUES
+                ('Theme', 'Dark'), ('Language', 'tr'), ('StartupPage', 'Anime'), ('CacheRefreshDays', '14');
+            """);
 
-            expectedItems.Add((i * 100, mediaType, statusId, score, title));
+        await using (var db = NewLibraryContext(connection))
+            await db.Database.MigrateAsync();
 
-            var item = new LibraryItem
-            {
-                MalId = i * 100,
-                MediaType = mediaType,
-                StatusId = statusId,
-                Score = score,
-                IsFavorite = i % 3 == 0,
-                RewatchCount = i % 4,
-                AddedAt = now.AddDays(-i),
-                UpdatedAt = now.AddHours(-i)
-            };
-            db.LibraryItems.Add(item);
-            legacySnapshots[i * 100] = (title, isAnime ? 12 : null, isAnime ? null : 50,
-                isAnime ? "[\"Action\",\"Fantasy\"]" : "[\"Romance\",\"Drama\"]", now.AddDays(-i));
-        }
-        await db.SaveChangesAsync();
-
-        foreach (var seeded in await db.LibraryItems.AsNoTracking().ToListAsync())
-        {
-            var snap = legacySnapshots[seeded.MalId];
-            await InsertLegacySnapshotAsync(db, seeded.Id, snap.Title, snap.Episodes, snap.Chapters, snap.Genres, snap.At);
-        }
-
-        // Add progress and notes for all items
-        var itemsInDb = await db.LibraryItems.ToListAsync();
-        for (int i = 0; i < 50; i++)
-        {
-            var item = itemsInDb[i];
-            if (item.MediaType == MediaType.Anime)
-            {
-                db.EpisodeProgress.Add(new EpisodeProgress
-                {
-                    LibraryItemId = item.Id,
-                    EpisodeNumber = 1,
-                    IsWatched = true,
-                    WatchedAt = now
-                });
-            }
-            else
-            {
-                db.ChapterProgress.Add(new ChapterProgress
-                {
-                    LibraryItemId = item.Id,
-                    ChapterNumber = 1,
-                    IsRead = true,
-                    ReadAt = now
-                });
-            }
-
-            db.Notes.Add(new Note
-            {
-                LibraryItemId = item.Id,
-                Content = $"Great series notes for item {item.Id}",
-                CreatedAt = now,
-                UpdatedAt = now
-            });
-        }
-
-        // Add user settings
-        db.Settings.AddRange(
-            new AppSetting { Key = "Theme", Value = "Dark" },
-            new AppSetting { Key = "Language", Value = "tr" },
-            new AppSetting { Key = "StartupPage", Value = "Anime" },
-            new AppSetting { Key = "CacheRefreshDays", Value = "14" }
-        );
-        await db.SaveChangesAsync();
-
-        // 3. Perform migration to v0.2.6 (HardenLibraryConstraints)
-        await db.Database.MigrateAsync();
-
-        // 4. Verify that EVERY single user record is 100% intact with zero data loss
-        await using var verify = new LibraryDbContext(
-            new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
-
-        var migratedItems = await verify.LibraryItems
+        // Every user record must come through unchanged (AM-055: every column is checked).
+        await using var verify = NewLibraryContext(connection);
+        var migrated = await verify.LibraryItems.AsNoTracking()
             .Include(i => i.Snapshot)
+            .Include(i => i.EpisodeProgress)
+            .Include(i => i.ChapterProgress)
+            .Include(i => i.Notes)
+            .Include(i => i.StreamingOverrides)
             .OrderBy(i => i.Id)
             .ToListAsync();
 
-        migratedItems.Should().HaveCount(50, "all 50 user library items must survive migration");
-
-        for (int i = 0; i < 50; i++)
-        {
-            var actual = migratedItems[i];
-            var expected = expectedItems[i];
-
-            actual.MalId.Should().Be(expected.MalId);
-            actual.MediaType.Should().Be(expected.Type);
-            actual.StatusId.Should().Be(expected.StatusId);
-            actual.Score.Should().Be(expected.Score);
-            actual.Snapshot.Should().NotBeNull();
-            actual.Snapshot!.Title.Should().Be(expected.Title);
-            actual.Snapshot.Genres.Should().Be(legacySnapshots[expected.MalId].Genres);
-            actual.Snapshot.DataVersion.Should().Be(MediaDataVersion.Legacy);
-        }
-
-        // Progress rows intact
-        (await verify.EpisodeProgress.CountAsync()).Should().BeGreaterThan(0);
-        (await verify.ChapterProgress.CountAsync()).Should().BeGreaterThan(0);
-
-        // Notes intact
-        var notes = await verify.Notes.ToListAsync();
-        notes.Should().HaveCount(50);
+        migrated.Should().HaveCount(50, "all 50 user library items must survive migration");
+        foreach (var (actual, e) in migrated.Zip(expected))
+            e.AssertMatches(actual);
 
         // Settings intact. Each row must exist: a `?.Value.Should()` chain would silently
         // skip the assertion if the migration lost the setting.
-        async Task AssertSettingAsync(string key, string expected)
+        async Task AssertSettingAsync(string key, string value)
         {
             var setting = await verify.Settings.FindAsync([key]);
             setting.Should().NotBeNull($"setting '{key}' must survive the migration");
-            setting!.Value.Should().Be(expected);
+            setting!.Value.Should().Be(value);
         }
 
         await AssertSettingAsync("Theme", "Dark");
         await AssertSettingAsync("Language", "tr");
         await AssertSettingAsync("StartupPage", "Anime");
         await AssertSettingAsync("CacheRefreshDays", "14");
+    }
+
+    /// <summary>One library item of the 50-item v0.2.5 library, with what it must read back as.</summary>
+    private sealed record V025Item(
+        int Id, int MalId, MediaType Type, int StatusId, int Score, decimal? UserRating, bool IsFavorite,
+        int RewatchCount, DateOnly? StartedAt, DateOnly? CompletedAt, DateTime AddedAt, DateTime UpdatedAt,
+        DateTime? DeletedAt, string Title, int? Episodes, int? Chapters, string Genres, DateTime SnapshotAt,
+        int Progress, DateTime ProgressAt, string Note, string? Override)
+    {
+        public static V025Item Make(int i, DateTime now)
+        {
+            var isAnime = i <= 30;
+            var rem = i % 5;
+            var status = isAnime
+                ? (rem == 0 ? TrackingStatusIds.Completed : rem == 1 ? TrackingStatusIds.Watching : rem == 2 ? TrackingStatusIds.OnHold : rem == 3 ? TrackingStatusIds.Dropped : TrackingStatusIds.PlanToWatch)
+                : (rem == 0 ? TrackingStatusIds.Completed : rem == 1 ? TrackingStatusIds.Reading : rem == 2 ? TrackingStatusIds.OnHold : rem == 3 ? TrackingStatusIds.Dropped : TrackingStatusIds.PlanToRead);
+            return new V025Item(
+                Id: i, MalId: i * 100, Type: isAnime ? MediaType.Anime : MediaType.Manga, StatusId: status,
+                Score: (i % 10) + 1, UserRating: i % 4 == 0 ? 7.5m + i % 3 : null, IsFavorite: i % 3 == 0,
+                RewatchCount: i % 4, StartedAt: new DateOnly(2026, 1, 1).AddDays(i),
+                CompletedAt: rem == 0 ? new DateOnly(2026, 6, 1).AddDays(i) : null,
+                AddedAt: now.AddDays(-i), UpdatedAt: now.AddHours(-i), DeletedAt: i == 49 ? now.AddDays(-2) : null,
+                Title: isAnime ? $"Anime Series #{i}" : $"Manga Series #{i}",
+                Episodes: isAnime ? 12 : null, Chapters: isAnime ? null : 50,
+                Genres: isAnime ? """["Action","Fantasy"]""" : """["Romance","Drama"]""", SnapshotAt: now.AddDays(-i),
+                Progress: i % 12 + 1, ProgressAt: now.AddMinutes(-i),
+                Note: $"Great series notes for item {i}", Override: isAnime && i % 10 == 0 ? "Crunchyroll" : null);
+        }
+
+        public async Task InsertAsync(SqliteConnection connection)
+        {
+            await ExecAsync(connection, """
+                INSERT INTO LibraryItems (Id, MalId, MediaType, StatusId, Score, IsFavorite, RewatchCount,
+                    StartedAt, CompletedAt, UserRating, AddedAt, UpdatedAt, DeletedAt)
+                VALUES ($id, $mal, $type, $status, $score, $fav, $rewatch, $started, $completed, $rating, $added, $updated, $deleted);
+                INSERT INTO Snapshots (LibraryItemId, Title, TotalEpisodes, TotalChapters, Genres, SnapshotAt)
+                VALUES ($id, $title, $episodes, $chapters, $genres, $snapAt);
+                INSERT INTO Notes (LibraryItemId, Content, CreatedAt, UpdatedAt) VALUES ($id, $note, $added, $added);
+                """,
+                ("$id", Id), ("$mal", MalId), ("$type", Type.ToString()), ("$status", StatusId), ("$score", Score),
+                ("$fav", IsFavorite ? 1 : 0), ("$rewatch", RewatchCount), ("$started", Date(StartedAt)),
+                ("$completed", Date(CompletedAt)), ("$rating", UserRating?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                ("$added", Time(AddedAt)), ("$updated", Time(UpdatedAt)), ("$deleted", DeletedAt is { } d ? Time(d) : null),
+                ("$title", Title), ("$episodes", Episodes), ("$chapters", Chapters), ("$genres", Genres),
+                ("$snapAt", Time(SnapshotAt)), ("$note", Note));
+
+            var progressSql = Type == MediaType.Anime
+                ? "INSERT INTO EpisodeProgress (LibraryItemId, EpisodeNumber, IsWatched, WatchedAt) VALUES ($id, $n, 1, $at);"
+                : "INSERT INTO ChapterProgress (LibraryItemId, ChapterNumber, IsRead, ReadAt) VALUES ($id, $n, 1, $at);";
+            await ExecAsync(connection, progressSql, ("$id", Id), ("$n", Progress), ("$at", Time(ProgressAt)));
+
+            if (Override is not null)
+                await ExecAsync(connection,
+                    "INSERT INTO StreamingOverrides (LibraryItemId, PlatformName, Url, AddedAt) VALUES ($id, $name, 'https://www.crunchyroll.com/', $at);",
+                    ("$id", Id), ("$name", Override), ("$at", Time(AddedAt)));
+        }
+
+        public void AssertMatches(LibraryItem actual)
+        {
+            actual.MalId.Should().Be(MalId);
+            actual.MediaType.Should().Be(Type);
+            actual.StatusId.Should().Be(StatusId);
+            actual.Score.Should().Be(Score);
+            actual.UserRating.Should().Be(UserRating);
+            actual.IsFavorite.Should().Be(IsFavorite);
+            actual.RewatchCount.Should().Be(RewatchCount);
+            actual.StartedAt.Should().Be(StartedAt);
+            actual.CompletedAt.Should().Be(CompletedAt);
+            actual.AddedAt.Should().Be(AddedAt);
+            actual.UpdatedAt.Should().Be(UpdatedAt);
+            actual.DeletedAt.Should().Be(DeletedAt, "trashed items stay trashed");
+
+            actual.Snapshot.Should().NotBeNull();
+            actual.Snapshot!.Title.Should().Be(Title);
+            actual.Snapshot.TotalEpisodes.Should().Be(Episodes);
+            actual.Snapshot.TotalChapters.Should().Be(Chapters);
+            actual.Snapshot.Genres.Should().Be(Genres);
+            actual.Snapshot.SnapshotAt.Should().Be(SnapshotAt);
+            actual.Snapshot.DataVersion.Should().Be(MediaDataVersion.Legacy);
+
+            if (Type == MediaType.Anime)
+            {
+                var ep = actual.EpisodeProgress.Should().ContainSingle().Subject;
+                ep.EpisodeNumber.Should().Be(Progress);
+                ep.IsWatched.Should().BeTrue();
+                ep.WatchedAt.Should().Be(ProgressAt);
+                actual.ChapterProgress.Should().BeEmpty();
+            }
+            else
+            {
+                var ch = actual.ChapterProgress.Should().ContainSingle().Subject;
+                ch.ChapterNumber.Should().Be(Progress);
+                ch.IsRead.Should().BeTrue();
+                ch.ReadAt.Should().Be(ProgressAt);
+                actual.EpisodeProgress.Should().BeEmpty();
+            }
+
+            var note = actual.Notes.Should().ContainSingle().Subject;
+            note.Content.Should().Be(Note);
+            note.EpisodeNumber.Should().BeNull();
+
+            if (Override is null)
+                actual.StreamingOverrides.Should().BeEmpty();
+            else
+                actual.StreamingOverrides.Should().ContainSingle(o => o.PlatformName == Override && o.Url == "https://www.crunchyroll.com/");
+        }
+
+        // v0.2.5's EF Core wrote times and dates in these formats.
+        private static string Time(DateTime value) => value.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+        private static string? Date(DateOnly? value) => value?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Builds an empty library.db exactly as v0.2.5 created it, from the frozen fixture.</summary>
+    private static Task CreateV025LibraryAsync(SqliteConnection connection) =>
+        ExecAsync(connection, File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "library-v0.2.5.sql")));
+
+    private static async Task ExecAsync(SqliteConnection connection, string sql, params (string Name, object? Value)[] parameters)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        foreach (var (name, value) in parameters)
+            command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync();
     }
 
     /// <summary>
@@ -430,6 +446,8 @@ public class MigrationTests
         await using var verify = new CatalogDbContext(
             new DbContextOptionsBuilder<CatalogDbContext>().UseSqlite(connection).Options);
 
+        // AddExtendedMetadata: rows cached before it read as Legacy, so they get refreshed (AM-056).
+        (await verify.Anime.SingleAsync()).DataVersion.Should().Be(MediaDataVersion.Legacy);
         (await verify.Episodes.SingleAsync()).Title.Should().Be("Asteroid Blues (latest)");
         (await verify.AnimeStreaming.SingleAsync()).Url.Should().Be("https://new.example/1");
 
@@ -541,6 +559,9 @@ public class MigrationTests
         return new LibraryDbContext(
             new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
     }
+
+    private static LibraryDbContext NewLibraryContext(SqliteConnection connection) =>
+        new(new DbContextOptionsBuilder<LibraryDbContext>().UseSqlite(connection).Options);
 
     private static CatalogDbContext NewCatalogContext(out SqliteConnection connection)
     {

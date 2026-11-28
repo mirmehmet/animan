@@ -51,6 +51,19 @@ public sealed class BackgroundWork(ILogger<BackgroundWork> logger) : IDisposable
     }
 
     /// <summary>
+    /// Completes once nothing is running, including work queued by running work (an anime
+    /// refresh queues a streaming refresh). For tests: they wait on this instead of sleeping.
+    /// </summary>
+    internal async Task WhenIdleAsync()
+    {
+        while (_running.Keys.ToArray() is { Length: > 0 } running)
+        {
+            await Task.WhenAll(running).ConfigureAwait(false);
+            await Task.Yield(); // let finished tasks leave the set
+        }
+    }
+
+    /// <summary>
     /// Cancels all work and waits up to <paramref name="timeout"/> for it to end.
     /// Returns false when something was still running at the deadline.
     /// </summary>

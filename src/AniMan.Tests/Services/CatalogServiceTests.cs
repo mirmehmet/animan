@@ -72,10 +72,15 @@ public class CatalogServiceTests : IDisposable
 
         var svc = CreateService();
         var result = await svc.GetAnimeAsync(7, force: true);
+        await _background.WhenIdleAsync();
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Title.Should().Be("Refreshed Anime 7");
         result.Value.TotalEpisodes.Should().Be(12);
+        _sourceMock.Verify(j => j.GetAnimeFullAsync(7, It.IsAny<CancellationToken>()), Times.Once,
+            "force skips the fresh cached row");
+        _sourceMock.Verify(s => s.GetAnimeStreamingAsync(7, It.IsAny<CancellationToken>()), Times.Once,
+            "a normal fetch queues a streaming refresh");
     }
 
     [Fact]
@@ -92,7 +97,7 @@ public class CatalogServiceTests : IDisposable
             }));
 
         var result = await CreateService().RefreshAnimeDetailsAsync(8);
-        _background.StopAndWait(TimeSpan.FromSeconds(5)); // a queued streaming refresh would run here
+        await _background.WhenIdleAsync(); // a queued streaming refresh would run here
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Title.Should().Be("Refreshed Anime 8");
@@ -115,13 +120,15 @@ public class CatalogServiceTests : IDisposable
 
         var svc = CreateService();
         var result = await svc.GetAnimeAsync(42);
+        await _background.WhenIdleAsync();
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Id.Should().Be(42);
         result.Value.Title.Should().Be("Test Anime 42");
 
-        var stored = await _db.Anime.FindAsync(42);
-        stored.Should().NotBeNull();
+        await using var verify = await _factory.CreateDbContextAsync();
+        (await verify.Anime.AsNoTracking().SingleAsync(a => a.Id == 42)).Title.Should().Be("Test Anime 42");
+        _sourceMock.Verify(j => j.GetAnimeFullAsync(42, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -145,8 +152,15 @@ public class CatalogServiceTests : IDisposable
         var svc = CreateService();
         var result = await svc.GetAnimeAsync(5);
 
+        // Answered from the cache first: the stale title, not the refreshed one…
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Id.Should().Be(5);
+        result.Value!.Title.Should().Be(stale.Title);
+
+        // …and refreshed behind it (AM-050: the test used to stop at the first half).
+        await _background.WhenIdleAsync();
+        _sourceMock.Verify(j => j.GetAnimeFullAsync(5, It.IsAny<CancellationToken>()), Times.Once);
+        await using var verify = await _factory.CreateDbContextAsync();
+        (await verify.Anime.AsNoTracking().SingleAsync(a => a.Id == 5)).Title.Should().Be(dto.Title);
     }
 
     [Fact]
@@ -277,16 +291,10 @@ public class CatalogServiceTests : IDisposable
             Pagination = new PaginationDto { HasNextPage = false }
         }));
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-        string?[] titles = [];
-        while (DateTime.UtcNow < deadline)
-        {
-            await using var check = await _factory.CreateDbContextAsync();
-            titles = await check.Episodes.AsNoTracking().Where(e => e.AnimeId == 90)
-                .OrderBy(e => e.EpisodeNumber).Select(e => e.Title).ToArrayAsync();
-            if (titles.SequenceEqual(["New 1", "New 2"])) break;
-            await Task.Delay(20);
-        }
+        await _background.WhenIdleAsync();
+        await using var check = await _factory.CreateDbContextAsync();
+        var titles = await check.Episodes.AsNoTracking().Where(e => e.AnimeId == 90)
+            .OrderBy(e => e.EpisodeNumber).Select(e => e.Title).ToArrayAsync();
         titles.Should().Equal(["New 1", "New 2"], "the background refresh replaces the stale titles");
     }
 
@@ -298,7 +306,7 @@ public class CatalogServiceTests : IDisposable
         await _db.SaveChangesAsync();
 
         var result = await CreateService().GetAnimeEpisodesAsync(91);
-        await Task.Delay(100); // a wrongly queued background refresh would call the source by now
+        await _background.WhenIdleAsync(); // a wrongly queued background refresh would have run by now
 
         result.Value!.Should().ContainSingle(e => e.Title == "Ep 1");
         _sourceMock.Verify(j => j.GetAnimeEpisodesAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);

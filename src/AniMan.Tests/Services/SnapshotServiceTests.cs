@@ -7,6 +7,7 @@ using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
 using AniMan.Tests.Integration;
+using AniMan.Tests.TestDoubles;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,8 +21,9 @@ public class SnapshotServiceTests : IDisposable
     private readonly SqliteContextFactory<CatalogDbContext> _catalogFactory;
     private readonly LibraryDbContext _libraryDb;
     private readonly Mock<ICatalogService> _catalogServiceMock;
-    private readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
-    private readonly StoragePaths _paths;
+    private readonly TestStorage _storage = new();
+    /// <summary>Offline unless a test swaps in an answering handler; never real network.</summary>
+    private StubHttpHandler _http = new();
 
     public SnapshotServiceTests()
     {
@@ -30,28 +32,19 @@ public class SnapshotServiceTests : IDisposable
         _libraryDb = _libraryFactory.CreateDbContext();
 
         _catalogServiceMock = new Mock<ICatalogService>();
-        _httpClientFactoryMock = new Mock<IHttpClientFactory>();
-
-        _paths = new StoragePaths(
-            Path.GetTempPath(),
-            Path.Combine(Path.GetTempPath(), $"covers_{Guid.NewGuid()}"));
-        Directory.CreateDirectory(_paths.CoversPath);
     }
 
     private SnapshotService CreateService() => new(
         _libraryFactory, _catalogFactory,
         _catalogServiceMock.Object,
-        new CoverStore(_httpClientFactoryMock.Object, _paths, NullLogger<CoverStore>.Instance),
+        new CoverStore(_http.Factory(), _storage.Paths, NullLogger<CoverStore>.Instance),
         NullLogger<SnapshotService>.Instance);
 
     [Fact]
     public async Task SnapshotAsync_Success_CreatesLibraryItemAndSnapshot()
     {
         SetupAnime(5, "Steins;Gate");
-
-        // Cover download fails (no real HTTP) — should succeed anyway
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient());
+        _http = StubHttpHandler.Returning();
 
         var svc = CreateService();
         var result = await svc.SnapshotAsync(5, MediaType.Anime, 1);
@@ -63,6 +56,8 @@ public class SnapshotServiceTests : IDisposable
 
         _libraryDb.LibraryItems.Should().HaveCount(1);
         _libraryDb.Snapshots.Should().HaveCount(1);
+        result.Value.Snapshot.CoverLocalPath.Should().Be(Path.Combine(_storage.Paths.CoversPath, "5_anime.jpg"));
+        File.Exists(result.Value.Snapshot.CoverLocalPath).Should().BeTrue();
     }
 
     [Fact]
@@ -70,23 +65,22 @@ public class SnapshotServiceTests : IDisposable
     {
         SetupAnime(10, "Naruto");
 
-        var failingClient = new System.Net.Http.HttpClient(new FailingHandler());
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers")).Returns(failingClient);
+        var svc = CreateService(); // offline handler: the download is attempted and fails
 
-        var svc = CreateService();
         var result = await svc.SnapshotAsync(10, MediaType.Anime, 1);
 
         result.IsSuccess.Should().BeTrue();
+        _http.Requests.Should().ContainSingle("the download must really be attempted (AM-049)")
+            .Which.AbsoluteUri.Should().Be(CoverUrl(10));
         var snapshot = _libraryDb.Snapshots.Single();
         snapshot.CoverLocalPath.Should().BeNull();
+        snapshot.CoverOriginalUrl.Should().Be(CoverUrl(10), "the URL is kept so the cover can be fetched later");
     }
 
     [Fact]
     public async Task SnapshotAsync_DuplicateAdd_ReturnsFailure()
     {
         SetupAnime(20, "FMA");
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient());
 
         var svc = CreateService();
         await svc.SnapshotAsync(20, MediaType.Anime, 1);
@@ -100,8 +94,6 @@ public class SnapshotServiceTests : IDisposable
     public async Task SnapshotAsync_SoftDeletedItem_RestoresAndPreservesProgressRatingAndNotes()
     {
         SetupAnime(25, "Cowboy Bebop");
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient());
 
         var svc = CreateService();
         var first = await svc.SnapshotAsync(25, MediaType.Anime, 1);
@@ -146,8 +138,6 @@ public class SnapshotServiceTests : IDisposable
     public async Task SnapshotAsync_SoftDeletedItem_CatalogFetchFails_PreservesTrashedItem()
     {
         SetupAnime(30, "Trigun");
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient());
 
         var svc = CreateService();
         await svc.SnapshotAsync(30, MediaType.Anime, 1);
@@ -175,7 +165,7 @@ public class SnapshotServiceTests : IDisposable
     [Fact]
     public async Task ReSnapshotAsync_UsesForceRefreshAndPreservesExistingCoverWhenDownloadFails()
     {
-        var coverPath = Path.Combine(_paths.CoversPath, "50_anime.jpg");
+        var coverPath = Path.Combine(_storage.Paths.CoversPath, "50_anime.jpg");
         await File.WriteAllBytesAsync(coverPath, [1, 2, 3]);
 
         using (var db = await _libraryFactory.CreateDbContextAsync())
@@ -211,8 +201,6 @@ public class SnapshotServiceTests : IDisposable
                 CoverLargeUrl = "https://example.com/50.jpg",
                 FetchedAt = DateTime.UtcNow
             }));
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
 
         var svc = CreateService();
         var refreshed = await svc.ReSnapshotAsync(50);
@@ -243,8 +231,6 @@ public class SnapshotServiceTests : IDisposable
                 Id = 60, Title = "AniList Title", Score = 7.5, TotalEpisodes = 26,
                 DataVersion = MediaDataVersion.Partial, FetchedAt = DateTime.UtcNow
             }));
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
 
         var result = await CreateService().ReSnapshotAsync(itemId);
 
@@ -297,8 +283,6 @@ public class SnapshotServiceTests : IDisposable
                 DurationMinutes = 24, AgeRating = "R - 17+", Source = "Manga",
                 DataVersion = MediaDataVersion.Current
             }));
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
 
         var result = await CreateService().SnapshotAsync(16498, MediaType.Anime, 1);
 
@@ -317,8 +301,6 @@ public class SnapshotServiceTests : IDisposable
         // A catalog row cached before the update has no extended fields; marking the new
         // snapshot Current would hide it from the backfill forever.
         SetupAnime(5, "Steins;Gate");
-        _httpClientFactoryMock.Setup(f => f.CreateClient("covers"))
-            .Returns(new System.Net.Http.HttpClient(new FailingHandler()));
 
         var result = await CreateService().SnapshotAsync(5, MediaType.Anime, 1);
 
@@ -356,7 +338,8 @@ public class SnapshotServiceTests : IDisposable
         snap.DurationMinutes.Should().Be(24);
         snap.AgeRating.Should().Be("R - 17+ (violence & profanity)");
         snap.Source.Should().Be("Manga");
-        snap.Genres.Should().Be("""["Action","Ecchi"]""");
+        // The genre query has no ORDER BY, so only the set is guaranteed (AM-051).
+        NameList.Parse(snap.Genres).Should().BeEquivalentTo(["Action", "Ecchi"]);
         snap.DataVersion.Should().Be(MediaDataVersion.Current);
 
         // Everything else exactly as it was
@@ -463,23 +446,18 @@ public class SnapshotServiceTests : IDisposable
             .Setup(c => c.GetAnimeAsync(malId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CachedAnime>.Success(new CachedAnime
             {
-                Id = malId, Title = title, FetchedAt = DateTime.UtcNow
+                Id = malId, Title = title, FetchedAt = DateTime.UtcNow, CoverLargeUrl = CoverUrl(malId)
             }));
     }
+
+    private static string CoverUrl(int malId) => $"https://cdn.myanimelist.net/images/anime/{malId}.jpg";
 
     public void Dispose()
     {
         _libraryDb.Dispose();
         _libraryFactory.Dispose();
         _catalogFactory.Dispose();
-        if (Directory.Exists(_paths.CoversPath))
-            Directory.Delete(_paths.CoversPath, recursive: true);
-    }
-
-    private sealed class FailingHandler : System.Net.Http.HttpMessageHandler
-    {
-        protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(
-            System.Net.Http.HttpRequestMessage request, CancellationToken ct) =>
-            throw new HttpRequestException("Simulated failure");
+        _http.Dispose();
+        _storage.Dispose();
     }
 }

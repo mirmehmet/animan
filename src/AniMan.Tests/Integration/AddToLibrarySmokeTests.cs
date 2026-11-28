@@ -25,6 +25,8 @@ public class AddToLibrarySmokeTests : IDisposable
     private readonly SqliteContextFactory<LibraryDbContext> _libraryFactory = new(o => new LibraryDbContext(o));
     private readonly SqliteContextFactory<CatalogDbContext> _catalogFactory = new(o => new CatalogDbContext(o));
     private readonly BackgroundWork _backgroundWork = new(NullLogger<BackgroundWork>.Instance);
+    private readonly TestStorage _storage = new();
+    private readonly StubHttpHandler _http = new();
 
     [Fact]
     public async Task AddAnime_FetchesFromSource_CachesCatalog_AndWritesLibraryItem()
@@ -51,13 +53,10 @@ public class AddToLibrarySmokeTests : IDisposable
             _catalogFactory, source.Object, settings.Object,
             _backgroundWork, NullLogger<CatalogService>.Instance);
 
-        // Cover URL is null in the mocked DTO, so the HTTP factory is never used.
-        var httpFactory = new Mock<IHttpClientFactory>();
-        var storagePaths = new StoragePaths(Path.GetTempPath(), Path.GetTempPath());
-
+        // Cover URL is null in the mocked DTO, so no download is attempted (checked below).
         var snapshotService = new SnapshotService(
             _libraryFactory, _catalogFactory, catalogService,
-            new CoverStore(httpFactory.Object, storagePaths, NullLogger<CoverStore>.Instance),
+            new CoverStore(_http.Factory(), _storage.Paths, NullLogger<CoverStore>.Instance),
             NullLogger<SnapshotService>.Instance);
 
         // ── Act: add anime 1 with status "Watching" (id 1) ───────────────────────
@@ -81,6 +80,7 @@ public class AddToLibrarySmokeTests : IDisposable
             (await cat.Anime.SingleAsync()).Title.Should().Be("Cowboy Bebop");
 
         source.Verify(j => j.GetAnimeFullAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        _http.Requests.Should().BeEmpty();
     }
 
     [Fact]
@@ -103,10 +103,7 @@ public class AddToLibrarySmokeTests : IDisposable
             _backgroundWork, NullLogger<CatalogService>.Instance);
         var snapshotService = new SnapshotService(
             _libraryFactory, _catalogFactory, catalogService,
-            new CoverStore(
-                new Mock<IHttpClientFactory>().Object,
-                new StoragePaths(Path.GetTempPath(), Path.GetTempPath()),
-                NullLogger<CoverStore>.Instance),
+            new CoverStore(_http.Factory(), _storage.Paths, NullLogger<CoverStore>.Instance),
             NullLogger<SnapshotService>.Instance);
 
         var result = await snapshotService.SnapshotAsync(1, MediaType.Anime, 1);
@@ -123,5 +120,7 @@ public class AddToLibrarySmokeTests : IDisposable
         _backgroundWork.Dispose();
         _libraryFactory.Dispose();
         _catalogFactory.Dispose();
+        _http.Dispose();
+        _storage.Dispose();
     }
 }

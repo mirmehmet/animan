@@ -129,6 +129,60 @@ public class AniListClientTests : IDisposable
         result.Kind.Should().NotBe(ErrorKind.NotFound);
     }
 
+    // ── AM-059: the error paths, each with the kind the UI turns into a message ──
+
+    private AniListClient ClientAnswering(HttpStatusCode status, string body = "{}")
+    {
+        var handler = new DelegatingMockHandler((req, ct) =>
+            Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            }));
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://graphql.anilist.co") };
+        return new AniListClient(http, _limiter, NullLogger<AniListClient>.Instance);
+    }
+
+    [Fact]
+    public async Task GraphQLErrorsWithStatus200_AreAFailureCarryingTheMessage()
+    {
+        // AniList reports query problems in an `errors` array on a 200 answer.
+        var result = await ClientAnswering(HttpStatusCode.OK,
+            """{"data":null,"errors":[{"message":"Field 'foo' doesn't exist"}]}""").SearchAnimeAsync("x");
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("Field 'foo' doesn't exist");
+        result.Kind.Should().NotBe(ErrorKind.NotFound);
+    }
+
+    [Fact]
+    public async Task Status200WithoutData_IsAFailure()
+    {
+        var result = await ClientAnswering(HttpStatusCode.OK, """{"data":null}""").SearchAnimeAsync("x");
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("no data");
+    }
+
+    [Fact]
+    public async Task TooManyRequests_IsRateLimited()
+    {
+        var result = await ClientAnswering(HttpStatusCode.TooManyRequests).SearchAnimeAsync("x");
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.RateLimited);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task ServerError_IsServiceUnavailable(HttpStatusCode status)
+    {
+        var result = await ClientAnswering(status).GetAnimeFullAsync(1);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.ServiceUnavailable);
+    }
+
     public void Dispose() => _limiter.Dispose();
 }
 

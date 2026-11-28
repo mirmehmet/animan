@@ -5,6 +5,7 @@ using AniMan.Core.Interfaces;
 using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
+using AniMan.Tests.TestDoubles;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,23 +20,22 @@ namespace AniMan.Tests.Integration;
 /// </summary>
 public class ImportAtomicityTests : IDisposable
 {
-    private readonly string _tempFile = Path.Combine(Path.GetTempPath(), $"AniMan_test_{Guid.NewGuid():N}.json");
+    private readonly TestStorage _storage = new();
+    private readonly string _tempFile;
     private readonly SqliteContextFactory<LibraryDbContext> _factory = new(o => new LibraryDbContext(o));
     private readonly StoragePaths _paths;
 
     public ImportAtomicityTests()
     {
-        _paths = new StoragePaths(
-            Path.GetTempPath(),
-            Path.Combine(Path.GetTempPath(), $"covers_{Guid.NewGuid()}"));
-        Directory.CreateDirectory(_paths.CoversPath);
+        _paths = _storage.Paths;
+        _tempFile = _storage.File("backup.json");
     }
 
     private ExportService Create()
     {
         // No real HTTP in tests — downloads fail gracefully, leaving covers null.
         var coverStore = new CoverStore(
-            Mock.Of<IHttpClientFactory>(f => f.CreateClient("covers") == new HttpClient()),
+            new StubHttpHandler().Factory(),
             _paths, NullLogger<CoverStore>.Instance);
 
         return new ExportService(_factory, coverStore, NullLogger<ExportService>.Instance);
@@ -128,8 +128,6 @@ public class ImportAtomicityTests : IDisposable
     public void Dispose()
     {
         _factory.Dispose();
-        if (File.Exists(_tempFile)) File.Delete(_tempFile);
-        if (Directory.Exists(_paths.CoversPath))
-            Directory.Delete(_paths.CoversPath, recursive: true);
+        _storage.Dispose();
     }
 }

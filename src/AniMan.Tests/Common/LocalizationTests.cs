@@ -31,6 +31,33 @@ public class LocalizationTests
     }
 
     [Fact]
+    public void Translations_UseTheSamePlaceholdersAsEnglish()
+    {
+        // AM-122: a Turkish text missing "{1}" silently drops a value; one with an extra "{2}"
+        // throws FormatException in string.Format at runtime.
+        var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AniMan"));
+        var en = LoadValues(Path.Combine(projectRoot, "Resources", "Strings.resx"));
+        var tr = LoadValues(Path.Combine(projectRoot, "Resources", "Strings.tr.resx"));
+
+        var mismatches = en.Keys.Intersect(tr.Keys)
+            .Where(key => !Placeholders(en[key]).SetEquals(Placeholders(tr[key])))
+            .Select(key => $"{key}: en {{{string.Join(",", Placeholders(en[key]).Order())}}} / tr {{{string.Join(",", Placeholders(tr[key]).Order())}}}")
+            .ToList();
+
+        mismatches.Should().BeEmpty();
+    }
+
+    private static Dictionary<string, string> LoadValues(string path) =>
+        XDocument.Load(path).Root!.Elements("data")
+            .ToDictionary(e => e.Attribute("name")!.Value, e => e.Element("value")?.Value ?? "");
+
+    /// <summary>Format item indexes ("{0}", "{1:N0}"), ignoring escaped braces ("{{").</summary>
+    private static HashSet<int> Placeholders(string text) =>
+        System.Text.RegularExpressions.Regex.Matches(text.Replace("{{", "").Replace("}}", ""), @"\{(\d+)(?:[,:][^}]*)?\}")
+            .Select(m => int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture))
+            .ToHashSet();
+
+    [Fact]
     public void EveryErrorKind_HasALocalizedMessage()
     {
         // ErrorText.For(kind) resolves "Error_{kind}"; a missing key would show the raw key to the user.

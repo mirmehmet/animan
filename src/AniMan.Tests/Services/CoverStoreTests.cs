@@ -2,6 +2,7 @@ using System.Net;
 using AniMan.Core.Domain.Enums;
 using AniMan.Infrastructure;
 using AniMan.Infrastructure.Services;
+using AniMan.Tests.TestDoubles;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -30,15 +31,13 @@ public class CoverStoreTests : IDisposable
     private static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0];
 
     private readonly StubHandler _handler = new();
+    private readonly TestStorage _storage = new();
     private readonly StoragePaths _paths;
     private readonly CoverStore _store;
 
     public CoverStoreTests()
     {
-        _paths = new StoragePaths(
-            Path.GetTempPath(),
-            Path.Combine(Path.GetTempPath(), $"covers_{Guid.NewGuid()}"));
-        Directory.CreateDirectory(_paths.CoversPath);
+        _paths = _storage.Paths;
 
         var factory = Mock.Of<IHttpClientFactory>(
             f => f.CreateClient("covers") == new HttpClient(_handler));
@@ -171,7 +170,6 @@ public class CoverStoreTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_paths.CoversPath))
-            Directory.Delete(_paths.CoversPath, recursive: true);
+        _storage.Dispose();
     }
 }

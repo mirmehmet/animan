@@ -170,9 +170,7 @@ public sealed class CatalogFallbackMergeTests : IDisposable
             await db.SaveChangesAsync();
         }
 
-        var refreshed = new TaskCompletionSource();
         _source.Setup(s => s.GetAnimeEpisodesAsync(6, 1, It.IsAny<CancellationToken>()))
-            .Callback(() => refreshed.TrySetResult())
             .ReturnsAsync(Result<PagedResult<AnimeEpisodeDto>>.Success(new PagedResult<AnimeEpisodeDto>
             {
                 Data = [], // what the fallback source always answers
@@ -180,8 +178,8 @@ public sealed class CatalogFallbackMergeTests : IDisposable
             }));
 
         await Create().GetAnimeEpisodesAsync(6); // stale → background refresh
-        (await Task.WhenAny(refreshed.Task, Task.Delay(TimeSpan.FromSeconds(5)))).Should().Be(refreshed.Task);
-        await Task.Delay(200); // let the refresh finish its (non-)write
+        await _background.WhenIdleAsync();
+        _source.Verify(s => s.GetAnimeEpisodesAsync(6, 1, It.IsAny<CancellationToken>()), Times.Once);
 
         await using var verify = await _factory.CreateDbContextAsync();
         (await verify.Episodes.Where(e => e.AnimeId == 6).OrderBy(e => e.EpisodeNumber).Select(e => e.Title).ToListAsync())

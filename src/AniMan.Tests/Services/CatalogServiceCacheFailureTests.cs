@@ -32,6 +32,13 @@ public class CatalogServiceCacheFailureTests : IDisposable
     private readonly Mock<ISettingsService> _settingsMock = new();
     private readonly BackgroundWork _background = new(NullLogger<BackgroundWork>.Instance);
 
+    /// <summary>
+    /// Every success test asserts the caching error was logged: proof the recovery path
+    /// really ran. If the fixture ever gained a schema, the tests would otherwise pass while
+    /// guarding nothing (AM-053).
+    /// </summary>
+    private readonly RecordingLogger _logger = new();
+
     /// <summary>Ends fire-and-forget cache refreshes before the test database goes away.</summary>
     private void StopBackground()
     {
@@ -57,9 +64,10 @@ public class CatalogServiceCacheFailureTests : IDisposable
             .ReturnsAsync(7);
     }
 
-    private CatalogService CreateService(ILogger<CatalogService>? logger = null) => new(
-        _factory, _sourceMock.Object, _settingsMock.Object, _background,
-        logger ?? NullLogger<CatalogService>.Instance);
+    private CatalogService CreateService() => new(
+        _factory, _sourceMock.Object, _settingsMock.Object, _background, _logger);
+
+    private void AssertCachingFailed() => _logger.Errors.Should().ContainMatch("*Caching*failed*");
 
     [Fact]
     public async Task GetTopAnimeAsync_CacheWriteFails_StillReturnsFetchedData()
@@ -71,16 +79,12 @@ public class CatalogServiceCacheFailureTests : IDisposable
                     Data = [MakeAnimeDto(1), MakeAnimeDto(2)]
                 }));
 
-        var logger = new RecordingLogger();
-        var result = await CreateService(logger).GetTopAnimeAsync();
+        var result = await CreateService().GetTopAnimeAsync();
 
         int[] expectedIds = [1, 2];
         result.IsSuccess.Should().BeTrue("the API call succeeded; only caching failed");
         result.Value!.Items.Select(a => a.Id).Should().BeEquivalentTo(expectedIds);
-
-        // Proves the recovery path actually ran: if the fixture ever gained a schema,
-        // these tests would pass while guarding nothing.
-        logger.Errors.Should().ContainMatch("*Caching*failed*");
+        AssertCachingFailed();
     }
 
     [Fact]
@@ -94,6 +98,7 @@ public class CatalogServiceCacheFailureTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Items.Single().Id.Should().Be(7);
+        AssertCachingFailed();
     }
 
     [Fact]
@@ -107,6 +112,7 @@ public class CatalogServiceCacheFailureTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Single().Id.Should().Be(30831);
+        AssertCachingFailed();
     }
 
     [Fact]
@@ -120,6 +126,7 @@ public class CatalogServiceCacheFailureTests : IDisposable
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.Single().Id.Should().Be(99);
+        AssertCachingFailed();
     }
 
     [Fact]

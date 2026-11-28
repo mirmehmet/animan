@@ -97,6 +97,27 @@ public class TenraiClientTests : IDisposable
         var result = await client.GetAnimeFullAsync(999999);
 
         result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().Be(ErrorKind.NotFound, "an unknown id is an answer, not a connection problem (AM-059)");
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("{ not json")]
+    public async Task GetAnimeFull_WhenTheBodyIsNotData_ReturnsFailureWithoutCrashing(string body)
+    {
+        var handler = new DelegatingMockHandler((req, ct) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            }));
+
+        using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.tenrai.org/v1/") };
+        var client = new TenraiClient(http, _limiter, NullLogger<TenraiClient>.Instance);
+
+        var result = await client.GetAnimeFullAsync(1);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Kind.Should().NotBe(ErrorKind.NotFound);
     }
 
     // ── Retry pipeline (virtual time: the back-off would otherwise be real seconds) ──

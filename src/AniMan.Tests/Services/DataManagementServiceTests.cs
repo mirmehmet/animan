@@ -17,6 +17,7 @@ public class DataManagementServiceTests : IDisposable
 {
     private readonly SqliteContextFactory<LibraryDbContext> _libraryFactory;
     private readonly SqliteContextFactory<CatalogDbContext> _catalogFactory;
+    private readonly TestStorage _storage = new();
     private readonly StoragePaths _paths;
     private readonly DataManagementService _service;
 
@@ -25,10 +26,7 @@ public class DataManagementServiceTests : IDisposable
         _libraryFactory = new SqliteContextFactory<LibraryDbContext>(opts => new LibraryDbContext(opts));
         _catalogFactory = new SqliteContextFactory<CatalogDbContext>(opts => new CatalogDbContext(opts));
 
-        _paths = new StoragePaths(
-            Path.GetTempPath(),
-            Path.Combine(Path.GetTempPath(), $"covers_{Guid.NewGuid()}"));
-        Directory.CreateDirectory(_paths.CoversPath);
+        _paths = _storage.Paths;
 
         _service = new DataManagementService(
             _libraryFactory, _catalogFactory, _paths,
@@ -196,8 +194,7 @@ public class DataManagementServiceTests : IDisposable
     {
         _libraryFactory.Dispose();
         _catalogFactory.Dispose();
-        if (Directory.Exists(_paths.CoversPath))
-            Directory.Delete(_paths.CoversPath, recursive: true);
+        _storage.Dispose();
     }
 }
 

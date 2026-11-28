@@ -5,6 +5,7 @@ using AniMan.Infrastructure;
 using AniMan.Infrastructure.Data;
 using AniMan.Infrastructure.Services;
 using AniMan.Tests.Integration;
+using AniMan.Tests.TestDoubles;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,6 +24,7 @@ public sealed class TrackingServiceTrashTests : IDisposable
     private const int RecentTrashId = 3;   // trashed 5 days ago
 
     private readonly SqliteContextFactory<LibraryDbContext> _factory;
+    private readonly TestStorage _storage = new();
     private readonly StoragePaths _paths;
     private readonly CoverStore _covers;
     private readonly TrackingService _service;
@@ -30,12 +32,9 @@ public sealed class TrackingServiceTrashTests : IDisposable
     public TrackingServiceTrashTests()
     {
         _factory = new SqliteContextFactory<LibraryDbContext>(opts => new LibraryDbContext(opts));
-        _paths = new StoragePaths(
-            Path.GetTempPath(),
-            Path.Combine(Path.GetTempPath(), $"covers_{Guid.NewGuid()}"));
-        Directory.CreateDirectory(_paths.CoversPath);
+        _paths = _storage.Paths;
 
-        _covers = new CoverStore(Mock.Of<IHttpClientFactory>(), _paths, NullLogger<CoverStore>.Instance);
+        _covers = new CoverStore(new StubHttpHandler().Factory(), _paths, NullLogger<CoverStore>.Instance);
         _service = new TrackingService(_factory, NullLogger<TrackingService>.Instance, _covers);
 
         Seed();
@@ -166,7 +165,6 @@ public sealed class TrackingServiceTrashTests : IDisposable
     public void Dispose()
     {
         _factory.Dispose();
-        if (Directory.Exists(_paths.CoversPath))
-            Directory.Delete(_paths.CoversPath, recursive: true);
+        _storage.Dispose();
     }
 }

@@ -5,58 +5,55 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AniMan.Tests.Integration;
 
-/// <summary>Cache-expiry query against real (in-memory) SQLite.</summary>
+/// <summary>
+/// <see cref="CatalogDbContext.GenreNamesOf"/>, the genre query the catalog and snapshot
+/// services both run, against real (in-memory) SQLite. (AM-110: this class used to test a
+/// stale-row query the app never runs.)
+/// </summary>
 public class CatalogDbContextIntegrationTests : IDisposable
 {
     private readonly SqliteContextFactory<CatalogDbContext> _factory =
         new(opts => new CatalogDbContext(opts));
 
     [Fact]
-    public async Task StaleQuery_ReturnsOnlyEntriesOlderThanRefreshWindow()
+    public async Task GenreNamesOf_ReturnsTheTitlesGenres()
     {
-        var now = DateTime.UtcNow;
         await using (var db = _factory.CreateDbContext())
         {
-            db.Anime.AddRange(
-                new CachedAnime { Id = 1, Title = "Fresh", FetchedAt = now.AddDays(-1) },
-                new CachedAnime { Id = 2, Title = "Stale", FetchedAt = now.AddDays(-10) },
-                new CachedAnime { Id = 3, Title = "Ancient", FetchedAt = now.AddDays(-30) });
+            db.Genres.AddRange(
+                new CachedGenre { Id = 24, MediaType = "anime", Name = "Sci-Fi" },
+                new CachedGenre { Id = 41, MediaType = "anime", Name = "Suspense" },
+                new CachedGenre { Id = 1, MediaType = "anime", Name = "Action" });
+            db.MediaGenres.AddRange(
+                new CachedMediaGenre { MediaId = 10, MediaType = "anime", GenreId = 24 },
+                new CachedMediaGenre { MediaId = 10, MediaType = "anime", GenreId = 41 },
+                new CachedMediaGenre { MediaId = 11, MediaType = "anime", GenreId = 1 });
             await db.SaveChangesAsync();
         }
 
-        var cutoff = now.AddDays(-7);
-        await using (var db = _factory.CreateDbContext())
-        {
-            var stale = await db.Anime.AsNoTracking()
-                .Where(a => a.FetchedAt < cutoff)
-                .OrderBy(a => a.Id)
-                .Select(a => a.Title)
-                .ToListAsync();
-
-            stale.Should().Equal("Stale", "Ancient");
-        }
+        await using var read = _factory.CreateDbContext();
+        (await read.GenreNamesOf(10, "anime").ToListAsync()).Should().BeEquivalentTo(["Sci-Fi", "Suspense"]);
+        (await read.GenreNamesOf(99, "anime").ToListAsync()).Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GenreLink_JoinsAcrossMediaGenres()
+    public async Task GenreNamesOf_KeepsAnimeAndMangaWithTheSameIdApart()
     {
+        // MAL numbers anime and manga separately, so id 1 is both Cowboy Bebop and Monster.
         await using (var db = _factory.CreateDbContext())
         {
-            db.Anime.Add(new CachedAnime { Id = 10, Title = "Steins;Gate", FetchedAt = DateTime.UtcNow });
-            db.Genres.Add(new CachedGenre { Id = 24, MediaType = "anime", Name = "Sci-Fi" });
-            db.MediaGenres.Add(new CachedMediaGenre { MediaId = 10, MediaType = "anime", GenreId = 24 });
+            db.Genres.AddRange(
+                new CachedGenre { Id = 1, MediaType = "anime", Name = "Action" },
+                new CachedGenre { Id = 7, MediaType = "manga", Name = "Mystery" });
+            db.MediaGenres.AddRange(
+                new CachedMediaGenre { MediaId = 1, MediaType = "anime", GenreId = 1 },
+                new CachedMediaGenre { MediaId = 1, MediaType = "manga", GenreId = 7 });
             await db.SaveChangesAsync();
         }
 
-        await using (var db = _factory.CreateDbContext())
-        {
-            var genres = await db.MediaGenres
-                .Where(mg => mg.MediaId == 10 && mg.MediaType == "anime")
-                .Join(db.Genres, mg => mg.GenreId, g => g.Id, (_, g) => g.Name)
-                .ToListAsync();
-
-            genres.Should().Equal("Sci-Fi");
-        }
+        await using var read = _factory.CreateDbContext();
+        (await read.GenreNamesOf(1, "anime").ToListAsync()).Should().Equal("Action");
+        (await read.GenreNamesOf(1, "manga").ToListAsync()).Should().Equal("Mystery");
     }
 
     public void Dispose() => _factory.Dispose();

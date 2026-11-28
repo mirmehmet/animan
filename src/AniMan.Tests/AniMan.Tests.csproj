@@ -22,6 +22,7 @@
   <!-- Frozen backups written by earlier releases: every future version must still import them. -->
   <ItemGroup>
     <None Update="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\**\*.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
